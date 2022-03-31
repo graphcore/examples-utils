@@ -17,7 +17,8 @@ def parse_yaml_config(args, parser):
         # Load the configurations from the YAML file and update command line arguments
         configs = _read_yaml_config(args.config_path)
         if args.config not in configs:
-            raise ValueError(f'unknown config {args.config} in config file. Available configs are {list(configs.keys())}.')
+            raise ValueError(
+                f'unknown config {args.config} in config file. Available configs are {list(configs.keys())}.')
         string_list_config = _yaml_to_string_list(configs[args.config])
         config_args = parser.parse_args(string_list_config)
         parser.set_defaults(**vars(config_args))
