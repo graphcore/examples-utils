@@ -11,6 +11,7 @@ from contextlib import contextmanager
 
 from examples_utils import sdk_version_hash
 
+__all__ = ['load_custom_ops_lib']
 
 @contextmanager
 def open_and_delete(path, mode):
