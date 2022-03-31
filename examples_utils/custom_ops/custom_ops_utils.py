@@ -13,6 +13,7 @@ from examples_utils import sdk_version_hash
 
 __all__ = ['load_custom_ops_lib']
 
+
 @contextmanager
 def open_and_delete(path, mode):
     """Open file and delete it on exit"""
@@ -28,6 +29,8 @@ def load_custom_ops_lib(path_custom_op: str, timeout: int = 5 * 60) -> str:
     """Builds if necessary and loads the custom op binary.
 
     If the Graphcore SDK version has changed between compilations it automatically recompiles.
+
+    Has safeguards against multiple processes trying to compile at the same time.
 
     Parameters:
         path_custom_op (str): path of the custom op C++ file
