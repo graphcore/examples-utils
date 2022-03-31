@@ -4,7 +4,7 @@ from tempfile import NamedTemporaryFile
 
 import pytest
 
-from examples_utils.custom_ops.custom_ops_utils import load_custom_ops_lib
+from examples_utils.custom_ops.custom_ops_utils import load_custom_ops_lib, get_binary_path
 
 from multiprocessing import Process
 
@@ -40,8 +40,9 @@ def test_custom_ops():
     cpp_file = create_cpp_file()
 
     # Compile first time
-    binary_path = load_custom_ops_lib(cpp_file.name)
+    load_custom_ops_lib(cpp_file.name)
 
+    binary_path = get_binary_path(cpp_file.name)
     assert os.path.exists(binary_path)
     assert not os.path.exists(binary_path + '.lock')
 
@@ -61,7 +62,8 @@ def test_custom_ops_many_processors():
 
     assert all(p.exitcode == 0 for p in processes)
 
-    binary_path = load_custom_ops_lib(cpp_file.name)
+    load_custom_ops_lib(cpp_file.name)
 
+    binary_path = get_binary_path(cpp_file.name)
     assert os.path.exists(binary_path)
     assert not os.path.exists(binary_path + '.lock')
