@@ -17,12 +17,14 @@ __all__ = ['load_custom_ops_lib']
 @contextmanager
 def open_and_delete(path, mode):
     """Open file and delete it on exit"""
-    with open(path, mode) as f:
-        yield f
     try:
-        os.remove(path)
-    except IOError:
-        sys.stderr.write('Failed to clean up temp file {}'.format(path))
+        with open(path, mode) as f:
+            yield f
+    finally:
+        try:
+            os.remove(path)
+        except IOError:
+            sys.stderr.write('Failed to clean up temp file {}'.format(path))
 
 
 def load_custom_ops_lib(path_custom_op: str, timeout: int = 5 * 60) -> str:
