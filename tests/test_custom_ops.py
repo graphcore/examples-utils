@@ -46,8 +46,11 @@ def test_custom_ops():
     assert os.path.exists(binary_path)
     assert not os.path.exists(binary_path + '.lock')
 
-    # Compile again
+    # Test loading again when already compiled
     load_custom_ops_lib(cpp_file.name)
+
+    assert os.path.exists(binary_path)
+    assert not os.path.exists(binary_path + '.lock')
 
 
 def test_custom_ops_many_processors():

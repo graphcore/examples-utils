@@ -1,1 +1,2 @@
 cppimport @ git+https://github.com/tbenthompson/cppimport@0edf927#egg=cppimport
+filelock==3.4.1
