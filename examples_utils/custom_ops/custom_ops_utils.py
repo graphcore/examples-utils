@@ -6,7 +6,7 @@ from cppimport import build_filepath
 import ctypes
 import shutil
 from contextlib import suppress
-from filelock import FileLock
+from filelock import FileLock, Timeout
 
 from examples_utils import sdk_version_hash
 import os
@@ -49,7 +49,7 @@ def load_custom_ops_lib(path_custom_op: str, timeout: int = 5 * 60):
                 shutil.copy(cppimport_binary_path, binary_path)
                 os.remove(cppimport_binary_path)
                 logging.debug(f'{os.getpid()}: Built binary')
-        except FileExistsError:
+        except Timeout:
             logging.debug(f'{os.getpid()}: Could not obtain lock')
             sleep(1)
 
