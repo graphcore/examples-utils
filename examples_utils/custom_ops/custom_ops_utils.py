@@ -33,6 +33,9 @@ def load_custom_ops_lib(path_custom_op: str, timeout: int = 5 * 60):
     Returns:
         binary_path: path to binary file
     """
+    if not os.path.exists(path_custom_op):
+        raise FileNotFoundError(f"Custom op file does not exist: {path_custom_op}")
+
     binary_path = get_binary_path(path_custom_op)
     lock_path = binary_path + '.lock'
 
