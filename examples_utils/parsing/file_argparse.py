@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 def parse_yaml_config(args, parser):
-    """
+    '''
     Overwritting the command and default arguments
     with values specified in the configuration file.
     This method allows to verify the correctness of
@@ -17,8 +17,7 @@ def parse_yaml_config(args, parser):
     @parser: the parser used to generate "args" and
              that will be applied to parse the file
     @return: args updated with values from the yaml
-    """
-    
+    '''
     def _read_yaml_config(config_filename):
         config_filename = Path(config_filename)
         with config_filename.open() as config_file:
