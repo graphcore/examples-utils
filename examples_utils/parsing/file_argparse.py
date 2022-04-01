@@ -13,9 +13,10 @@ def parse_yaml_config(args, parser):
     the file arguments based on arguments defined in 
     the parser.
 
-    args: parsed arguments
-    parser: the parser used to generate "args" to be
-            updated with the yaml config
+    @args: parsed arguments
+    @parser: the parser used to generate "args" and
+             that will be applied to parse the file
+    @return: args updated with values from the yaml
     """
     def _read_yaml_config(config_filename):
         config_filename = Path(config_filename)
@@ -34,17 +35,13 @@ def parse_yaml_config(args, parser):
         return s_list
 
     if args.config is not None:
-        # Load the configurations from the YAML file 
+        # Load the configurations from the YAML file
         # and update command line arguments
         configs = _read_yaml_config(args.config_path)
         if args.config not in configs:
-            raise ValueError(
-                f'unknown config {args.config} in config file. '
-                f'Available configs are {list(configs.keys())}.'
-            )
-        string_list_config = _yaml_to_string_list(
-            configs[args.config]
-        )
+            raise ValueError(f'unknown config {args.config} in config file. '
+                             f'Available configs are {list(configs.keys())}.')
+        string_list_config = _yaml_to_string_list(configs[args.config])
         config_args = parser.parse_args(string_list_config)
         parser.set_defaults(**vars(config_args))
         cmdline_args = parser.parse_args()
