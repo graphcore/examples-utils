@@ -104,7 +104,7 @@ def test_custom_ops_sdk_change():
 
 def test_custom_ops_many_processors():
     cpp_file = create_cpp_file()
-    processes = [Process(target=load_lib, args=(cpp_file.name,)) for i in range(1000)]
+    processes = [Process(target=load_lib, args=(cpp_file.name, )) for i in range(1000)]
 
     for p in processes:
         p.start()
