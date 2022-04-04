@@ -1,9 +1,10 @@
 # Copyright (c) 2022 Graphcore Ltd. All rights reserved.
 import os.path
 from tempfile import NamedTemporaryFile
+from unittest.mock import patch
 
-import pytest
-
+import hashlib
+import pathlib
 from examples_utils.custom_ops.custom_ops_utils import load_custom_ops_lib, get_binary_path
 
 from multiprocessing import Process
@@ -36,6 +37,10 @@ def create_cpp_file():
     return file
 
 
+def md5_file_hash(path: str) -> str:
+    return hashlib.md5(pathlib.Path(path).read_bytes()).hexdigest()
+
+
 def test_custom_ops():
     cpp_file = create_cpp_file()
 
@@ -45,12 +50,56 @@ def test_custom_ops():
     binary_path = get_binary_path(cpp_file.name)
     assert os.path.exists(binary_path)
     assert not os.path.exists(binary_path + '.lock')
+    binary_hash = md5_file_hash(binary_path)
 
-    # Test loading again when already compiled
+    # Test loading again when already compiled (binary should be untouched)
     load_custom_ops_lib(cpp_file.name)
 
     assert os.path.exists(binary_path)
     assert not os.path.exists(binary_path + '.lock')
+    assert binary_hash == md5_file_hash(binary_path)
+
+
+def test_custom_ops_file_change():
+    cpp_file = create_cpp_file()
+
+    # Compile first time
+    load_custom_ops_lib(cpp_file.name)
+
+    binary_path = get_binary_path(cpp_file.name)
+    assert os.path.exists(binary_path)
+    assert not os.path.exists(binary_path + '.lock')
+    binary_hash = md5_file_hash(binary_path)
+
+    # Test loading again when file has changed
+    with open(cpp_file.name, 'a') as f:
+        f.write('\n int x = 1;')
+
+    load_custom_ops_lib(cpp_file.name)
+    assert os.path.exists(binary_path)
+    assert not os.path.exists(binary_path + '.lock')
+    assert binary_hash != md5_file_hash(binary_path)
+
+
+def test_custom_ops_sdk_change():
+    cpp_file = create_cpp_file()
+
+    # Compile first time
+    load_custom_ops_lib(cpp_file.name)
+
+    binary_path = get_binary_path(cpp_file.name)
+    assert os.path.exists(binary_path)
+    assert not os.path.exists(binary_path + '.lock')
+    binary_hash = md5_file_hash(binary_path)
+
+    # Test loading again when sdk has changed (monkey patch `sdk_version_hash` function)
+    with patch('examples_utils.custom_ops.custom_ops_utils.sdk_version_hash', new=lambda: 'patch-version'):
+        load_custom_ops_lib(cpp_file.name)
+        binary_path_new = get_binary_path(cpp_file.name)
+        assert 'patch-version' in binary_path_new, 'Monkey patch has not worked. Is the path correct?'
+        assert os.path.exists(binary_path_new)
+        assert not os.path.exists(binary_path_new + '.lock')
+        assert binary_hash == md5_file_hash(binary_path)
 
 
 def test_custom_ops_many_processors():
