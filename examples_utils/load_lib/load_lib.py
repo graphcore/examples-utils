@@ -16,52 +16,74 @@ import logging
 __all__ = ['load_lib']
 
 
-def get_module_data(filepath_custom_op: str):
-    """Create module data dictionary that cppimport uses"""
-    fullname = os.path.splitext(os.path.basename(filepath_custom_op))[0]
-    return setup_module_data(fullname, filepath_custom_op)
+def get_module_data(filepath: str):
+    """Create module data dictionary that `cppimport` uses"""
+    fullname = os.path.splitext(os.path.basename(filepath))[0]
+    return setup_module_data(fullname, filepath)
 
 
-def get_module_data_new_path(filepath_custom_op: str):
-    module_data = get_module_data(filepath_custom_op)
-    binary_path = get_binary_path(filepath_custom_op)
+def get_module_data_new_path(filepath: str):
+    """Create module data dictionary that `cppimport` uses but with new binary path (with GC-SDK version)"""
+    module_data = get_module_data(filepath)
+    binary_path = get_binary_path(filepath)
     module_data['ext_path'] = binary_path
     module_data['ext_name'] = os.path.basename(binary_path)
     return module_data
 
 
-def get_binary_path(filepath_custom_op: str) -> str:
-    """Binary path is cppimport binary path plus sdk version
-    e.g.`opname.gc-sdk-5f7a58bf8e.cpython-36m-x86_64-linux-gnu.so`"""
-    fullname = os.path.splitext(os.path.basename(filepath_custom_op))[0]
+def get_binary_path(filepath: str) -> str:
+    """Binary path that includes GraphCore SDK version hash (derived from `cppimport` binary path).
+    e.g.`foo.gc-sdk-5f7a58bf8e.cpython-36m-x86_64-linux-gnu.so`"""
+    fullname = os.path.splitext(os.path.basename(filepath))[0]
     file_name = get_module_name(fullname) + f'.gc-sdk-{sdk_version_hash()}' + get_extension_suffix()
-    path = os.path.join(os.path.dirname(filepath_custom_op), file_name)
+    path = os.path.join(os.path.dirname(filepath), file_name)
     return path
 
 
-def load_lib(path_custom_op: str, timeout: int = 5 * 60):
-    """Builds if necessary and loads the custom op binary.
+def load_lib(filepath: str, timeout: int = 5 * 60):
+    """Compile a C++ source file using `cppimport`, load the shared library into the process using `ctypes` and
+    return it.
 
-    If the Graphcore SDK version has changed between compilations it automatically recompiles.
+    Compilation is not triggered if an existing binary matches the source file hash which is embedded in the binary
+    file and the Graphcore SDK version hash matches the binary which is included in the binary filename.
 
-    Has safeguards against multiple processes trying to compile at the same time.
+    `cppimport` is used to compile the source which uses a special comment in the C++ file that includes the
+    compilation parameters. Here is an example of such a comment which defines compiler flags, additional sources files
+    and library options (see `cppimport` documentation for more info):
+
+    ```
+    /*
+    <%
+    cfg['sources'] = ['another_source.cpp']
+    cfg['extra_compile_args'] = ['-std=c++14', '-fPIC', '-O2', '-DONNX_NAMESPACE=onnx', '-Wall']
+    cfg['libraries'] = ['popart', 'poplar', 'popops', 'poputil', 'popnn']
+    setup_pybind11(cfg)
+    %>
+    */
+    ```
+
+    Additionally the function has a safeguard against multiple processes trying to compile the source at the same time.
+    When compilation is triggered the process obtains a file-lock preventing other processes to try and compile the same
+    source. The file-lock is located in the same directory as the source file to also prevent processes on different
+    systems from doing the same. Once one of the processes compiles the source, all processes can load the same binary
+    file.
 
     Parameters:
-        path_custom_op (str): path of the custom op C++ file
-        timeout (int): timeout time if cannot obtain lock to compile
+    filepath (str): File path of the C++ source file
+    timeout (int): Timeout time if cannot obtain lock to compile the source
 
     Returns:
-        binary_path: path to binary file
+    lib: library instance. Output of `ctypes.cdll.LoadLibrary`
     """
-    path_custom_op = os.path.abspath(path_custom_op)  # Build tools can have issues if relative path
-    if not os.path.exists(path_custom_op):
-        raise FileNotFoundError(f"Custom op file does not exist: {path_custom_op}")
+    filepath = os.path.abspath(filepath)  # Build tools can have issues if relative path
+    if not os.path.exists(filepath):
+        raise FileNotFoundError(f"Custom op file does not exist: {filepath}")
 
-    binary_path = get_binary_path(path_custom_op)
+    binary_path = get_binary_path(filepath)
     lock_path = binary_path + '.lock'
 
-    module_data = get_module_data(path_custom_op)
-    module_data_new_path = get_module_data_new_path(path_custom_op)
+    module_data = get_module_data(filepath)
+    module_data_new_path = get_module_data_new_path(filepath)
 
     t = time()
 
@@ -73,7 +95,7 @@ def load_lib(path_custom_op: str, timeout: int = 5 * 60):
             with FileLock(lock_path, timeout=1):
                 if os.path.exists(binary_path) and is_checksum_valid(module_data_new_path):
                     break
-                template_and_build(path_custom_op, module_data)
+                template_and_build(filepath, module_data)
                 cppimport_binary_path = module_data['ext_path']
                 shutil.copy(cppimport_binary_path, binary_path)
                 os.remove(cppimport_binary_path)
