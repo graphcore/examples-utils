@@ -13,7 +13,7 @@ from examples_utils import sdk_version_hash
 import os
 import logging
 
-__all__ = ['load_custom_ops_lib']
+__all__ = ['load_lib']
 
 
 def get_module_data(filepath_custom_op: str):
@@ -39,7 +39,7 @@ def get_binary_path(filepath_custom_op: str) -> str:
     return path
 
 
-def load_custom_ops_lib(path_custom_op: str, timeout: int = 5 * 60):
+def load_lib(path_custom_op: str, timeout: int = 5 * 60):
     """Builds if necessary and loads the custom op binary.
 
     If the Graphcore SDK version has changed between compilations it automatically recompiles.

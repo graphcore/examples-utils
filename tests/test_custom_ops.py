@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import hashlib
 import pathlib
-from examples_utils.custom_ops.custom_ops_utils import load_custom_ops_lib, get_binary_path
+from examples_utils.load_lib.load_lib import load_lib, get_binary_path
 
 from multiprocessing import Process
 
@@ -45,7 +45,7 @@ def test_custom_ops():
     cpp_file = create_cpp_file()
 
     # Compile first time
-    load_custom_ops_lib(cpp_file.name)
+    load_lib(cpp_file.name)
 
     binary_path = get_binary_path(cpp_file.name)
     assert os.path.exists(binary_path)
@@ -53,7 +53,7 @@ def test_custom_ops():
     binary_hash = md5_file_hash(binary_path)
 
     # Test loading again when already compiled (binary should be untouched)
-    load_custom_ops_lib(cpp_file.name)
+    load_lib(cpp_file.name)
 
     assert os.path.exists(binary_path)
     assert not os.path.exists(binary_path + '.lock')
@@ -64,7 +64,7 @@ def test_custom_ops_file_change():
     cpp_file = create_cpp_file()
 
     # Compile first time
-    load_custom_ops_lib(cpp_file.name)
+    load_lib(cpp_file.name)
 
     binary_path = get_binary_path(cpp_file.name)
     assert os.path.exists(binary_path)
@@ -75,7 +75,7 @@ def test_custom_ops_file_change():
     with open(cpp_file.name, 'a') as f:
         f.write('\n int x = 1;')
 
-    load_custom_ops_lib(cpp_file.name)
+    load_lib(cpp_file.name)
     assert os.path.exists(binary_path)
     assert not os.path.exists(binary_path + '.lock')
     assert binary_hash != md5_file_hash(binary_path)
@@ -85,7 +85,7 @@ def test_custom_ops_sdk_change():
     cpp_file = create_cpp_file()
 
     # Compile first time
-    load_custom_ops_lib(cpp_file.name)
+    load_lib(cpp_file.name)
 
     binary_path = get_binary_path(cpp_file.name)
     assert os.path.exists(binary_path)
@@ -93,8 +93,8 @@ def test_custom_ops_sdk_change():
     binary_hash = md5_file_hash(binary_path)
 
     # Test loading again when sdk has changed (monkey patch `sdk_version_hash` function)
-    with patch('examples_utils.custom_ops.custom_ops_utils.sdk_version_hash', new=lambda: 'patch-version'):
-        load_custom_ops_lib(cpp_file.name)
+    with patch('examples_utils.load_lib.custom_ops_utils.sdk_version_hash', new=lambda: 'patch-version'):
+        load_lib(cpp_file.name)
         binary_path_new = get_binary_path(cpp_file.name)
         assert 'patch-version' in binary_path_new, 'Monkey patch has not worked. Is the path correct?'
         assert os.path.exists(binary_path_new)
@@ -104,7 +104,7 @@ def test_custom_ops_sdk_change():
 
 def test_custom_ops_many_processors():
     cpp_file = create_cpp_file()
-    processes = [Process(target=load_custom_ops_lib, args=(cpp_file.name, )) for i in range(1000)]
+    processes = [Process(target=load_lib, args=(cpp_file.name,)) for i in range(1000)]
 
     for p in processes:
         p.start()
@@ -114,7 +114,7 @@ def test_custom_ops_many_processors():
 
     assert all(p.exitcode == 0 for p in processes)
 
-    load_custom_ops_lib(cpp_file.name)
+    load_lib(cpp_file.name)
 
     binary_path = get_binary_path(cpp_file.name)
     assert os.path.exists(binary_path)
