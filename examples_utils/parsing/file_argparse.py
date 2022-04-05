@@ -6,19 +6,20 @@ from pathlib import Path
 
 
 def parse_yaml_config(args, parser):
-    '''
-    Overwritting the command and default arguments
-    with values specified in the configuration file.
-    This method allows to verify the correctness of
-    the file arguments based on arguments defined in 
-    the parser.
+    """Overwritting the command and default arguments with values
+    specified in the configuration file. This method allows to 
+    verify the correctness of the file arguments based on arguments
+    defined in the parser.
 
-    @args: parsed arguments
-    @parser: the parser used to generate "args" and
-             that will be applied to parse the file
-    @return: args updated with values from the yaml
-    '''
+    Args:
+        args (object): Previously parsed arguments that will be updated.
+        parser (object): The parser used to generate "args". The parser 
+                         is applied to parse the file and overwrite the 
+                         arguments in "args".
 
+    Returns:
+        object: Th args object updated with values from the yaml config.
+    """
     def _read_yaml_config(config_filename):
         config_filename = Path(config_filename)
         with config_filename.open() as config_file:
