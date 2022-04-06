@@ -17,9 +17,6 @@ class LoadingConfigsTest(unittest.TestCase):
     def test_loading_configs(self):
         parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         parser = add_arguments(parser)
-        args = parser.parse_args([
-            '--config', 'resnet8_test',
-            '--config-path', 'tests/test_files/configs.yml'
-        ])
+        args = parser.parse_args(['--config', 'resnet8_test', '--config-path', 'tests/test_files/configs.yml'])
         args = file_argparse.parse_yaml_config(args, parser)
         assert args.model_name == 'cifar_resnet8'
