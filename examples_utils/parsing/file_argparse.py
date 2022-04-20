@@ -20,6 +20,7 @@ def parse_yaml_config(args, parser):
     Returns:
         object: Th args object updated with values from the yaml config.
     """
+
     def _read_yaml_config(config_filename):
         config_filename = Path(config_filename)
         with config_filename.open() as config_file:
