@@ -60,7 +60,7 @@ def build_filepath(filepath, fullname=None):
     if fullname is None:
         fullname = os.path.splitext(os.path.basename(filepath))[0]
     module_data = setup_module_data(fullname, filepath)
-    if not is_build_needed(module_data):    # cppimport BUGFIX: `is_build_needed` should be called `is_build_not_needed`
+    if not is_build_needed(module_data):  # cppimport BUGFIX: `is_build_needed` should be called `is_build_not_needed`
         template_and_build(filepath, module_data)
 
     # Return the path to the built module
