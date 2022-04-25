@@ -1,6 +1,7 @@
 # Copyright (c) 2022 Graphcore Ltd. All rights reserved.
 import subprocess
 from contextlib import contextmanager
+from glob import glob
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
@@ -159,7 +160,9 @@ def test_cli():
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE)
         shell_output = str(output.stdout) + '\n' + str(output.stderr)
+        binaries = glob(file_dir + '/*.so')
         assert 'Built' in shell_output
+        assert len(binaries) > 0
 
 
 # Backported. Can be removed once bump cppimport version
@@ -171,4 +174,6 @@ def test_cli_cppimport():
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE)
         shell_output = str(output.stdout) + '\n' + str(output.stderr)
+        binaries = glob(file_dir + '/*.so')
         assert 'Building' in shell_output
+        assert len(binaries) > 0
