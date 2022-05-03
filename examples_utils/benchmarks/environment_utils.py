@@ -4,8 +4,9 @@ import logging
 import os
 import re
 
-# Get the logger
-logger = logging.getLogger()
+
+# Get the module logger
+logger = logging.getLogger(__name__)
 
 
 def get_mpinum(command: str) -> int:
@@ -19,11 +20,11 @@ def get_mpinum(command: str) -> int:
     
     """
 
-    mpinum = 1
-
     m = re.search(r"mpirun.+--np.(\d*) ", command)
     if m:
         mpinum = float(m.group(1))
+    else:
+        mpinum = 1
 
     return mpinum
 

@@ -10,23 +10,27 @@ import threading
 from datetime import datetime
 from io import TextIOWrapper
 from pathlib import Path
-from time import time
 from typing import Tuple
 
 import yaml
 
-from command_utils import formulate_benchmark_command, get_benchmark_variants
-from environment_utils import get_mpinum
-from logging_utils import configure_logger, print_benchmark_summary
-from metrics_utils import derive_metrics, extract_metrics, get_results_for_compile_time
+from examples_utils.benchmarks.command_utils import formulate_benchmark_command, get_benchmark_variants
+from examples_utils.benchmarks.environment_utils import get_mpinum
+from examples_utils.benchmarks.logging_utils import print_benchmark_summary
+from examples_utils.benchmarks.metrics_utils import derive_metrics, extract_metrics, get_results_for_compile_time
 
 
-def run_and_monitor_progress(cmd: list, listener: TextIOWrapper, **kwargs) -> Tuple[str, str, int]:
+# Get the module logger
+logger = logging.getLogger()
+
+
+def run_and_monitor_progress(cmd: list, listener: TextIOWrapper, timeout: int, **kwargs) -> Tuple[str, str, int]:
     """Run the benchmark monitor progress.
 
     Args:
         cmd (list): The command to be run, as a list for use by subprocess
         listener (TextIOWrapper): Listener that takes the output from the process
+        timeout (int): Seconds until the process will timeout, forcing termination
 
     Returns:
         output (str): stdout from the process
@@ -90,7 +94,7 @@ def run_and_monitor_progress(cmd: list, listener: TextIOWrapper, **kwargs) -> Tu
             break
 
         # Monitor if benchmark has timed out
-        if args.timeout and total_time >= args.timeout:
+        if timeout and total_time >= timeout:
             logger.critical("TIMEOUT")
             timeout_error = True
             proc.kill()
@@ -191,6 +195,7 @@ def run_benchmark_variant(
     output, err, exitcode = run_and_monitor_progress(
         cmd,
         listener,
+        args.timeout,
         cwd=cwd,
         env=env,
     )
@@ -271,6 +276,9 @@ def run_benchmarks(args: argparse.ArgumentParser):
 
     """
 
+    # Resolve paths to benchmarks specs
+    args.spec = [str(Path(file).resolve()) for file in args.spec]
+
     spec_files = ",".join([str(sf) for sf in args.spec if ".yml" in str(sf)])
     logger.info(f"Running benchmark suite: '{spec_files}'")
 
@@ -340,7 +348,10 @@ def run_benchmarks(args: argparse.ArgumentParser):
         for benchmark_name in variant_dictionary:
             benchmark_spec = spec.get(benchmark_name, {})
             logger.info("Running " + benchmark_name)
-            logger.info(f"Running {str(len(variant_dictionary[benchmark_name]))} variants")
+            logger.info(f"Running {str(len(variant_dictionary[benchmark_name]))} variants:")
+            for variant_name in variant_dictionary[benchmark_name]:
+                name = variant_name.get("name")
+                logger.info(f"\t{name}")
 
             result_list = []
             for variant in variant_dictionary[benchmark_name]:
@@ -361,8 +372,9 @@ def run_benchmarks(args: argparse.ArgumentParser):
     print_benchmark_summary(results)
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
+def benchmarks_parser(parser: argparse.ArgumentParser):
+    """Add benchmarking arguments to argparse parser"""
+    
     parser.add_argument(
         "--spec",
         required=True,
@@ -404,14 +416,3 @@ if __name__ == "__main__":
         type=int,
         help="Maximum time allowed for any benchmark/variant (in seconds)",
     )
-    args = parser.parse_args()
-
-    # Resolve benchmark config files
-    args.spec = [str(Path(file).resolve()) for file in args.spec]
-
-    # Setup logger
-    configure_logger(args)
-    logger = logging.getLogger()
-
-    # Run benchmarks
-    run_benchmarks(args)

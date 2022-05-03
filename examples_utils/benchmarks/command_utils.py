@@ -2,8 +2,9 @@
 import re
 import logging
 
-# Get the logger
-logger = logging.getLogger()
+
+# Get the module logger
+logger = logging.getLogger(__name__)
 
 
 def create_variants(benchmark_dict: dict) -> list:
