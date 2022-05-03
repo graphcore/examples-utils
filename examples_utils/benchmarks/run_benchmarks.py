@@ -19,7 +19,6 @@ from examples_utils.benchmarks.environment_utils import get_mpinum
 from examples_utils.benchmarks.logging_utils import print_benchmark_summary
 from examples_utils.benchmarks.metrics_utils import derive_metrics, extract_metrics, get_results_for_compile_time
 
-
 # Get the module logger
 logger = logging.getLogger()
 
@@ -175,8 +174,8 @@ def run_benchmark_variant(
     cmd = shlex.split(os.path.expandvars(variant_command))
 
     # Define where the benchmark should be run (dir containing public_examples)
-    cwd = str(Path(__file__).absolute().parents[3] / benchmark_dict["location"])
-    logger.info(f"   cwd = '{cwd}'")
+    cwd = str(Path.cwd().resolve())
+    logger.info(f"\tcwd = '{cwd}'")
 
     # Create the log directory
     variant_logdir = Path(args.logdir, variant_name)
@@ -374,7 +373,7 @@ def run_benchmarks(args: argparse.ArgumentParser):
 
 def benchmarks_parser(parser: argparse.ArgumentParser):
     """Add benchmarking arguments to argparse parser"""
-    
+
     parser.add_argument(
         "--spec",
         required=True,

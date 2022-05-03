@@ -2,7 +2,6 @@
 import re
 import logging
 
-
 # Get the module logger
 logger = logging.getLogger(__name__)
 

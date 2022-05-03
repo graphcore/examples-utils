@@ -4,7 +4,6 @@ import logging
 import os
 import re
 
-
 # Get the module logger
 logger = logging.getLogger(__name__)
 

@@ -6,10 +6,8 @@ import statistics
 from datetime import datetime
 from typing import Tuple
 
-
 # Get the module logger
 logger = logging.getLogger(__name__)
-
 
 # Regexes below for both TF and popart/poptorch
 date_regex = r"(\d{4}\-\d{2}\-\d{2}[T ?]\d{2}:\d{2}:\d{2}.\d{6})"
