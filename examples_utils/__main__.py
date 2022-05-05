@@ -27,7 +27,7 @@ def main(raw_args):
     benchmarks_parser(benchmarks_subparser)
 
     args = parser.parse_args(raw_args[1:])
-    
+
     if len(raw_args) <= 1:
         parser.print_usage()
         sys.exit(1)
