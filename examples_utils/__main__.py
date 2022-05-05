@@ -27,6 +27,10 @@ def main(raw_args):
     benchmarks_parser(benchmarks_subparser)
 
     args = parser.parse_args(raw_args[1:])
+    
+    if len(raw_args) <= 1:
+        parser.print_usage()
+        sys.exit(1)
 
     if args.subparser == 'load_lib_build':
         load_lib_builder_run(args)
@@ -36,7 +40,7 @@ def main(raw_args):
         configure_logger(args)
         run_benchmarks(args)
     else:
-        raise Exception()
+        raise Exception('Please select: `load_lib_build`, `cppimport_build` or `benchmark`')
 
 
 if __name__ == "__main__":
