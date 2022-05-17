@@ -18,6 +18,7 @@ from examples_utils.benchmarks.command_utils import formulate_benchmark_command,
 from examples_utils.benchmarks.environment_utils import get_mpinum
 from examples_utils.benchmarks.logging_utils import print_benchmark_summary
 from examples_utils.benchmarks.metrics_utils import derive_metrics, extract_metrics, get_results_for_compile_time
+from examples_utils.benchmarks.profiling_utils import add_profiling_vars, analyse_profile
 
 # Get the module logger
 logger = logging.getLogger()
@@ -189,6 +190,11 @@ def run_benchmark_variant(
     env["POPLAR_LOG_LEVEL"] = "INFO"
     env["TF_CPP_VMODULE"] = "poplar_compiler=1"
     env["POPART_LOG_LEVEL"] = "INFO"
+
+    # Add profiling variables
+    if args.profile:
+        env = add_profiling_vars(env, variant_name)
+        
     start_time = datetime.now()
     logger.info(f"Start test: {start_time}")
     output, err, exitcode = run_and_monitor_progress(
@@ -202,6 +208,10 @@ def run_benchmark_variant(
     total_runtime = (end_time - start_time).total_seconds()
     logger.info(f"End test: {end_time}")
     logger.info(f"Total runtime: {total_runtime} seconds")
+    
+    # Analyse profile data and output to logs
+    if args.profile:
+        output += analyse_profile(variant_name + "_profile")
 
     # If process didnt end as expected
     if exitcode:
@@ -239,6 +249,7 @@ def run_benchmark_variant(
         err,
         exitcode,
     )
+
 
     # Store metrics/details for this variant and return
     variant_result = {
@@ -414,4 +425,13 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         default=None,
         type=int,
         help="Maximum time allowed for any benchmark/variant (in seconds)",
+    )
+    parser.add_argument(
+        "--profile",
+        action="store_true",
+        help=(
+            "Enable profiling for the benchmarks, setting the appropriate "
+            "environment variables and storing profiling reports in the log "
+            "directory"
+        ),
     )
