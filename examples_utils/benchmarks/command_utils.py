@@ -107,10 +107,10 @@ def get_benchmark_variants(benchmark_name: str, benchmark_dict: dict) -> list:
 
 
 def formulate_benchmark_command(
-    benchmark_dict: dict,
-    variant_dict: dict,
-    ignore_wandb: bool,
-    compile_only: bool,
+        benchmark_dict: dict,
+        variant_dict: dict,
+        ignore_wandb: bool,
+        compile_only: bool,
 ) -> str:
     """Create the actual command to be run from an unformatted string.
 
@@ -143,8 +143,7 @@ def formulate_benchmark_command(
         cmd = cmd.replace("--wandb", "")
 
     if compile_only:
-        logger.info("'--compile-only' was passed here. Appending '--compile-only' to "
-                    "the benchmark command.")
+        logger.info("'--compile-only' was passed here. Appending '--compile-only' to " "the benchmark command.")
         cmd = cmd + " --compile-only"
 
         # Dont import wandb if compile only mode, catching early

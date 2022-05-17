@@ -260,8 +260,7 @@ def extract_metrics(extraction_config: dict, log: str, exitcode: int, num_replic
             logger.error(f"  '{name}' had non-zero exitcode: '{str(exitcode)}'")
         # Check results sufficient for 'skip'
         elif len(all_results) <= metric_spec["skip"]:
-            logger.error(f"  '{name}' has less results than the skip value: "
-                         f"'{metric_spec['skip']}'")
+            logger.error(f"  '{name}' has less results than the skip value: " f"'{metric_spec['skip']}'")
 
         # Post-process the results
         else:
@@ -319,10 +318,10 @@ def flatten_results(results: dict, derivation_config: dict) -> dict:
 
 
 def derive_metrics(
-    derivation_config: dict,
-    benchmark_config: dict,
-    results: dict,
-    exitcode: int,
+        derivation_config: dict,
+        benchmark_config: dict,
+        results: dict,
+        exitcode: int,
 ) -> Tuple[dict, bool]:
     """Derive metrics from other metrics using specified expressions.
 
@@ -359,8 +358,7 @@ def derive_metrics(
                 result = eval(expression)
                 logger.info(f"   '{name}' = '{str(result)}'")
             except:
-                logger.error(f"   ERROR: '{name}' = 'derived' expression: "
-                             f"'{expression}' excepted")
+                logger.error(f"   ERROR: '{name}' = 'derived' expression: " f"'{expression}' excepted")
 
         results[name] = {config["reduction_type"]: result}
 
