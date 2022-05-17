@@ -107,10 +107,10 @@ def get_benchmark_variants(benchmark_name: str, benchmark_dict: dict) -> list:
 
 
 def formulate_benchmark_command(
-        benchmark_dict: dict,
-        variant_dict: dict,
-        ignore_wandb: bool,
-        compile_only: bool,
+    benchmark_dict: dict,
+    variant_dict: dict,
+    ignore_wandb: bool,
+    compile_only: bool,
 ) -> str:
     """Create the actual command to be run from an unformatted string.
 

@@ -15,7 +15,7 @@ from typing import Tuple
 import yaml
 
 from examples_utils.benchmarks.command_utils import formulate_benchmark_command, get_benchmark_variants
-from examples_utils.benchmarks.environment_utils import get_mpinum
+from examples_utils.benchmarks.environment_utils import get_mpinum, merge_environment_variables
 from examples_utils.benchmarks.logging_utils import print_benchmark_summary
 from examples_utils.benchmarks.metrics_utils import derive_metrics, extract_metrics, get_results_for_compile_time
 from examples_utils.benchmarks.profiling_utils import add_profiling_vars, analyse_profile
@@ -121,12 +121,12 @@ def run_and_monitor_progress(cmd: list, listener: TextIOWrapper, timeout: int, *
 
 
 def run_benchmark_variant(
-        variant_name: str,
-        benchmark_name: str,
-        variant_dict: dict,
-        benchmark_dict: dict,
-        listener: TextIOWrapper,
-        args: argparse.ArgumentParser,
+    variant_name: str,
+    benchmark_name: str,
+    variant_dict: dict,
+    benchmark_dict: dict,
+    listener: TextIOWrapper,
+    args: argparse.ArgumentParser,
 ) -> dict:
     """Run a variant and collect results.
 
@@ -186,15 +186,19 @@ def run_benchmark_variant(
     errlog_path = Path(variant_logdir, "stderr.log")
 
     # Set the environment variables
-    env = os.environ.copy()
-    env["POPLAR_LOG_LEVEL"] = "INFO"
-    env["TF_CPP_VMODULE"] = "poplar_compiler=1"
-    env["POPART_LOG_LEVEL"] = "INFO"
+    new_env = {}
+    new_env["POPLAR_LOG_LEVEL"] = "INFO"
+    new_env["TF_CPP_VMODULE"] = "poplar_compiler=1"
+    new_env["POPART_LOG_LEVEL"] = "INFO"
 
     # Add profiling variables
     if args.profile:
-        env = add_profiling_vars(env, variant_name)
-        
+        new_env = add_profiling_vars(new_env, variant_name)
+
+    # Merge environment variables from benchmark and here with existing
+    # environment variables
+    env = merge_environment_variables(new_env, benchmark_dict)
+
     start_time = datetime.now()
     logger.info(f"Start test: {start_time}")
     output, err, exitcode = run_and_monitor_progress(
@@ -208,7 +212,7 @@ def run_benchmark_variant(
     total_runtime = (end_time - start_time).total_seconds()
     logger.info(f"End test: {end_time}")
     logger.info(f"Total runtime: {total_runtime} seconds")
-    
+
     # Analyse profile data and output to logs
     if args.profile:
         output += analyse_profile(variant_name + "_profile")
@@ -249,7 +253,6 @@ def run_benchmark_variant(
         err,
         exitcode,
     )
-
 
     # Store metrics/details for this variant and return
     variant_result = {
@@ -399,12 +402,6 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         help="List of benchmark ids to run",
     )
     parser.add_argument(
-        "--logdir",
-        default=None,
-        type=str,
-        help="Folder to place log files",
-    )
-    parser.add_argument(
         "--compile-only",
         action="store_true",
         help="Enable compile only options in compatible models",
@@ -415,23 +412,26 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         help="Ignore any wandb commands",
     )
     parser.add_argument(
+        "--logdir",
+        default=None,
+        type=str,
+        help="Folder to place log files",
+    )
+    parser.add_argument(
         "--logging",
         choices=["DEBUG", "INFO", "ERROR", "CRITICAL", "WARNING"],
         default="INFO",
         help="Specify the logging level",
     )
     parser.add_argument(
+        "--profile",
+        action="store_true",
+        help=("Enable profiling for the benchmarks, setting the appropriate "
+              "environment variables and storing profiling reports in the cwd"),
+    )
+    parser.add_argument(
         "--timeout",
         default=None,
         type=int,
         help="Maximum time allowed for any benchmark/variant (in seconds)",
-    )
-    parser.add_argument(
-        "--profile",
-        action="store_true",
-        help=(
-            "Enable profiling for the benchmarks, setting the appropriate "
-            "environment variables and storing profiling reports in the log "
-            "directory"
-        ),
     )

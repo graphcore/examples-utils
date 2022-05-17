@@ -1,7 +1,6 @@
 # Copyright (c) 2022 Graphcore Ltd. All rights reserved.
-import copy
 import numpy as np
-import os
+import json
 import reptil
 import logging
 from pathlib import Path
@@ -23,16 +22,16 @@ def add_profiling_vars(current_env: dict, benchmark_name: str) -> dict:
     
     """
 
-    report_dir = Path(Path.cwd().joinpath(benchmark_name + "_profile"))).resolve()
+    report_dir = Path(Path.cwd().joinpath(benchmark_name + "_profile")).resolve()
 
     profiling_opts = {
         "autoReport.all": "true",
         "autoReport.directory": str(report_dir),
         "autoReport.outputSerializedGraph": "false",
     }
-    pop_engine_opts = {"POPLAR_ENGINE_OPTIONS": json_parser.serialize(profiling_opts)}
+    pop_engine_opts = {"POPLAR_ENGINE_OPTIONS": json.dumps(profiling_opts)}
     current_env.update(pop_engine_opts)
-    
+
     return current_env
 
 
@@ -51,11 +50,9 @@ def log_profile_summary(report: reptil.Reptil) -> str:
 
     # Get summary statistics from report
     summary = report.memory.summary()
-    mem_writeout = (
-        "Memory usage summary statistics:\n"
-        + "Peak liveness: {}\n".format(summary["Peak liveness"]["total"])
-        + "\tAs a proportion: {},\n".format(summary["Peak liveness"]["proportion"])
-    )
+    mem_writeout = ("Memory usage summary statistics:\n" +
+                    "Peak liveness: {}\n".format(summary["Peak liveness"]["total"]) +
+                    "\tAs a proportion: {},\n".format(summary["Peak liveness"]["proportion"]))
 
     mem_writeout += "Split by categories (megabytes): \n"
     for k, v in summary["Memory categories"].items():
@@ -77,7 +74,7 @@ def log_profile_summary(report: reptil.Reptil) -> str:
     return mem_writeout
 
 
-def save_profile_breakdowns(report: reptil.Reptil, dir: pathlib.Path):
+def save_profile_breakdowns(report: reptil.Reptil, dir: Path):
     """Save detailed memory usage breakdowns locally to csv.
 
     Args:
@@ -108,7 +105,8 @@ def analyse_profile(profile_path: str) -> str:
     """Analyse and output information from a popvision profile.
 
     Args:
-        profile_path (str): The path to the profile to be analysed
+        profile_path (str): The path to the dir containing the profile to be
+        analysed
 
     Returns:
         mem_writeout (str): The analysis results from the profile in str format
@@ -116,15 +114,20 @@ def analyse_profile(profile_path: str) -> str:
     """
     # Get first dir made by popvision (this will be the training report
     # in the case of a train + validate run)
-    profile = Path.cwd().joinpath(profile_path, "profile.pop").resolve()
+    report_dir = Path.cwd().joinpath(profile_path).resolve()
+    for path in report_dir.iterdir():
+        if path.is_dir():
+            profile = report_dir.joinpath(path, "profile.pop")
+            break
 
     if not profile.is_file():
-        logger.info("Popvision report not created. Skipping analysis.")
+        message = "Popvision report not created. Skipping analysis."
+        logger.info(message)
+        return message
     else:
         report = reptil.open_report(str(profile))
         # Analyse and log the profile, Append results to stdout
         mem_writeout = log_profile_summary(report=report)
         # Save more detailed breakdowns to local
         save_profile_breakdowns(report=report, dir=profile.parent)
-    
-    return mem_writeout
+        return mem_writeout
