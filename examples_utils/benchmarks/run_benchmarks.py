@@ -193,7 +193,7 @@ def run_benchmark_variant(
 
     # Add profiling variables
     if args.profile:
-        new_env = add_profiling_vars(new_env, variant_name)
+        new_env = add_profiling_vars(new_env, variant_name, cwd)
 
     # Merge environment variables from benchmark and here with existing
     # environment variables
@@ -215,7 +215,7 @@ def run_benchmark_variant(
 
     # Analyse profile data and output to logs
     if args.profile:
-        output += analyse_profile(variant_name + "_profile")
+        output += analyse_profile(variant_name, cwd)
 
     # If process didnt end as expected
     if exitcode:

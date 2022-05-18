@@ -9,12 +9,13 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
-def add_profiling_vars(current_env: dict, benchmark_name: str) -> dict:
+def add_profiling_vars(current_env: dict, benchmark_name: str, app_dir: str) -> dict:
     """Enable profiling for this benchmarking run.
     
     Args:
         current_env (dict): Current environment variables state
         benchmark_name (str): Name of the benchmark being run
+        app_dir (str): Application root directory
 
     Returns:
         current_env (dict): Updated environment variables state, including
@@ -22,7 +23,8 @@ def add_profiling_vars(current_env: dict, benchmark_name: str) -> dict:
     
     """
 
-    report_dir = Path(Path.cwd().joinpath(benchmark_name + "_profile")).resolve()
+    report_dir = Path(app_dir).joinpath(benchmark_name + "_profile").resolve()
+    logger.info(f"Profile will be saved in: {report_dir}")
 
     profiling_opts = {
         "autoReport.all": "true",
@@ -101,12 +103,12 @@ def save_profile_breakdowns(report: reptil.Reptil, dir: Path):
         np.savetxt(dir.joinpath(f"{category}_memory.csv"), memory.tiles, delimiter=",")
 
 
-def analyse_profile(profile_path: str) -> str:
+def analyse_profile(benchmark_name: str, app_dir: str) -> str:
     """Analyse and output information from a popvision profile.
 
     Args:
-        profile_path (str): The path to the dir containing the profile to be
-        analysed
+        benchmark_name (str): Name of the benchmark being run
+        app_dir (str): Application root directory
 
     Returns:
         mem_writeout (str): The analysis results from the profile in str format
@@ -114,7 +116,7 @@ def analyse_profile(profile_path: str) -> str:
     """
     # Get first dir made by popvision (this will be the training report
     # in the case of a train + validate run)
-    report_dir = Path.cwd().joinpath(profile_path).resolve()
+    report_dir = Path(app_dir).joinpath(benchmark_name + "_profile").resolve()
     for path in report_dir.iterdir():
         if path.is_dir():
             profile = report_dir.joinpath(path, "profile.pop")
