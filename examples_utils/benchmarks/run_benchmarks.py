@@ -214,8 +214,8 @@ def run_benchmark_variant(
     logger.info(f"Total runtime: {total_runtime} seconds")
 
     # Analyse profile data and output to logs
-    if args.profile:
-        output += analyse_profile(variant_name, cwd)
+    # if args.profile:
+    #     output += analyse_profile(variant_name, cwd)
 
     # If process didnt end as expected
     if exitcode:
