@@ -141,7 +141,8 @@ def formulate_benchmark_command(
     cmd = cmd.replace("\n", " ")
 
     old_cmd = " ".join(cmd.split())
-    logger.info(f"Old cmd = '{old_cmd}'")
+    logger.info(f"original cmd = '{old_cmd}'")
+    logger.info(f"Cleaning and modifying command if required...")
 
     # Append application location from yaml to command
     cmd_parts = cmd.split(" ")
@@ -181,6 +182,6 @@ def formulate_benchmark_command(
     # Cleanse the string of new line chars and extra spaces
     cmd = " ".join(cmd.replace("\n", " ").split())
 
-    logger.info(f"New cmd = '{cmd}'")
+    logger.info(f"new cmd = '{cmd}'")
 
     return cmd
