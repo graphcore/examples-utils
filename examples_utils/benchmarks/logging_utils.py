@@ -73,7 +73,7 @@ def get_wandb_link(stderr):
         if "https://wandb.sourcevertex.net" in line and "/runs/" in line:
             wandb_link = "https:/" + line.split("https:/")[1]
             wandb_link = wandb_link.replace("\n", "")
-    
+
     return wandb_link
 
 
@@ -83,8 +83,6 @@ def upload_compile_time(wandb_link, results):
 
     # Re-initialise link to allow uploading again
     link_parts = wandb_link.split("/")
-    run = wandb.init(
-        project=link_parts[-3], id=link_parts[-1], resume="allow"
-    )
+    run = wandb.init(project=link_parts[-3], id=link_parts[-1], resume="allow")
 
     run.log({"Total compile time": results["total_compiling_time"]["mean"]})

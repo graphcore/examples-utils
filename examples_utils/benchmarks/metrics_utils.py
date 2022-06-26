@@ -200,7 +200,7 @@ def get_results_for_compile_time(results: dict, stderr: str, exitcode: int) -> d
         compile_time_output = f"   Total compile time: {printable_time} seconds"
     else:
         compile_time_output = f"   Total compile time: ERROR"
-    
+
     logger.info(compile_time_output)
 
     return results
