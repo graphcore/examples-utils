@@ -7,7 +7,6 @@ from datetime import datetime
 from pathlib import Path
 from time import time
 
-
 # Attempt to import wandb silently, if app being benchmarked has required it
 wandb_available = True
 try:
