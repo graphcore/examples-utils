@@ -251,7 +251,7 @@ def run_benchmark_variant(
     )
 
     # Add compile time results to wandb link, if wandb was imported by app
-    if WANDB_AVAILABLE == "True":
+    if WANDB_AVAILABLE == True:
         wandb_link = get_wandb_link(err)
         if wandb_link is not None:
             upload_compile_time(wandb_link, results)
