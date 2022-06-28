@@ -3,10 +3,18 @@ import argparse
 import logging
 import os
 import sys
-import wandb
 from datetime import datetime
 from pathlib import Path
 from time import time
+
+
+# Attempt to import wandb silently, if app being benchmarked has required it
+wandb_available = True
+try:
+    import wandb
+except:
+    wandb_available = False
+os.environ["BENCHMARKING_WANDB_AVAILABLE"] = str(wandb_available)
 
 
 def configure_logger(args: argparse.ArgumentParser):
