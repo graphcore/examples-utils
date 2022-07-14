@@ -63,9 +63,9 @@ Points to note are:
 17/05 - Added profiling
 22/06 - Adding robust pathfidning for ymls/scripts
 27/06 - Adding wandb compile time updating
+06/07 - Adding more functionality from internal benchmarking tools
 
 ## Future work plans
-- Adding `--ignore-errors` arg to avoid terminating with a failure in one of multiple benchmarks
 - Support for pytest benchmarks
 - CSV report generation from results of multiple benchmarks
 - Adding profile analysis to profiling 
