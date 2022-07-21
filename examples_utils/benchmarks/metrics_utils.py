@@ -13,10 +13,8 @@ logger = logging.getLogger(__name__)
 date_regex = r"(\d{4}\-\d{2}\-\d{2}[T ?]\d{2}:\d{2}:\d{2}.\d{6})"
 compile_time_lookup = [
     {
-        "name":
-        "Pre poplar compilation time",
-        "ref":
-        "pre_poplar_compilation_time",
+        "name": "Pre poplar compilation time",
+        "ref": "pre_poplar_compilation_time",
         "start_regex": [
             re.compile(date_regex + r".* Poplar version:"),
             re.compile(date_regex + r".* Popart version:"),
@@ -27,10 +25,8 @@ compile_time_lookup = [
         ],
     },
     {
-        "name":
-        "Graph construction time",
-        "ref":
-        "graph_construction_time",
+        "name": "Graph construction time",
+        "ref": "graph_construction_time",
         "start_regex": [
             re.compile(date_regex + r".* Begin Poplar graph construction"),
             re.compile(date_regex + r".* Poplar graph initialised"),
@@ -41,10 +37,8 @@ compile_time_lookup = [
         ],
     },
     {
-        "name":
-        "Poplar compilation time",
-        "ref":
-        "poplar_compilation_time",
+        "name": "Poplar compilation time",
+        "ref": "poplar_compilation_time",
         "start_regex": [
             re.compile(date_regex + r".* Begin compiling Poplar engine"),
             re.compile(date_regex + r".* Starting compilation"),
@@ -114,20 +108,16 @@ def get_overall_compile_times(results: dict, results_per_inst: dict, exitcode: i
     Returns:
         results (dict): The benchmarks/variants results, but now with compile
             times
-    
+
     """
 
     overall_start_time = None
     overall_end_time = None
     for comp_time in compile_time_lookup:
-        t_min = None
-        t_max = None
-        t_mean = None
-        time_for_instances = []
         ref = comp_time["ref"]
 
         if not exitcode:
-            for instance, times in results_per_inst[ref].items():
+            for _, times in results_per_inst[ref].items():
                 start_time_list = times["start_times"]
                 end_time_list = times["end_times"]
 
@@ -146,23 +136,6 @@ def get_overall_compile_times(results: dict, results_per_inst: dict, exitcode: i
                         overall_end_time = max(end_time, overall_end_time)
                     else:
                         overall_end_time = end_time
-
-                    # Store compilation time for all instances
-                    time = (end_time - start_time).total_seconds()
-                    time_for_instances.append({"id": instance, "time": round(time, 2)})
-
-            # Get some stats
-            if time_for_instances:
-                t_max = round(max(time_for_instances, key=lambda x: x["time"])["time"], 2)
-                t_min = round(min(time_for_instances, key=lambda x: x["time"])["time"], 2)
-                t_mean = round(statistics.mean([t["time"] for t in time_for_instances]), 2)
-
-        results[ref] = {
-            "min": t_min,
-            "max": t_max,
-            "mean": t_mean,
-            "per_instance": time_for_instances,
-        }
 
     # Finally, get the overall total compiling time
     total_compiling_time = None
@@ -269,12 +242,14 @@ def extract_metrics(extraction_config: dict, log: str, exitcode: int, num_replic
         # Post-process the results
         else:
             if metric_spec["reduction_type"] == "mean":
-                if name in ["latency", "time_per_iters"]:
+                if name == "latency":
                     all_results.sort(reverse=True)
                 else:
                     all_results.sort()
+
                 all_results = all_results[metric_spec["skip"]:]
                 result = sum(all_results) / len(all_results)
+
             elif metric_spec["reduction_type"] == "final":
                 result = all_results[-1]
             elif metric_spec["reduction_type"] == "min":
