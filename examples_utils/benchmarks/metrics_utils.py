@@ -13,8 +13,10 @@ logger = logging.getLogger(__name__)
 date_regex = r"(\d{4}\-\d{2}\-\d{2}[T ?]\d{2}:\d{2}:\d{2}.\d{6})"
 compile_time_lookup = [
     {
-        "name": "Pre poplar compilation time",
-        "ref": "pre_poplar_compilation_time",
+        "name":
+        "Pre poplar compilation time",
+        "ref":
+        "pre_poplar_compilation_time",
         "start_regex": [
             re.compile(date_regex + r".* Poplar version:"),
             re.compile(date_regex + r".* Popart version:"),
@@ -25,8 +27,10 @@ compile_time_lookup = [
         ],
     },
     {
-        "name": "Graph construction time",
-        "ref": "graph_construction_time",
+        "name":
+        "Graph construction time",
+        "ref":
+        "graph_construction_time",
         "start_regex": [
             re.compile(date_regex + r".* Begin Poplar graph construction"),
             re.compile(date_regex + r".* Poplar graph initialised"),
@@ -37,8 +41,10 @@ compile_time_lookup = [
         ],
     },
     {
-        "name": "Poplar compilation time",
-        "ref": "poplar_compilation_time",
+        "name":
+        "Poplar compilation time",
+        "ref":
+        "poplar_compilation_time",
         "start_regex": [
             re.compile(date_regex + r".* Begin compiling Poplar engine"),
             re.compile(date_regex + r".* Starting compilation"),
