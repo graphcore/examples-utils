@@ -183,3 +183,50 @@ def formulate_benchmark_command(
     logger.info(f"new cmd = '{cmd}'")
 
     return cmd
+
+
+def get_poprun_hosts(cmd: list) -> list:
+    """Get names/IPs of poprun hosts defined in the `--host` argument.
+
+    Args:
+        cmd (list): The command being run, which may include a poprun call that
+            specifies hosts
+
+    Returns:
+        poprun_hostnames (list): names/IPs of poprun hosts
+    
+    """
+
+    poprun_hostnames = []
+    # Find where in the command list "poprun", "host" and "python" exist
+    # If poprun is not called, then it cannot be multihost + multi-instance
+    try:
+        poprun_index = cmd.index("poprun")
+    except:
+        logger.info("poprun not called, assuming this is a single-host, "
+                    "single-instance benchmark.")
+
+    # If "--host" is not defined, then instances must be running on one host
+    try:
+        host_index = cmd.index("--host")
+    except:
+        logger.info("'--host' argument not provided, assuming all instances "
+                    "defined in this benchmark will run on this host only")
+
+    # Watch out for "python" instead of "python3"
+    try: python_index = cmd.index("python3")
+    except: python_index = cmd.index("python")
+
+    if (poprun_index < host_index < python_index):
+        poprun_hostnames = cmd[host_index + 1].split(",")
+        num_hosts = len(poprun_hostnames)
+    
+    if num_hosts > 1:
+        logger.info("Benchmark is running multiple instances over multiple "
+                    "hosts, preparing all hosts.")
+    else:
+        logger.info("Only one value has been passed to the '--host' argument, "
+                    "assuming all instances defined in this benchmark will run "
+                    "on this host only")
+
+    return poprun_hostnames

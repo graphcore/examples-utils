@@ -15,9 +15,10 @@ from pathlib import Path
 from typing import Tuple
 
 import yaml
+from ce_benchmarking.convergence_testing.run_convergence_tests import setup_filesystem
 
-from examples_utils.benchmarks.command_utils import formulate_benchmark_command, get_benchmark_variants
-from examples_utils.benchmarks.environment_utils import get_mpinum, merge_environment_variables
+from examples_utils.benchmarks.command_utils import formulate_benchmark_command, get_benchmark_variants, get_poprun_hosts
+from examples_utils.benchmarks.environment_utils import get_mpinum, merge_environment_variables, setup_distributed_filesystems, teardown_distributed_filesystems, enable_distributed_instances
 from examples_utils.benchmarks.logging_utils import print_benchmark_summary, get_wandb_link, upload_compile_time, WANDB_AVAILABLE
 from examples_utils.benchmarks.metrics_utils import derive_metrics, extract_metrics, get_results_for_compile_time
 from examples_utils.benchmarks.profiling_utils import add_profiling_vars
@@ -170,8 +171,8 @@ def run_benchmark_variant(
         logger.info("Removed data metrics for compile only benchmark")
 
     # Create the actual command for the variant
-    variant_command = formulate_benchmark_command(benchmark_dict, variant_dict, args.ignore_wandb, args.compile_only,
-                                                  args.examples_location)
+    variant_command = formulate_benchmark_command(benchmark_dict, variant_dict,
+        args.ignore_wandb, args.compile_only, args.examples_location)
 
     # Expand any environment variables in the command and split the command
     # into a list, respecting things like quotes, like the shell would
@@ -202,6 +203,14 @@ def run_benchmark_variant(
     # environment variables
     env = merge_environment_variables(new_env, benchmark_dict)
 
+    # Detect if benchmark requires instances running (not just compiling) on
+    # other hosts, and prepare hosts
+    poprun_hostnames = get_poprun_hosts(cmd)
+    if (len(poprun_hostnames) > 1) and not args.compile_only:
+        # Setup temporary filesystems on all hosts and modify cmd to use this
+        setup_distributed_filesystems(poprun_hostnames)
+        cmd = enable_distributed_instances(cmd)
+
     start_time = datetime.now()
     logger.info(f"Start test: {start_time}")
     output, err, exitcode = run_and_monitor_progress(
@@ -216,7 +225,8 @@ def run_benchmark_variant(
     logger.info(f"End test: {end_time}")
     logger.info(f"Total runtime: {total_runtime} seconds")
 
-    # Analyse profile data and output to logs
+
+    # TODO: Analyse profile data and output to logs
     # if args.profile:
     #     output += analyse_profile(variant_name, cwd)
 
@@ -286,6 +296,10 @@ def run_benchmark_variant(
     ]
     if any(possible_failure_points) and exitcode == 0:
         variant_result["exitcode"] = 1
+
+    # Teardown temporary filesystem on all hosts
+    if (len(poprun_hostnames) > 1) and not args.compile_only:
+        teardown_distributed_filesystems(poprun_hostnames)
 
     return variant_result
 
@@ -422,6 +436,7 @@ def run_benchmarks(args: argparse.ArgumentParser):
 def benchmarks_parser(parser: argparse.ArgumentParser):
     """Add benchmarking arguments to argparse parser"""
 
+    # Main args
     parser.add_argument(
         "--spec",
         required=True,
@@ -435,10 +450,23 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         nargs="+",
         help="List of benchmark ids to run",
     )
+
+    # Optional args
     parser.add_argument(
         "--compile-only",
         action="store_true",
         help="Enable compile only options in compatible models",
+    )
+    parser.add_argument(
+        "--examples-location",
+        default=None,
+        type=str,
+        help="Location of the examples directory, defaults to user dir.",
+    )
+    parser.add_argument(
+        "--ignore-errors",
+        action="store_true",
+        help="Do not stop on an error",
     )
     parser.add_argument(
         "--ignore-wandb",
@@ -468,15 +496,4 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         default=None,
         type=int,
         help="Maximum time allowed for any benchmark/variant (in seconds)",
-    )
-    parser.add_argument(
-        "--examples-location",
-        default=None,
-        type=str,
-        help="Location of the examples directory, defaults to user dir.",
-    )
-    parser.add_argument(
-        "--ignore-errors",
-        action="store_true",
-        help="Do not stop on an error",
     )
