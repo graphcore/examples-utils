@@ -1,4 +1,5 @@
 # Copyright (c) 2022 Graphcore Ltd. All rights reserved.
+from argparse import ArgumentParser
 import logging
 import re
 from pathlib import Path
@@ -110,9 +111,7 @@ def get_benchmark_variants(benchmark_name: str, benchmark_dict: dict) -> list:
 def formulate_benchmark_command(
         benchmark_dict: dict,
         variant_dict: dict,
-        ignore_wandb: bool,
-        compile_only: bool,
-        examples_location: str = None,
+        args: ArgumentParser,
 ) -> str:
     """Create the actual command to be run from an unformatted string.
 
@@ -121,14 +120,7 @@ def formulate_benchmark_command(
             pre-formating to fill in variables
         variant_dict (dict): Variant specification, containing all the actual
             values of the variables to be used to construct this command
-        ignore_wandb (bool): Whether or not to ignore wandb flags passed to the
-            original command
-        compile_only (bool): Whether or not to pass a `--compile-only` flag to
-            the command. NOTE: This will only work if the app being run itself
-            has implemented a `--compile-only` argument
-        examples_location (str): Location of the examples directory in system.
-            If not provided, defaults to assuming examples dir is located in
-            home dir.
+        args (ArgumentParser): Arguments passed to this benchmarking run
 
     Returns:
         cmd (str): The final, formatted command to be run
@@ -152,18 +144,19 @@ def formulate_benchmark_command(
         py_name = "python"
     called_file = cmd_parts[cmd_parts.index(py_name) + 1]
 
-    if examples_location is None:
-        examples_location = Path.home()
-    resolved_file = str(Path(examples_location, benchmark_dict["location"], called_file).resolve())
+    resolved_file = str(Path(args.examples_path, benchmark_dict["location"],
+        called_file).resolve())
     cmd = cmd.replace(called_file, resolved_file)
 
-    if ignore_wandb and "--wandb" in cmd:
-        logger.info("Both '--ignore-wandb' and '--wandb' were passed, '--ignore-wandb' "
-                    "is overriding, purging '--wandb' from command.")
+    if args.ignore_wandb and "--wandb" in cmd:
+        logger.info("Both '--ignore-wandb' and '--wandb' were passed, "
+                    "'--ignore-wandb' is overriding, purging '--wandb' from "
+                    "command.")
         cmd = cmd.replace("--wandb", "")
 
-    if compile_only:
-        logger.info("'--compile-only' was passed here. Appending '--compile-only' to " "the benchmark command.")
+    if args.compile_only:
+        logger.info("'--compile-only' was passed here. Appending "
+                    "'--compile-only' to " "the benchmark command.")
         cmd = cmd + " --compile-only"
 
         # Dont import wandb if compile only mode

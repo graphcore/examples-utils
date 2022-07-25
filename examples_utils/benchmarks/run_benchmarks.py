@@ -17,8 +17,8 @@ from typing import Tuple
 import yaml
 from ce_benchmarking.convergence_testing.run_convergence_tests import setup_filesystem
 
-from examples_utils.benchmarks.command_utils import formulate_benchmark_command, get_benchmark_variants, get_poprun_hosts
-from examples_utils.benchmarks.environment_utils import get_mpinum, merge_environment_variables, setup_distributed_filesystems, teardown_distributed_filesystems, enable_distributed_instances
+from examples_utils.benchmarks.command_utils import formulate_benchmark_command, get_benchmark_variants, get_poprun_hosts, enable_distributed_instances
+from examples_utils.benchmarks.environment_utils import get_mpinum, merge_environment_variables, setup_distributed_filesystems, remove_distributed_filesystems
 from examples_utils.benchmarks.logging_utils import print_benchmark_summary, get_wandb_link, upload_compile_time, WANDB_AVAILABLE
 from examples_utils.benchmarks.metrics_utils import derive_metrics, extract_metrics, get_results_for_compile_time
 from examples_utils.benchmarks.profiling_utils import add_profiling_vars
@@ -172,7 +172,7 @@ def run_benchmark_variant(
 
     # Create the actual command for the variant
     variant_command = formulate_benchmark_command(benchmark_dict, variant_dict,
-        args.ignore_wandb, args.compile_only, args.examples_location)
+        args)
 
     # Expand any environment variables in the command and split the command
     # into a list, respecting things like quotes, like the shell would
@@ -299,7 +299,7 @@ def run_benchmark_variant(
 
     # Teardown temporary filesystem on all hosts
     if (len(poprun_hostnames) > 1) and not args.compile_only:
-        teardown_distributed_filesystems(poprun_hostnames)
+        remove_distributed_filesystems(poprun_hostnames)
 
     return variant_result
 
@@ -458,10 +458,10 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         help="Enable compile only options in compatible models",
     )
     parser.add_argument(
-        "--examples-location",
-        default=None,
+        "--examples-path",
+        default=Path.home().joinpath("examples"),
         type=str,
-        help="Location of the examples directory, defaults to user dir.",
+        help="Location of the examples directory, defaults to '~/examples'.",
     )
     parser.add_argument(
         "--ignore-errors",
@@ -492,8 +492,21 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
               "environment variables and storing profiling reports in the cwd"),
     )
     parser.add_argument(
+        "--sdk-path",
+        default=Path.home().joinpath("sdks"),
+        type=str,
+        help="Location of the PoplarSDK directory, defaults to '~/sdks'.",
+    )
+    parser.add_argument(
         "--timeout",
         default=None,
         type=int,
         help="Maximum time allowed for any benchmark/variant (in seconds)",
+    )
+    parser.add_argument(
+        "--venv-path",
+        default=Path.home().joinpath("venvs"),
+        type=str,
+        help=("Path to the python virtual environment (venv used for the "
+              "PoplarSDK) directory, defaults to '~/venvs'."),
     )

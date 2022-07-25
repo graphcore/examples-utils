@@ -1,8 +1,10 @@
 # Copyright (c) 2022 Graphcore Ltd. All rights reserved.
+from argparse import ArgumentParser
 import copy
 from io import TextIOWrapper
 import logging
 import os
+from pathlib import Path
 import subprocess
 import re
 
@@ -92,114 +94,113 @@ def run_remote_command(cmd: list, hostname: list,
     return exitcode
 
 
-def ssh_copy_id(poprun_hostnames: list, output_stream: TextIOWrapper) -> int:
+def ssh_copy_id(hostname: str, output_stream: TextIOWrapper) -> int:
     """Copy ssh ID 
 
     Args:
         cmd (list): Command to be run remotely
-        poprun_hostnames (list): Names/IPs of all poprun hosts defined in this 
-            benchmark
+        hostname (list): Name/IP of the host
         output_stream (TextIOWrapper): Open file to write stdout/stderr to
     Returns:
         exitcode (int): Exitcode from the subprocess that ran the command
     
     """
 
-    for hostname in poprun_hostnames:
-        copy_cmd = ["ssh-copy-id", hostname]
-
-        try:
-            exitcode = subprocess.run(copy_cmd, stdout=output_stream,
-                stderr=output_stream)
-        except:
-            logger.warning(f"Automated ssh-copy-id failed to {hostname}, "
-                "please ensure ssh ids have been copied to all hosts manually "
-                "before attempting this benchmark.")
-            exitcode = 1
+    copy_cmd = ["ssh-copy-id", hostname]
+    try:
+        exitcode = subprocess.run(copy_cmd, stdout=output_stream,
+            stderr=output_stream)
+    except:
+        logger.warning(f"Automated ssh-copy-id failed to {hostname}, "
+            "please ensure ssh ids have been copied to all hosts manually "
+            "before attempting this benchmark.")
+        exitcode = 1
 
     return exitcode
 
 
-def create_tmp_dir(hostname: str) -> str:
+def create_tmp_dir(hostname: str, output_stream: TextIOWrapper) -> str:
     """Create a temporary directory at a given host.
 
     Args:
         hostname (list): Name/IP of the host
-    
+        output_stream (TextIOWrapper): Open file to write stdout/stderr to
     Returns:
         tmp_dir_path (str): Path to the temporary directory created
 
     """
 
-    user_home_dir = os.getenv("HOME")
-    if user_home_dir is None:
-        logger.warning("HOME environment variable not set. Attempting to "
-            "create temporary benchmarking directory in current wroking "
-            "directory.")
+    # POSIX spec requires HOME to be set by OS
+    tmp_dir_path = str(Path.home().joinpath("benchmarking_tmp_dir"))
+    path_create_cmd = ["mkdir", "-p", tmp_dir_path]
+    run_remote_command(path_create_cmd, hostname, output_stream)
 
     return tmp_dir_path
 
 
-def get_tmp_dir(hostname: str):
-    """Find the benchmarking tmp directory path at a given host.
-
-    Args:
-        hostname (list): Name/IP of the host
-    
-    Returns:
-        tmp_dir_path (str): Path to the temporary directory
-
-    """
-
-    return tmp_dir_path
-
-
-def setup_distributed_filesystems(poprun_hostnames: list, log_dir: str):
+def setup_distributed_filesystems(args: ArgumentParser, poprun_hostnames: list,
+    log_dir: str):
     """Setup filesystems on all given poprun hosts for distributed instances.
 
     Args:
+        args (ArgumentParser): Arguments provided for this set of benchmarks
         poprun_hostnames (list): Names/IPs of all poprun hosts defined in this 
             benchmark
+        log_dir (str): Logging directory for the benchmark
     
     """
 
-    with open(log_dir + "\host_setup.log", "w") as process_output:
-        ssh_copy_id(poprun_hostnames, process_output)
-
+    with open(log_dir + "\host_setup.log", "w") as output_stream:
         for hostname in poprun_hostnames:
+            ssh_copy_id(hostname, output_stream)
+
             # Create local temp dir
             host_tmp_dir = create_tmp_dir(hostname)
 
             # Copy examples, sdks and venvs dirs to local temp dir
-            rsync_examples_cmd = ["rsync", "-az", examples_path, host_tmp_dir]
-            exitcode = run_remote_command(rsync_examples_cmd, hostname, process_output)
+            rsync_examples_cmd = ["rsync", "-az", args.examples_path, host_tmp_dir + "/"]
+            exitcode = run_remote_command(rsync_examples_cmd, hostname, output_stream)
             if exitcode: failed_dir = "examples"
 
-            rsync_sdk_cmd = ["rsync", "-az", sdk_path, host_tmp_dir]
-            exitcode = run_remote_command(rsync_sdk_cmd, hostname, process_output)
+            rsync_sdk_cmd = ["rsync", "-az", args.sdk_path, host_tmp_dir + "/"]
+            exitcode = run_remote_command(rsync_sdk_cmd, hostname, output_stream)
             if exitcode: failed_dir = "sdk"
             
-            rsync_venv_cmd = ["rsync", "-az", venv_path, host_tmp_dir]
-            exitcode = run_remote_command(rsync_venv_cmd, hostname, process_output)
+            rsync_venv_cmd = ["rsync", "-az", args.venv_path, host_tmp_dir + "/"]
+            exitcode = run_remote_command(rsync_venv_cmd, hostname, output_stream)
             if exitcode: failed_dir = "venv"
 
             if exitcode:
-                logger.error()
+                logger.error(f"Failed to create {host_tmp_dir}/{failed_dir} "
+                    "dir on {hostname}. Please create this manually.")
 
 
-            
-
-
-def remove_distributed_filesystems(poprun_hostnames: list, log_dir: str):
+def remove_distributed_filesystems(poprun_hostnames: list, log_dir: str) -> int:
     """Remove filesystems on all given poprun hosts for distributed instances.
 
     Args:
         poprun_hostnames (list): Names/IPs of all poprun hosts defined in this 
             benchmark
-    
+        log_dir (str): Logging directory for the benchmark
+        
+    Returns:
+        overall_exitcode (int): Exitcode representing a success from all hosts
+            or a failure from any host
+
     """
 
-    with open(log_dir + "\host_teardown.log", "w") as process_output:
+    overall_exitcode = 0
+    tmp_dir_path = Path(os.getenv("HOME")).joinpath("benchmarking_tmp_dir")
+    with open(log_dir + "\host_teardown.log", "w") as output_stream:
         for hostname in poprun_hostnames:
-            remove_tmp_cmd = ["rm", "-rf", get_tmp_dir(hostname)]
-            exitcode = run_remote_command(remove_tmp_cmd, hostname, process_output)
+            remove_tmp_cmd = ["rm", "-rf", tmp_dir_path]
+            exitcode = run_remote_command(remove_tmp_cmd, hostname, output_stream)
+    
+        if exitcode:
+            logger.warn(f"Temporary benchmarking directory {tmp_dir_path} on "
+                "{hostname} could not be removed. Please remove this dir "
+                "manually.")
+            overall_exitcode = 1
+
+    return overall_exitcode
+
