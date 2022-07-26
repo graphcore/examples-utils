@@ -144,7 +144,7 @@ def formulate_benchmark_command(
         py_name = "python"
     called_file = cmd_parts[cmd_parts.index(py_name) + 1]
 
-    resolved_file = str(Path(args.examples_path, benchmark_dict["location"],
+    resolved_file = str(Path(args.examples_location, benchmark_dict["location"],
         called_file).resolve())
     cmd = cmd.replace(called_file, resolved_file)
 
@@ -190,7 +190,6 @@ def get_poprun_hosts(cmd: list) -> list:
     
     """
 
-    poprun_hostnames = []
     # Find where in the command list "poprun", "host" and "python" exist
     # If poprun is not called, then it cannot be multihost + multi-instance
     try:
@@ -198,6 +197,7 @@ def get_poprun_hosts(cmd: list) -> list:
     except:
         logger.info("poprun not called, assuming this is a single-host, "
                     "single-instance benchmark.")
+        return []
 
     # If "--host" is not defined, then instances must be running on one host
     try:
@@ -205,6 +205,7 @@ def get_poprun_hosts(cmd: list) -> list:
     except:
         logger.info("'--host' argument not provided, assuming all instances "
                     "defined in this benchmark will run on this host only")
+        return []
 
     # Watch out for "python" instead of "python3"
     try: python_index = cmd.index("python3")
@@ -223,3 +224,10 @@ def get_poprun_hosts(cmd: list) -> list:
                     "on this host only")
 
     return poprun_hostnames
+
+
+def enable_distributed_instances(old_cmd: list) -> list:
+    """
+    
+    """
+

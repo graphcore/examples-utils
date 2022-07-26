@@ -15,7 +15,6 @@ from pathlib import Path
 from typing import Tuple
 
 import yaml
-from ce_benchmarking.convergence_testing.run_convergence_tests import setup_filesystem
 
 from examples_utils.benchmarks.command_utils import formulate_benchmark_command, get_benchmark_variants, get_poprun_hosts, enable_distributed_instances
 from examples_utils.benchmarks.environment_utils import get_mpinum, merge_environment_variables, setup_distributed_filesystems, remove_distributed_filesystems
@@ -225,11 +224,14 @@ def run_benchmark_variant(
     logger.info(f"End test: {end_time}")
     logger.info(f"Total runtime: {total_runtime} seconds")
 
-
     # TODO: Analyse profile data and output to logs
     # if args.profile:
     #     output += analyse_profile(variant_name, cwd)
 
+    # Teardown temporary filesystem on all hosts
+    if (len(poprun_hostnames) > 1) and not args.compile_only:
+        remove_distributed_filesystems(poprun_hostnames)
+    
     # If process didnt end as expected
     if exitcode:
         logger.critical(f"Benchmark ERROR, return code: ({str(exitcode)})")
@@ -296,10 +298,6 @@ def run_benchmark_variant(
     ]
     if any(possible_failure_points) and exitcode == 0:
         variant_result["exitcode"] = 1
-
-    # Teardown temporary filesystem on all hosts
-    if (len(poprun_hostnames) > 1) and not args.compile_only:
-        remove_distributed_filesystems(poprun_hostnames)
 
     return variant_result
 
@@ -458,10 +456,10 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         help="Enable compile only options in compatible models",
     )
     parser.add_argument(
-        "--examples-path",
-        default=Path.home().joinpath("examples"),
+        "--examples-location",
+        default=Path.home(),
         type=str,
-        help="Location of the examples directory, defaults to '~/examples'.",
+        help="Parent dir of the examples directory, defaults to '~'.",
     )
     parser.add_argument(
         "--ignore-errors",
@@ -495,7 +493,7 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         "--sdk-path",
         default=Path.home().joinpath("sdks"),
         type=str,
-        help="Location of the PoplarSDK directory, defaults to '~/sdks'.",
+        help="path of the PoplarSDK directory, defaults to '~/sdks'.",
     )
     parser.add_argument(
         "--timeout",
