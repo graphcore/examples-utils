@@ -62,6 +62,32 @@ def merge_environment_variables(new_env: dict, benchmark_spec: dict) -> dict:
     return existing_env
 
 
+def run_command(cmd: list, output_stream: TextIOWrapper) -> int:
+    """Run a command.
+
+    Args:
+        cmd (list): Command to be run
+        output_stream (TextIOWrapper): Open file to write stdout/stderr to
+    Returns:
+        exitcode (int): Exitcode from the subprocess that ran the command
+
+    """
+
+    try:
+        exitcode = subprocess.run(cmd, stdout=output_stream,
+            stderr=output_stream)
+
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Command failed with: {e.output}")
+        exitcode = 1
+
+    except Exception as e:
+        logger.error(f"Command failed with: {e}")
+        exitcode = 1
+
+    return exitcode
+
+
 def run_remote_command(cmd: list, hostname: list, output_stream: TextIOWrapper) -> int:
     """Run a command remotely on a given host
 
@@ -77,7 +103,6 @@ def run_remote_command(cmd: list, hostname: list, output_stream: TextIOWrapper) 
     remote_cmd = ["ssh", hostname]
     remote_cmd.extend(cmd)
 
-    exitcode = 0
     try:
         exitcode = subprocess.run(remote_cmd, stdout=output_stream,
             stderr=output_stream)
@@ -135,57 +160,30 @@ def create_tmp_dir(hostname: str, output_stream: TextIOWrapper) -> str:
     logger.info(f"Creating temporary dir {tmp_dir_path} at {hostname}")
     run_remote_command(path_create_cmd, hostname, output_stream)
 
+    tmp_dir_path = hostname + ":" + tmp_dir_path
+
     return tmp_dir_path
 
 
-def get_sdk_paths(tmp_dir: str) -> tuple:
-    """Get the temp activation/enable script paths for the current venv/sdk.
+def sync_file_remotely(hostname: str, source: str, dest: str,
+    output_stream: TextIOWrapper):
+    """Rsync a directory to a remote destination.
 
     Args:
-        tmp_dir (str): The temporary benchmarking directory where SDKs and
-            venvs will be
-
-    Returns:
-        poplar_enable_path (str): The path to the enable script for the poplar
-            SDK
-        popart_enable_path (str): The path to the enable script for the popart
-            SDK
-        venv_activate_path (str): The path to the activate script for the venv
+        hostname (str): Name/IP of the host
+        source (str): Source directory to be synced
+        dest (str): Destion parent directory, where source will be
+            copied to
+        output_stream (TextIOWrapper): Open file to write stdout/stderr to
 
     """
 
-    sdk_path = os.getenv("POPLAR_SDK_ENABLED")
-    if sdk_path is None:
-        logger.warn("A SDK does not seem to have been enabled, please ensure "
-                    "that the SDK has been enabled in this environment "
-                    "and check that the 'POPLAR_SDK_ENABLED' environment "
-                    "variable is being set.")
-        poplar_enable_path = None
-        popart_enable_path = None
-    else:
-        # We can construct the new sdk path from environment variables
-        sdk_parts = sdk_path.split("/")
-        poplar_enable_path = "/".join(sdk_parts[sdk_parts.index("sdks"):])
-        poplar_enable_path = str(Path(tmp_dir, poplar_enable_path))
+    # Create Rsync command with progress tracking for logs
+    remote_dest = hostname + ":" + dest + "/"
+    rsync_cmd = ["rsync", "-au", source, remote_dest]
 
-        # Popart path can be found easily from here
-        popart_enable_path = poplar_enable_path.replace("poplar", "popart")
-
-    venv_path = os.getenv("VIRTUAL_ENV")
-    if venv_path is None:
-        logger.warn("A virtual environment does not seem to have been "
-                    "activated, please ensure that the venv has been activated "
-                    " in this environment and check that the "
-                    "'POPLAR_SDK_ENABLED' and 'VIRTUAL_ENVIRONMENT' "
-                    "environment variable is being set.")
-        venv_activate_path = None
-    else:
-        # We can construct the new venv path from environment variables
-        venv_parts = venv_path.split("/")
-        venv_activate_path = "/".join(venv_parts[venv_parts.index("venvs"):])
-        venv_activate_path = str(Path(tmp_dir, venv_activate_path))
-
-    return (poplar_enable_path, popart_enable_path, venv_activate_path)
+    logger.info(f"Copying {source} to {remote_dest}")
+    run_command(rsync_cmd, output_stream)
 
 
 def setup_distributed_filesystems(args: ArgumentParser, poprun_hostnames: list):
@@ -198,16 +196,10 @@ def setup_distributed_filesystems(args: ArgumentParser, poprun_hostnames: list):
     
     """
 
-    # Get SDK/venv paths
-    poplar_enable_path, popart_enable_path, venv_activate_path = get_sdk_paths()
-    venv_activate_path = get_venv_activate_path()
-
     with open(Path(args.log_dir, "host_setup.log"), "w") as output_stream:
+        exitcode = 0
         for hostname in poprun_hostnames:
             ssh_copy_id(hostname, output_stream)
-
-            # Create local temp dir
-            host_tmp_dir = create_tmp_dir(hostname, output_stream)
 
             # Find where examples dir could be
             if Path(args.examples_location, "public_examples").is_dir():
@@ -215,30 +207,10 @@ def setup_distributed_filesystems(args: ArgumentParser, poprun_hostnames: list):
             else:
                 examples_path = str(Path(args.examples_location, "examples"))
 
-            # Copy examples, sdks dirs to local temp dir
-            rsync_examples_cmd = ["rsync", "-az", examples_path, host_tmp_dir + "/"]
-            logger.info(f"Copying {examples_path} to {hostname}")
-            exitcode = run_remote_command(rsync_examples_cmd, hostname, output_stream)
-            if exitcode: failed_dir = "examples"
-
-            rsync_sdk_cmd = ["rsync", "-az", args.sdk_path, host_tmp_dir + "/"]
-            logger.info(f"Copying {args.sdk_path} to {hostname}")
-            exitcode = run_remote_command(rsync_sdk_cmd, hostname, output_stream)
-            if exitcode: failed_dir = "sdk"
-
-            # Activate venvs remotely and instally requirements
-            rsync_venv_cmd = ["source", poplar_enable_path, "&&",
-                              "source", popart_enable_path, "&&",
-                              "source", venv_activate_path, "&&",
-                              "pip", "install", "-r", args.requirements_file]
-            logger.info(f"Activating SDK {sdk_name} on {hostname} and "
-                        f"installing requirements from {args.requirements_file}")
-            exitcode = run_remote_command(rsync_venv_cmd, hostname, output_stream)
-            if exitcode: failed_dir = "venv"
-
-            if exitcode:
-                logger.error(f"Failed to create {host_tmp_dir}/{failed_dir} "
-                    f"on {hostname}. Please create this manually.")
+            # Copy examples, sdks and venv dirs to local temp dir
+            sync_file_remotely(hostname, examples_path, str(Path.home()), output_stream)
+            sync_file_remotely(hostname, args.sdk_path, str(Path.home()), output_stream)
+            sync_file_remotely(hostname, args.venv_path, str(Path.home()), output_stream)
 
 
 def remove_distributed_filesystems(args: ArgumentParser, poprun_hostnames: list):

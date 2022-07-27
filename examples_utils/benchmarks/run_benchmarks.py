@@ -229,7 +229,7 @@ def run_benchmark_variant(
     #     output += analyse_profile(variant_name, cwd)
 
     # Teardown temporary filesystem on all hosts
-    if (len(poprun_hostnames) > 1) and not args.compile_only:
+    if (len(poprun_hostnames) > 1) and not args.compile_only and args.remove_dirs_after:
         remove_distributed_filesystems(args, poprun_hostnames)
     
     # If process didnt end as expected
@@ -494,6 +494,13 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         action="store_true",
         help=("Enable profiling for the benchmarks, setting the appropriate "
               "environment variables and storing profiling reports in the cwd"),
+    )
+    parser.add_argument(
+        "--remove-dirs-after",
+        action="store_true",
+        help=("Whether or not to remove all directories used for benchmarking "
+              "from all hosts involved after the benchmark is complete. This "
+              "includes the examples, SDKs and venvs directories."),
     )
     parser.add_argument(
         "--requirements-file",

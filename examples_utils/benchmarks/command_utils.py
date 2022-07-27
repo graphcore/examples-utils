@@ -229,21 +229,21 @@ def get_poprun_hosts(cmd: list) -> list:
                     "assuming all instances defined in this benchmark will run "
                     "on this host only")
     
-    # # Remove this machines name/IP from the list
-    # local_hostname = socket.gethostname()
-    # local_ip = socket.gethostbyname(local_hostname)
-    # for hostname in poprun_hostnames:
-    #     if (hostname in local_hostname) or (hostname in local_ip):
-    #         poprun_hostnames.remove(hostname)
+    # Remove this machines name/IP from the list
+    local_hostname = socket.gethostname()
+    local_ip = socket.gethostbyname(local_hostname)
+    for hostname in poprun_hostnames:
+        if (hostname in local_hostname) or (hostname in local_ip):
+            poprun_hostnames.remove(hostname)
     
-    # # If not found, its possible an internal IP/hostname was used. Assume first
-    # # hostname in the list is referring to the local machine
-    # if len(poprun_hostnames) == num_hosts:
-    #     logger.info("This machines hostname/IP could not be found in the "
-    #         "values provided to the '--host' argument for poprun. Assuming "
-    #         "that the first value in the list provided is the this machines "
-    #         "hostname, and skipping interacting with the filesystem on it.")
-    #     poprun_hostnames = poprun_hostnames[1:]
+    # If not found, its possible an internal IP/hostname was used. Assume first
+    # hostname in the list is referring to the local machine
+    if len(poprun_hostnames) == num_hosts:
+        logger.info("This machines hostname/IP could not be found in the "
+            "values provided to the '--host' argument for poprun. Assuming "
+            "that the first value in the list provided is the this machines "
+            "hostname, and skipping interacting with the filesystem on it.")
+        poprun_hostnames = poprun_hostnames[1:]
 
     return poprun_hostnames
 
