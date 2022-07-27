@@ -62,8 +62,7 @@ def merge_environment_variables(new_env: dict, benchmark_spec: dict) -> dict:
     return existing_env
 
 
-def run_remote_command(cmd: list, hostname: list,
-    output_stream: TextIOWrapper) -> int:
+def run_remote_command(cmd: list, hostname: list, output_stream: TextIOWrapper) -> int:
     """Run a command remotely on a given host
 
     Args:
@@ -133,74 +132,133 @@ def create_tmp_dir(hostname: str, output_stream: TextIOWrapper) -> str:
     # POSIX spec requires HOME to be set by OS
     tmp_dir_path = str(Path.home().joinpath("benchmarking_tmp_dir"))
     path_create_cmd = ["mkdir", "-p", tmp_dir_path]
+    logger.info(f"Creating temporary dir {tmp_dir_path} at {hostname}")
     run_remote_command(path_create_cmd, hostname, output_stream)
 
     return tmp_dir_path
 
 
-def setup_distributed_filesystems(args: ArgumentParser, poprun_hostnames: list,
-    log_dir: str):
+def get_sdk_paths(tmp_dir: str) -> tuple:
+    """Get the temp activation/enable script paths for the current venv/sdk.
+
+    Args:
+        tmp_dir (str): The temporary benchmarking directory where SDKs and
+            venvs will be
+
+    Returns:
+        poplar_enable_path (str): The path to the enable script for the poplar
+            SDK
+        popart_enable_path (str): The path to the enable script for the popart
+            SDK
+        venv_activate_path (str): The path to the activate script for the venv
+
+    """
+
+    sdk_path = os.getenv("POPLAR_SDK_ENABLED")
+    if sdk_path is None:
+        logger.warn("A SDK does not seem to have been enabled, please ensure "
+                    "that the SDK has been enabled in this environment "
+                    "and check that the 'POPLAR_SDK_ENABLED' environment "
+                    "variable is being set.")
+        poplar_enable_path = None
+        popart_enable_path = None
+    else:
+        # We can construct the new sdk path from environment variables
+        sdk_parts = sdk_path.split("/")
+        poplar_enable_path = "/".join(sdk_parts[sdk_parts.index("sdks"):])
+        poplar_enable_path = str(Path(tmp_dir, poplar_enable_path))
+
+        # Popart path can be found easily from here
+        popart_enable_path = poplar_enable_path.replace("poplar", "popart")
+
+    venv_path = os.getenv("VIRTUAL_ENV")
+    if venv_path is None:
+        logger.warn("A virtual environment does not seem to have been "
+                    "activated, please ensure that the venv has been activated "
+                    " in this environment and check that the "
+                    "'POPLAR_SDK_ENABLED' and 'VIRTUAL_ENVIRONMENT' "
+                    "environment variable is being set.")
+        venv_activate_path = None
+    else:
+        # We can construct the new venv path from environment variables
+        venv_parts = venv_path.split("/")
+        venv_activate_path = "/".join(venv_parts[venv_parts.index("venvs"):])
+        venv_activate_path = str(Path(tmp_dir, venv_activate_path))
+
+    return (poplar_enable_path, popart_enable_path, venv_activate_path)
+
+
+def setup_distributed_filesystems(args: ArgumentParser, poprun_hostnames: list):
     """Setup filesystems on all given poprun hosts for distributed instances.
 
     Args:
         args (ArgumentParser): Arguments provided for this set of benchmarks
         poprun_hostnames (list): Names/IPs of all poprun hosts defined in this 
             benchmark
-        log_dir (str): Logging directory for the benchmark
     
     """
 
-    with open(log_dir + "\host_setup.log", "w") as output_stream:
+    # Get SDK/venv paths
+    poplar_enable_path, popart_enable_path, venv_activate_path = get_sdk_paths()
+    venv_activate_path = get_venv_activate_path()
+
+    with open(Path(args.log_dir, "host_setup.log"), "w") as output_stream:
         for hostname in poprun_hostnames:
             ssh_copy_id(hostname, output_stream)
 
             # Create local temp dir
-            host_tmp_dir = create_tmp_dir(hostname)
+            host_tmp_dir = create_tmp_dir(hostname, output_stream)
 
-            # Copy examples, sdks and venvs dirs to local temp dir
-            rsync_examples_cmd = ["rsync", "-az", args.examples_path, host_tmp_dir + "/"]
+            # Find where examples dir could be
+            if Path(args.examples_location, "public_examples").is_dir():
+                examples_path = str(Path(args.examples_location, "public_examples"))
+            else:
+                examples_path = str(Path(args.examples_location, "examples"))
+
+            # Copy examples, sdks dirs to local temp dir
+            rsync_examples_cmd = ["rsync", "-az", examples_path, host_tmp_dir + "/"]
+            logger.info(f"Copying {examples_path} to {hostname}")
             exitcode = run_remote_command(rsync_examples_cmd, hostname, output_stream)
             if exitcode: failed_dir = "examples"
 
             rsync_sdk_cmd = ["rsync", "-az", args.sdk_path, host_tmp_dir + "/"]
+            logger.info(f"Copying {args.sdk_path} to {hostname}")
             exitcode = run_remote_command(rsync_sdk_cmd, hostname, output_stream)
             if exitcode: failed_dir = "sdk"
-            
-            rsync_venv_cmd = ["rsync", "-az", args.venv_path, host_tmp_dir + "/"]
+
+            # Activate venvs remotely and instally requirements
+            rsync_venv_cmd = ["source", poplar_enable_path, "&&",
+                              "source", popart_enable_path, "&&",
+                              "source", venv_activate_path, "&&",
+                              "pip", "install", "-r", args.requirements_file]
+            logger.info(f"Activating SDK {sdk_name} on {hostname} and "
+                        f"installing requirements from {args.requirements_file}")
             exitcode = run_remote_command(rsync_venv_cmd, hostname, output_stream)
             if exitcode: failed_dir = "venv"
 
             if exitcode:
                 logger.error(f"Failed to create {host_tmp_dir}/{failed_dir} "
-                    "dir on {hostname}. Please create this manually.")
+                    f"on {hostname}. Please create this manually.")
 
 
-def remove_distributed_filesystems(poprun_hostnames: list, log_dir: str) -> int:
+def remove_distributed_filesystems(args: ArgumentParser, poprun_hostnames: list):
     """Remove filesystems on all given poprun hosts for distributed instances.
 
     Args:
+        args (ArgumentParser): Arguments provided for this set of benchmarks
         poprun_hostnames (list): Names/IPs of all poprun hosts defined in this 
             benchmark
-        log_dir (str): Logging directory for the benchmark
-        
-    Returns:
-        overall_exitcode (int): Exitcode representing a success from all hosts
-            or a failure from any host
 
     """
 
-    overall_exitcode = 0
     tmp_dir_path = Path(os.getenv("HOME")).joinpath("benchmarking_tmp_dir")
-    with open(log_dir + "\host_teardown.log", "w") as output_stream:
+    with open(Path(args.log_dir, "host_teardown.log"), "w") as output_stream:
         for hostname in poprun_hostnames:
             remove_tmp_cmd = ["rm", "-rf", tmp_dir_path]
+            logger.info(f"Removing {tmp_dir_path} from {hostname}")
             exitcode = run_remote_command(remove_tmp_cmd, hostname, output_stream)
     
         if exitcode:
             logger.warn(f"Temporary benchmarking directory {tmp_dir_path} on "
                 "{hostname} could not be removed. Please remove this dir "
                 "manually.")
-            overall_exitcode = 1
-
-    return overall_exitcode
-

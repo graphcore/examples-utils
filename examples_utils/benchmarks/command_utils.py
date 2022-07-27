@@ -2,6 +2,7 @@
 from argparse import ArgumentParser
 import logging
 import re
+import socket
 from pathlib import Path
 
 # Get the module logger
@@ -201,7 +202,7 @@ def get_poprun_hosts(cmd: list) -> list:
 
     # If "--host" is not defined, then instances must be running on one host
     try:
-        host_index = cmd.index("--host")
+        host_index = cmd.index([x for x in cmd if "--host" in x][0])
     except:
         logger.info("'--host' argument not provided, assuming all instances "
                     "defined in this benchmark will run on this host only")
@@ -212,7 +213,12 @@ def get_poprun_hosts(cmd: list) -> list:
     except: python_index = cmd.index("python")
 
     if (poprun_index < host_index < python_index):
-        poprun_hostnames = cmd[host_index + 1].split(",")
+        # Hostnames can be passed with "=" or just with a space to the arg
+        if "=" in cmd[host_index]:
+            poprun_hostnames = cmd[host_index].split("=")[1].split(",")
+        else:
+            poprun_hostnames = cmd[host_index + 1].split(",")
+
         num_hosts = len(poprun_hostnames)
     
     if num_hosts > 1:
@@ -222,6 +228,22 @@ def get_poprun_hosts(cmd: list) -> list:
         logger.info("Only one value has been passed to the '--host' argument, "
                     "assuming all instances defined in this benchmark will run "
                     "on this host only")
+    
+    # # Remove this machines name/IP from the list
+    # local_hostname = socket.gethostname()
+    # local_ip = socket.gethostbyname(local_hostname)
+    # for hostname in poprun_hostnames:
+    #     if (hostname in local_hostname) or (hostname in local_ip):
+    #         poprun_hostnames.remove(hostname)
+    
+    # # If not found, its possible an internal IP/hostname was used. Assume first
+    # # hostname in the list is referring to the local machine
+    # if len(poprun_hostnames) == num_hosts:
+    #     logger.info("This machines hostname/IP could not be found in the "
+    #         "values provided to the '--host' argument for poprun. Assuming "
+    #         "that the first value in the list provided is the this machines "
+    #         "hostname, and skipping interacting with the filesystem on it.")
+    #     poprun_hostnames = poprun_hostnames[1:]
 
     return poprun_hostnames
 
@@ -230,4 +252,6 @@ def enable_distributed_instances(old_cmd: list) -> list:
     """
     
     """
+
+    return old_cmd
 

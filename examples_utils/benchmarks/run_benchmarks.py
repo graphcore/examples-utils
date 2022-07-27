@@ -182,11 +182,11 @@ def run_benchmark_variant(
     logger.info(f"\tcwd = '{cwd}'")
 
     # Create the log directory
-    variant_logdir = Path(args.logdir, variant_name)
-    if not variant_logdir.exists():
-        variant_logdir.mkdir(parents=True)
-    outlog_path = Path(variant_logdir, "stdout.log")
-    errlog_path = Path(variant_logdir, "stderr.log")
+    variant_log_dir = Path(args.log_dir, variant_name)
+    if not variant_log_dir.exists():
+        variant_log_dir.mkdir(parents=True)
+    outlog_path = Path(variant_log_dir, "stdout.log")
+    errlog_path = Path(variant_log_dir, "stderr.log")
 
     # Set the environment variables
     new_env = {}
@@ -207,7 +207,7 @@ def run_benchmark_variant(
     poprun_hostnames = get_poprun_hosts(cmd)
     if (len(poprun_hostnames) > 1) and not args.compile_only:
         # Setup temporary filesystems on all hosts and modify cmd to use this
-        setup_distributed_filesystems(poprun_hostnames)
+        setup_distributed_filesystems(args, poprun_hostnames, )
         cmd = enable_distributed_instances(cmd)
 
     start_time = datetime.now()
@@ -230,7 +230,7 @@ def run_benchmark_variant(
 
     # Teardown temporary filesystem on all hosts
     if (len(poprun_hostnames) > 1) and not args.compile_only:
-        remove_distributed_filesystems(poprun_hostnames)
+        remove_distributed_filesystems(args, poprun_hostnames)
     
     # If process didnt end as expected
     if exitcode:
@@ -340,7 +340,7 @@ def run_benchmarks(args: argparse.ArgumentParser):
         spec.update(found_benchmarks)
 
     results = {}
-    output_log_path = Path(args.logdir, "output.log")
+    output_log_path = Path(args.log_dir, "output.log")
     with open(output_log_path, "w", buffering=1) as listener:
         logger.info(f"Logs at: {output_log_path}")
 
@@ -406,12 +406,12 @@ def run_benchmarks(args: argparse.ArgumentParser):
     print_benchmark_summary(results)
 
     # Save results dict as JSON
-    with open(f"{args.logdir}/benchmark_results.json", "w") as json_file:
+    with open(Path(args.log_dir, "benchmark_results.json"), "w") as json_file:
         json.dump(results, json_file, sort_keys=True, indent=2)
 
     # Parse summary into CSV and save in logs directory
     csv_metrics = ["throughput", "latency", "total_compiling_time"]
-    with open(f"{args.logdir}/benchmark_results.csv", "w") as csv_file:
+    with open(Path(args.log_dir, "benchmark_results.csv"), "w") as csv_file:
         writer = csv.writer(csv_file, quoting=csv.QUOTE_ALL)
         # Use a fixed set of headers, any more detail belongs in the JSON file
         writer.writerow(["Benchmark name", "Variant name"] + csv_metrics)
@@ -456,6 +456,12 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         help="Enable compile only options in compatible models",
     )
     parser.add_argument(
+        "--credentials-file",
+        default=Path.home().joinpath(".artifactory_credentials"),
+        type=str,
+        help="Enable compile only options in compatible models",
+    )
+    parser.add_argument(
         "--examples-location",
         default=Path.home(),
         type=str,
@@ -472,7 +478,7 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         help="Ignore any wandb commands",
     )
     parser.add_argument(
-        "--logdir",
+        "--log-dir",
         default=None,
         type=str,
         help="Folder to place log files",
@@ -488,6 +494,14 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         action="store_true",
         help=("Enable profiling for the benchmarks, setting the appropriate "
               "environment variables and storing profiling reports in the cwd"),
+    )
+    parser.add_argument(
+        "--requirements-file",
+        default=Path.cwd().joinpath("requirements.txt"),
+        type=str,
+        help=("Path to the application's requirements file. Should only be "
+              "manually provided if requested by this benchmarking module. "
+              "Defaults to the parent dir of the benchmarks.yml file."),
     )
     parser.add_argument(
         "--sdk-path",
