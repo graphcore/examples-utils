@@ -1,8 +1,9 @@
 # Copyright (c) 2022 Graphcore Ltd. All rights reserved.
-from argparse import ArgumentParser
 import logging
+import os
 import re
-import socket
+import subprocess
+from argparse import ArgumentParser
 from pathlib import Path
 
 # Get the module logger
@@ -145,8 +146,7 @@ def formulate_benchmark_command(
         py_name = "python"
     called_file = cmd_parts[cmd_parts.index(py_name) + 1]
 
-    resolved_file = str(Path(args.examples_location, benchmark_dict["location"],
-        called_file).resolve())
+    resolved_file = str(Path(args.examples_location, benchmark_dict["location"], called_file).resolve())
     cmd = cmd.replace(called_file, resolved_file)
 
     if args.ignore_wandb and "--wandb" in cmd:
@@ -156,8 +156,7 @@ def formulate_benchmark_command(
         cmd = cmd.replace("--wandb", "")
 
     if args.compile_only:
-        logger.info("'--compile-only' was passed here. Appending "
-                    "'--compile-only' to " "the benchmark command.")
+        logger.info("'--compile-only' was passed here. Appending '--compile-only' to the benchmark command.")
         cmd = cmd + " --compile-only"
 
         # Dont import wandb if compile only mode
@@ -196,8 +195,7 @@ def get_poprun_hosts(cmd: list) -> list:
     try:
         poprun_index = cmd.index("poprun")
     except:
-        logger.info("poprun not called, assuming this is a single-host, "
-                    "single-instance benchmark.")
+        logger.info("poprun not called, assuming this is a single-host, single-instance benchmark.")
         return []
 
     # If "--host" is not defined, then instances must be running on one host
@@ -209,9 +207,12 @@ def get_poprun_hosts(cmd: list) -> list:
         return []
 
     # Watch out for "python" instead of "python3"
-    try: python_index = cmd.index("python3")
-    except: python_index = cmd.index("python")
+    try:
+        python_index = cmd.index("python3")
+    except:
+        python_index = cmd.index("python")
 
+    poprun_hostnames = []
     if (poprun_index < host_index < python_index):
         # Hostnames can be passed with "=" or just with a space to the arg
         if "=" in cmd[host_index]:
@@ -220,38 +221,43 @@ def get_poprun_hosts(cmd: list) -> list:
             poprun_hostnames = cmd[host_index + 1].split(",")
 
         num_hosts = len(poprun_hostnames)
-    
+
     if num_hosts > 1:
-        logger.info("Benchmark is running multiple instances over multiple "
-                    "hosts, preparing all hosts.")
+        logger.info("Benchmark is running multiple instances over multiple hosts, preparing all hosts.")
     else:
         logger.info("Only one value has been passed to the '--host' argument, "
-                    "assuming all instances defined in this benchmark will run "
-                    "on this host only")
-    
+                    "assuming all instances defined for this benchmark will "
+                    "run on this host only")
+
+    # Find all forms of ID for this local machine
+    possible_hostnames = []
+    possible_hostnames.append(os.uname()[1])
+
+    # Query ifconfig for internal/external IPs
+    for category in ["eno1", "enp161s0f1", "enp65s0f0np0"]:
+        try:
+            process = subprocess.Popen(
+                ["ifconfig", category],
+                stdout=subprocess.PIPE,
+            )
+            out, _ = process.communicate()
+        except:
+            out = "inet "
+        possible_hostnames.append(str(re.search(r"inet *(.*?) ", str(out)).group(1)))
+
     # Remove this machines name/IP from the list
-    local_hostname = socket.gethostname()
-    local_ip = socket.gethostbyname(local_hostname)
     for hostname in poprun_hostnames:
-        if (hostname in local_hostname) or (hostname in local_ip):
+        if any([hostname in x for x in possible_hostnames]):
             poprun_hostnames.remove(hostname)
-    
-    # If not found, its possible an internal IP/hostname was used. Assume first
-    # hostname in the list is referring to the local machine
+
     if len(poprun_hostnames) == num_hosts:
         logger.info("This machines hostname/IP could not be found in the "
-            "values provided to the '--host' argument for poprun. Assuming "
-            "that the first value in the list provided is the this machines "
-            "hostname, and skipping interacting with the filesystem on it.")
+                    "values provided to the '--host' argument for poprun. "
+                    "Assuming that the first value in the list provided is the "
+                    "this machines hostname, and skipping interacting with the "
+                    "filesystem on it. If this is not the case, please use "
+                    "either the host name as seen in the $HOSTNAME environment "
+                    "variable, or using internal/external IP addresses.")
         poprun_hostnames = poprun_hostnames[1:]
 
     return poprun_hostnames
-
-
-def enable_distributed_instances(old_cmd: list) -> list:
-    """
-    
-    """
-
-    return old_cmd
-

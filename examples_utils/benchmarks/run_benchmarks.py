@@ -1,8 +1,8 @@
 # Copyright (c) 2022 Graphcore Ltd. All rights reserved.
 import argparse
 import csv
-import logging
 import json
+import logging
 import os
 import selectors
 import shlex
@@ -15,11 +15,30 @@ from pathlib import Path
 from typing import Tuple
 
 import yaml
-
-from examples_utils.benchmarks.command_utils import formulate_benchmark_command, get_benchmark_variants, get_poprun_hosts, enable_distributed_instances
-from examples_utils.benchmarks.environment_utils import get_mpinum, merge_environment_variables, setup_distributed_filesystems, remove_distributed_filesystems
-from examples_utils.benchmarks.logging_utils import print_benchmark_summary, get_wandb_link, upload_compile_time, WANDB_AVAILABLE
-from examples_utils.benchmarks.metrics_utils import derive_metrics, extract_metrics, get_results_for_compile_time
+from examples_utils.benchmarks.command_utils import (
+    formulate_benchmark_command,
+    get_benchmark_variants,
+    get_poprun_hosts,
+)
+from examples_utils.benchmarks.distributed_utils import (
+    remove_distributed_filesystems,
+    setup_distributed_filesystems,
+)
+from examples_utils.benchmarks.environment_utils import (
+    get_mpinum,
+    merge_environment_variables,
+)
+from examples_utils.benchmarks.logging_utils import (
+    WANDB_AVAILABLE,
+    get_wandb_link,
+    print_benchmark_summary,
+    upload_compile_time,
+)
+from examples_utils.benchmarks.metrics_utils import (
+    derive_metrics,
+    extract_metrics,
+    get_results_for_compile_time,
+)
 from examples_utils.benchmarks.profiling_utils import add_profiling_vars
 
 # Get the module logger
@@ -68,7 +87,7 @@ def run_and_monitor_progress(cmd: list, listener: TextIOWrapper, timeout: int, *
                     else:
                         outs[1].append(data)
                 except UnicodeDecodeError as e:
-                    print(f"{e} \n Unable to decode: {data}. ")
+                    pass
 
         (a, b) = proc.communicate()
         outs[0].append(a.decode())
@@ -170,8 +189,7 @@ def run_benchmark_variant(
         logger.info("Removed data metrics for compile only benchmark")
 
     # Create the actual command for the variant
-    variant_command = formulate_benchmark_command(benchmark_dict, variant_dict,
-        args)
+    variant_command = formulate_benchmark_command(benchmark_dict, variant_dict, args)
 
     # Expand any environment variables in the command and split the command
     # into a list, respecting things like quotes, like the shell would
@@ -203,12 +221,12 @@ def run_benchmark_variant(
     env = merge_environment_variables(new_env, benchmark_dict)
 
     # Detect if benchmark requires instances running (not just compiling) on
-    # other hosts, and prepare hosts
+    # other hosts, and then prepare hosts
     poprun_hostnames = get_poprun_hosts(cmd)
-    if (len(poprun_hostnames) > 1) and not args.compile_only:
+    is_distributed = len(poprun_hostnames) > 1 and not args.compile_only
+    if is_distributed:
         # Setup temporary filesystems on all hosts and modify cmd to use this
-        setup_distributed_filesystems(args, poprun_hostnames, )
-        cmd = enable_distributed_instances(cmd)
+        setup_distributed_filesystems(args, poprun_hostnames)
 
     start_time = datetime.now()
     logger.info(f"Start test: {start_time}")
@@ -224,14 +242,21 @@ def run_benchmark_variant(
     logger.info(f"End test: {end_time}")
     logger.info(f"Total runtime: {total_runtime} seconds")
 
-    # TODO: Analyse profile data and output to logs
+    # TODO: Analyse profile data and output to logs with REPTIL
     # if args.profile:
     #     output += analyse_profile(variant_name, cwd)
 
     # Teardown temporary filesystem on all hosts
-    if (len(poprun_hostnames) > 1) and not args.compile_only and args.remove_dirs_after:
+    if is_distributed and args.remove_dirs_after:
         remove_distributed_filesystems(args, poprun_hostnames)
-    
+
+    if not is_distributed and args.remove_dirs_after:
+        logger.info("'--remove-dirs-after has been set but this benchmark has "
+                    "not been specified to use multiple hosts, and so there "
+                    "are no remote temporary filesystems to delete. Local "
+                    "filesystems on this host will not automatically be "
+                    "deleted.")
+
     # If process didnt end as expected
     if exitcode:
         logger.critical(f"Benchmark ERROR, return code: ({str(exitcode)})")
@@ -434,7 +459,6 @@ def run_benchmarks(args: argparse.ArgumentParser):
 def benchmarks_parser(parser: argparse.ArgumentParser):
     """Add benchmarking arguments to argparse parser"""
 
-    # Main args
     parser.add_argument(
         "--spec",
         required=True,
@@ -448,24 +472,17 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         nargs="+",
         help="List of benchmark ids to run",
     )
-
-    # Optional args
     parser.add_argument(
         "--compile-only",
         action="store_true",
         help="Enable compile only options in compatible models",
     )
     parser.add_argument(
-        "--credentials-file",
-        default=Path.home().joinpath(".artifactory_credentials"),
-        type=str,
-        help="Enable compile only options in compatible models",
-    )
-    parser.add_argument(
         "--examples-location",
-        default=Path.home(),
+        default=str(Path.home()),
         type=str,
-        help="Parent dir of the examples directory, defaults to '~'.",
+        help=("Parent dir of the examples directory, defaults to the value of "
+              "$HOME."),
     )
     parser.add_argument(
         "--ignore-errors",
@@ -504,7 +521,7 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
     )
     parser.add_argument(
         "--requirements-file",
-        default=Path.cwd().joinpath("requirements.txt"),
+        default=str(Path.cwd().joinpath("requirements.txt")),
         type=str,
         help=("Path to the application's requirements file. Should only be "
               "manually provided if requested by this benchmarking module. "
@@ -512,7 +529,7 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
     )
     parser.add_argument(
         "--sdk-path",
-        default=Path.home().joinpath("sdks"),
+        default=str(Path.home().joinpath("sdks")),
         type=str,
         help="path of the PoplarSDK directory, defaults to '~/sdks'.",
     )
@@ -524,7 +541,7 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
     )
     parser.add_argument(
         "--venv-path",
-        default=Path.home().joinpath("venvs"),
+        default=str(Path.home().joinpath("venvs")),
         type=str,
         help=("Path to the python virtual environment (venv used for the "
               "PoplarSDK) directory, defaults to '~/venvs'."),
