@@ -6,42 +6,49 @@ import os
 import logging
 from unittest.mock import patch
 import cppimport
-from cppimport import build_filepath
 from cppimport.find import _check_first_line_contains_cppimport
-from cppimport.importer import setup_module_data
-
-from examples_utils.sdk_version_hash import sdk_version_hash
+from cppimport.importer import (
+        build_safely,
+        is_build_needed,
+        setup_module_data,
+    )
 
 __all__ = ['load_lib']
 
 settings = {'file_exts': ('.cpp', )}
 
 
-def _calc_cur_checksum_with_sdk_version(file_lst, module_data):
-    text = b""
-    for filepath in file_lst:
-        with open(filepath, "rb") as f:
-            text += f.read()
-    cpphash = hashlib.md5(text).hexdigest()
-    hash = f'SDK-VERSION-{sdk_version_hash()}-{cpphash}'
-    return hash
+def _calc_cur_checksum_with_sdk_version():
+    from examples_utils.sdk_version_hash import sdk_version_hash
+    version = sdk_version_hash()
+    def func(file_lst, module_data):
+        text = b""
+        for filepath in file_lst:
+            with open(filepath, "rb") as f:
+                text += f.read()
+        cpphash = hashlib.md5(text).hexdigest()
+        hash = f'SDK-VERSION-{version}-{cpphash}'
+        return hash
+    return func
 
 
 def _build(filepath, timeout: int = 5 * 60):
     if not os.path.exists(filepath):
         raise FileNotFoundError(f'File does not exist: {filepath}')
+    filepath = os.path.abspath(filepath)
 
-    old_cd = os.getcwd()
     old_timeout = cppimport.settings.get('lock_timeout', 5 * 60)
     try:
-        os.chdir(os.path.dirname(os.path.abspath(filepath)))
         cppimport.settings['lock_timeout'] = timeout
         # TODO: remove hack once ticket resolved: https://github.com/tbenthompson/cppimport/issues/76
         # TODO: A hack to include the SDK version hash as part of the cppimport hash
-        with patch('cppimport.checksum._calc_cur_checksum', new=_calc_cur_checksum_with_sdk_version):
-            binary_path = build_filepath(filepath)
+        with patch('cppimport.checksum._calc_cur_checksum', new=_calc_cur_checksum_with_sdk_version()):
+            fullname = os.path.splitext(os.path.basename(filepath))[0]
+            module_data = setup_module_data(fullname, filepath)
+            if is_build_needed(module_data):
+                build_safely(filepath, module_data)
+            binary_path = module_data["ext_path"]
     finally:
-        os.chdir(old_cd)
         cppimport.settings['lock_timeout'] = old_timeout
 
     return binary_path
@@ -112,6 +119,7 @@ def load_lib_all(dir_path: str, timeout: int = 5 * 60, load: bool = True):
             if (not file.startswith(".") and os.path.splitext(file)[1] in settings["file_exts"]):
                 full_path = os.path.join(directory, file)
                 if _check_first_line_contains_cppimport(full_path):
+                    logging.info(f'Building: {full_path}')
                     if load:
                         lib = load_lib(full_path, timeout)
                         libs += [(full_path, lib)]

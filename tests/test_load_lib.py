@@ -16,7 +16,7 @@ from multiprocessing import Process
 from examples_utils import load_lib
 from examples_utils.load_lib_utils.load_lib_utils import get_module_data, load_lib_all
 
-cpp_code = """// cppimport
+cpp_code_pybind = """// cppimport
 #include <pybind11/pybind11.h>
 
 namespace py = pybind11;
@@ -35,16 +35,29 @@ setup_pybind11(cfg)
 */
 """
 
+cpp_code_no_pybind = """// cppimport
+
+int square(int x) {
+    return x * x;
+}
+
+/*
+<%
+setup_pybind11(cfg)
+%>
+*/
+"""
+
 
 @contextmanager
-def create_cpp_file():
+def create_cpp_file(cpp_source=cpp_code_pybind):
     """Create C++ file to compile. Create new one per test."""
     # Create empty temp C++ file to compile
 
     with TemporaryDirectory() as tmp_dir:
         path = os.path.join(tmp_dir, 'module.cpp')
         with open(path, 'w') as f:
-            f.write(cpp_code)
+            f.write(cpp_source)
         yield path
 
 
@@ -109,6 +122,25 @@ def test_load_lib_sdk_change():
             assert binary_hash != md5_file_hash(binary_path)
 
 
+def test_load_lib_no_pybind():
+    with create_cpp_file(cpp_code_no_pybind) as cpp_file:
+        module_data = get_module_data(cpp_file)
+        binary_path = module_data['ext_path']
+
+        # Compile first time
+        load_lib(cpp_file)
+        assert os.path.exists(binary_path)
+        binary_hash = md5_file_hash(binary_path)
+
+        # Test loading again when file has changed
+        with open(cpp_file, 'a') as f:
+            f.write('\n int x = 1;')
+
+        load_lib(cpp_file)
+        assert os.path.exists(binary_path)
+        assert binary_hash != md5_file_hash(binary_path)
+
+
 def test_load_lib_many_processors():
     with create_cpp_file() as cpp_file:
         processes = [Process(target=load_lib, args=(cpp_file, )) for i in range(1000)]
@@ -137,17 +169,17 @@ def test_load_lib_all(load):
 
         # Write cpp 3 files in nested dirs
         with open(tmp_dir / 'module.cpp', 'w') as f:
-            f.write(cpp_code)
+            f.write(cpp_code_pybind)
 
         with open(Path(tmp_dir) / 'dir1' / 'module.cpp', 'w') as f:
-            f.write(cpp_code)
+            f.write(cpp_code_pybind)
 
         with open(Path(tmp_dir) / 'dir1' / 'dir2' / 'module.cpp', 'w') as f:
-            f.write(cpp_code)
+            f.write(cpp_code_pybind)
 
         # Decoy file
         with open(tmp_dir / 'module.not_cpp', 'w') as f:
-            f.write(cpp_code)
+            f.write(cpp_code_pybind)
 
         libs = load_lib_all(str(tmp_dir), load=load)
         assert len(libs) == 3
