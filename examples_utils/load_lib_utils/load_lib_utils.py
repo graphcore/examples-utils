@@ -8,10 +8,10 @@ from unittest.mock import patch
 import cppimport
 from cppimport.find import _check_first_line_contains_cppimport
 from cppimport.importer import (
-        build_safely,
-        is_build_needed,
-        setup_module_data,
-    )
+    build_safely,
+    is_build_needed,
+    setup_module_data,
+)
 
 __all__ = ['load_lib']
 
@@ -21,6 +21,7 @@ settings = {'file_exts': ('.cpp', )}
 def _calc_cur_checksum_with_sdk_version():
     from examples_utils.sdk_version_hash import sdk_version_hash
     version = sdk_version_hash()
+
     def func(file_lst, module_data):
         text = b""
         for filepath in file_lst:
@@ -29,6 +30,7 @@ def _calc_cur_checksum_with_sdk_version():
         cpphash = hashlib.md5(text).hexdigest()
         hash = f'SDK-VERSION-{version}-{cpphash}'
         return hash
+
     return func
 
 
