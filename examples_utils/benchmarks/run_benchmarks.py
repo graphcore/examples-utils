@@ -9,6 +9,7 @@ import shlex
 import subprocess
 import sys
 import threading
+from collections import OrderedDict
 from datetime import datetime
 from io import TextIOWrapper
 from pathlib import Path
@@ -170,7 +171,7 @@ def run_benchmark_variant(
         logger.info("Removed data metrics for compile only benchmark")
 
     # Create the actual command for the variant
-    variant_command = formulate_benchmark_command(benchmark_dict, variant_dict, args.ignore_wandb, args.compile_only,
+    variant_command = formulate_benchmark_command(benchmark_dict, variant_dict, args.allow_wandb, args.compile_only,
                                                   args.examples_location)
 
     # Expand any environment variables in the command and split the command
@@ -201,6 +202,8 @@ def run_benchmark_variant(
     # Merge environment variables from benchmark and here with existing
     # environment variables
     env = merge_environment_variables(new_env, benchmark_dict)
+
+    logger.info(f"Datasets directory: '{os.getenv('DATASETS_DIR')}'")
 
     start_time = datetime.now()
     logger.info(f"Start test: {start_time}")
@@ -305,23 +308,12 @@ def run_benchmarks(args: argparse.ArgumentParser):
     spec_files = ",".join([str(sf) for sf in args.spec if ".yml" in str(sf)])
     logger.info(f"Running benchmark suite: '{spec_files}'")
 
-    # Check if DATASETS_DIR exists
-    datasets_dir = os.getenv("DATASETS_DIR")
-    if datasets_dir:
-        logger.info(f"Datasets directory: '{datasets_dir}'")
-    else:
-        logger.error("Datasets directory has not been set.  If the model "
-                     "requires a dataset, please set DATASETS_DIR env at the "
-                     "base of the dataset directory. For example run: 'export "
-                     "DATASETS_DIR=/localdata/datasets/'")
-        sys.exit(1)
-
     # Load all benchmark configs from all files given
     spec = {}
     for spec_file in args.spec:
         logger.debug(f"Examining: '{spec_file}'")
-
         found_benchmarks = yaml.load(open(spec_file).read(), Loader=yaml.FullLoader)
+
         # Add the file each benchmark config came from
         for _, v in found_benchmarks.items():
             v["benchmark_path"] = spec_file
@@ -332,35 +324,44 @@ def run_benchmarks(args: argparse.ArgumentParser):
     with open(output_log_path, "w", buffering=1) as listener:
         logger.info(f"Logs at: {output_log_path}")
 
-        variant_dictionary = {}
-        for benchmark_name in sorted(spec.keys()):
+        # Only check explicitily listed benchmarks if provided
+        if args.benchmark is None:
+            args.benchmark = list(spec.keys())
+
+        variant_dictionary = OrderedDict()
+        for benchmark_name in args.benchmark:
+            # Check if this benchmark exists
+            if benchmark_name not in list(spec.keys()):
+                logger.error(f"Benchmark {benchmark_name} not found in "
+                             "provided spec files, exiting.")
+                sys.exit(1)
+
             # Do not treat the common options or similar specifications as
             # benchmarks
             if "options" in benchmark_name:
                 continue
+
+            # Skip convergence tests by default unless --include-convergence
+            # is provided, or they are explicitly named in --benchmarks
+            if ("_conv" in benchmark_name) and (not args.include_convergence):
+                continue
+
+            # Enforce DATASETS_DIR set only if this benchmark needs real data
+            if (not "gen" in benchmark_name) and (not "synth" in benchmark_name):
+                datasets_dir = os.getenv("DATASETS_DIR")
+                if datasets_dir is None:
+                    logger.error("Datasets directory has not been set.  If "
+                                 "the model requires a dataset, please set "
+                                 "DATASETS_DIR env at the base of the dataset "
+                                 "directory. For example run: 'export "
+                                 "DATASETS_DIR=/localdata/datasets/'")
+                    sys.exit(1)
 
             # Get all benchmark variants made by combinations of parameters
             # specified in the benchmark
             benchmark_spec = spec.get(benchmark_name, {})
             variant_list = get_benchmark_variants(benchmark_name, benchmark_spec)
             variant_dictionary[benchmark_name] = variant_list
-
-            for benchmark in list(variant_dictionary.keys()):
-                # if no benchmarks were provided, or this benchmark is the
-                # exact one provided, proceed
-                if args.benchmark is None or benchmark in args.benchmark:
-                    continue
-
-                # Keep any variants that fit the name provided in args.benchmark
-                name_variants = variant_dictionary[benchmark]
-                selected_variants = []
-                for v in name_variants:
-                    if v["name"] in args.benchmark:
-                        selected_variants.append(v)
-                variant_dictionary[benchmark] = selected_variants
-
-                if len(selected_variants) == 0:
-                    del variant_dictionary[benchmark]
 
         # If no variants are possible, exit
         if not variant_dictionary:
@@ -372,6 +373,7 @@ def run_benchmarks(args: argparse.ArgumentParser):
             benchmark_spec = spec.get(benchmark_name, {})
             logger.info("Running " + benchmark_name)
             logger.info(f"Running {str(len(variant_dictionary[benchmark_name]))} variants:")
+
             for variant_name in variant_dictionary[benchmark_name]:
                 name = variant_name.get("name")
                 logger.info(f"\t{name}")
@@ -441,9 +443,9 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         help="Enable compile only options in compatible models",
     )
     parser.add_argument(
-        "--ignore-wandb",
+        "--allow-wandb",
         action="store_true",
-        help="Ignore any wandb commands",
+        help="Allow any wandb commands (do not automatically remove them)",
     )
     parser.add_argument(
         "--logdir",
@@ -479,4 +481,9 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         "--ignore-errors",
         action="store_true",
         help="Do not stop on an error",
+    )
+    parser.add_argument(
+        "--include-convergence",
+        action="store_true",
+        help="Include convergence tests (name ending in '_conv') in the set of benchmarks being run. This only has any effect if convergence tests would be run anyway i.e. if there are convergence benchmarks in the yaml file provided in '--spec' or if the convergence test required is named explicitly in '--benchmarks'.",
     )

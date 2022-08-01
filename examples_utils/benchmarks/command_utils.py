@@ -110,7 +110,7 @@ def get_benchmark_variants(benchmark_name: str, benchmark_dict: dict) -> list:
 def formulate_benchmark_command(
         benchmark_dict: dict,
         variant_dict: dict,
-        ignore_wandb: bool,
+        allow_wandb: bool,
         compile_only: bool,
         examples_location: str = None,
 ) -> str:
@@ -121,7 +121,7 @@ def formulate_benchmark_command(
             pre-formating to fill in variables
         variant_dict (dict): Variant specification, containing all the actual
             values of the variables to be used to construct this command
-        ignore_wandb (bool): Whether or not to ignore wandb flags passed to the
+        allow_wandb (bool): Whether or not to allow wandb flags passed to the
             original command
         compile_only (bool): Whether or not to pass a `--compile-only` flag to
             the command. NOTE: This will only work if the app being run itself
@@ -157,9 +157,11 @@ def formulate_benchmark_command(
     resolved_file = str(Path(examples_location, benchmark_dict["location"], called_file).resolve())
     cmd = cmd.replace(called_file, resolved_file)
 
-    if ignore_wandb and "--wandb" in cmd:
-        logger.info("Both '--ignore-wandb' and '--wandb' were passed, '--ignore-wandb' "
-                    "is overriding, purging '--wandb' from command.")
+    if not allow_wandb and "--wandb" in cmd:
+        logger.info("'--allow-wandb' was not passed, however '--wandb' is an "
+                    "argument provided to the benchmark. The default value of "
+                    "'--allow-wandb' (False) is overriding, purging '--wandb' "
+                    " from command.")
         cmd = cmd.replace("--wandb", "")
 
     if compile_only:
