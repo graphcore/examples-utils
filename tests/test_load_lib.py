@@ -10,7 +10,6 @@ from pathlib import Path
 
 import pytest
 
-
 import os
 from multiprocessing import Process
 
