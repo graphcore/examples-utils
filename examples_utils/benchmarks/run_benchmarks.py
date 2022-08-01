@@ -368,8 +368,7 @@ def run_benchmarks(args: argparse.ArgumentParser):
         for benchmark_name in args.benchmark:
             # Check if this benchmark exists
             if benchmark_name not in list(spec.keys()):
-                logger.error(f"Benchmark {benchmark_name} not found in "
-                             "provided spec files, exiting.")
+                logger.error(f"Benchmark {benchmark_name} not found in " "provided spec files, exiting.")
                 sys.exit(1)
 
             # Do not treat the common options or similar specifications as
@@ -550,5 +549,10 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--include-convergence",
         action="store_true",
-        help="Include convergence tests (name ending in '_conv') in the set of benchmarks being run. This only has any effect if convergence tests would be run anyway i.e. if there are convergence benchmarks in the yaml file provided in '--spec' or if the convergence test required is named explicitly in '--benchmarks'.",
+        help=("Include convergence tests (name ending in '_conv') in the set "
+              "of benchmarks being run. This only has any effect if "
+              "convergence tests would be run anyway i.e. if there are "
+              "convergence benchmarks in the yaml file provided in '--spec' or "
+              "if the convergence test required is named explicitly in "
+              "'--benchmarks'."),
     )
