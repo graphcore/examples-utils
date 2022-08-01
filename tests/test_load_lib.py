@@ -10,10 +10,12 @@ from pathlib import Path
 
 import pytest
 
-from examples_utils.load_lib_utils.cppimport_safe import get_binary_path_with_sdk_version
-from examples_utils.load_lib_utils.load_lib_utils import load_lib, load_lib_all
+
 import os
 from multiprocessing import Process
+
+from examples_utils import load_lib
+from examples_utils.load_lib_utils.load_lib_utils import get_module_data, load_lib_all
 
 cpp_code = """// cppimport
 #include <pybind11/pybind11.h>
@@ -53,30 +55,28 @@ def md5_file_hash(path: str) -> str:
 
 def test_load_lib():
     with create_cpp_file() as cpp_file:
+        module_data = get_module_data(cpp_file)
+        binary_path = module_data['ext_path']
+
         # Compile first time
         load_lib(cpp_file)
-
-        binary_path = get_binary_path_with_sdk_version(cpp_file)
         assert os.path.exists(binary_path)
-        assert not os.path.exists(binary_path + '.lock')
         binary_hash = md5_file_hash(binary_path)
 
         # Test loading again when already compiled (binary should be untouched)
         load_lib(cpp_file)
 
-        assert os.path.exists(binary_path)
-        assert not os.path.exists(binary_path + '.lock')
         assert binary_hash == md5_file_hash(binary_path)
 
 
 def test_load_lib_file_change():
     with create_cpp_file() as cpp_file:
+        module_data = get_module_data(cpp_file)
+        binary_path = module_data['ext_path']
+
         # Compile first time
         load_lib(cpp_file)
-
-        binary_path = get_binary_path_with_sdk_version(cpp_file)
         assert os.path.exists(binary_path)
-        assert not os.path.exists(binary_path + '.lock')
         binary_hash = md5_file_hash(binary_path)
 
         # Test loading again when file has changed
@@ -85,28 +85,29 @@ def test_load_lib_file_change():
 
         load_lib(cpp_file)
         assert os.path.exists(binary_path)
-        assert not os.path.exists(binary_path + '.lock')
         assert binary_hash != md5_file_hash(binary_path)
 
 
 def test_load_lib_sdk_change():
     with create_cpp_file() as cpp_file:
+        module_data = get_module_data(cpp_file)
+        binary_path = module_data['ext_path']
+
         # Compile first time
         load_lib(cpp_file)
-
-        binary_path = get_binary_path_with_sdk_version(cpp_file)
         assert os.path.exists(binary_path)
-        assert not os.path.exists(binary_path + '.lock')
         binary_hash = md5_file_hash(binary_path)
 
         # Test loading again when sdk has changed (monkey patch `sdk_version_hash` function)
         with patch('examples_utils.sdk_version_hash.sdk_version_hash', new=lambda: 'patch-version'):
+            # Check patch
+            from examples_utils.sdk_version_hash import sdk_version_hash
+            assert 'patch-version' == sdk_version_hash(), 'Monkey patch has not worked. Is the import path correct?'
+
+            # Compile again
             load_lib(cpp_file)
-            binary_path_new = get_binary_path_with_sdk_version(cpp_file)
-            assert 'patch-version' in binary_path_new, 'Monkey patch has not worked. Is the import path correct?'
-            assert os.path.exists(binary_path_new)
-            assert not os.path.exists(binary_path_new + '.lock')
-            assert binary_hash == md5_file_hash(binary_path)
+            assert os.path.exists(binary_path)
+            assert binary_hash != md5_file_hash(binary_path)
 
 
 def test_load_lib_many_processors():
@@ -123,7 +124,8 @@ def test_load_lib_many_processors():
 
         load_lib(cpp_file)
 
-        binary_path = get_binary_path_with_sdk_version(cpp_file)
+        module_data = get_module_data(cpp_file)
+        binary_path = module_data['ext_path']
         assert os.path.exists(binary_path)
         assert not os.path.exists(binary_path + '.lock')
 
@@ -162,18 +164,4 @@ def test_cli():
         shell_output = str(output.stdout) + '\n' + str(output.stderr)
         binaries = glob(file_dir + '/*.so')
         assert 'Built' in shell_output
-        assert len(binaries) > 0
-
-
-# Backported. Can be removed once bump cppimport version
-def test_cli_cppimport():
-    with create_cpp_file() as cpp_file:
-        file_dir = os.path.dirname(cpp_file)
-        output = subprocess.run(["python3", "-m", "examples_utils", 'cppimport_build', file_dir],
-                                check=True,
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE)
-        shell_output = str(output.stdout) + '\n' + str(output.stderr)
-        binaries = glob(file_dir + '/*.so')
-        assert 'Building' in shell_output
         assert len(binaries) > 0
