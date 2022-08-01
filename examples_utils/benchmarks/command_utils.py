@@ -247,7 +247,7 @@ def get_poprun_hosts(cmd: list) -> list:
 
     # Remove this machines name/IP from the list
     for hostname in poprun_hostnames:
-        if any([hostname in x for x in possible_hostnames]):
+        if any(hostname in x for x in possible_hostnames):
             poprun_hostnames.remove(hostname)
 
     if len(poprun_hostnames) == num_hosts:
