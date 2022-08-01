@@ -36,7 +36,7 @@ Points to note are:
 - Multiple benchmarks can be passed to the `--benchmark` argument and they will be run in the order provided
 - When profiling, the popvision profile is saved in the current working directory (this will be the application directory where the benchmarks are being run) and `POPLAR_ENGINE_OPTIONS` is given: `"autoReport.all": "true"` and `"autoReport.outputSerializedGraph": "false"`. This is to enable all standard profiling functionality but avoiding making the profile too large.
 
-## Changelong
+## Changelog
 - 07/04 - Initial commits
 - 28/04 - Post-review cleanup and documenting
 - 03/05 - Modularising and adding to examples_utils
