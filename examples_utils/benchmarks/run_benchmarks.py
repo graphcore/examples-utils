@@ -261,13 +261,13 @@ def run_benchmark_variant(
 
     # If process didnt end as expected
     if exitcode:
-        logger.critical(f"Benchmark ERROR, return code: ({str(exitcode)})")
-        logger.critical("STDOUT:")
-        logger.critical(output)
-        logger.critical("STDERR:")
-        logger.critical(err)
+        err = (f"Benchmark ERROR, exited with code: ({str(exitcode)}). Please check logs for more information.")
+        logger.error(err)
+
         if not args.ignore_errors:
-            sys.exit(exitcode)
+            raise RuntimeError(err)
+        else:
+            logger.info("Continuing to next benchmark as `--ignore-error` was passed")
 
     # Get 'data' metrics, these are metrics scraped from the log
     results, extraction_failure = extract_metrics(
@@ -368,8 +368,9 @@ def run_benchmarks(args: argparse.ArgumentParser):
         for benchmark_name in args.benchmark:
             # Check if this benchmark exists
             if benchmark_name not in list(spec.keys()):
-                logger.error(f"Benchmark {benchmark_name} not found in " "provided spec files, exiting.")
-                sys.exit(1)
+                err = (f"Benchmark {benchmark_name} not found in any of the provided spec files, exiting.")
+                logger.error(err)
+                raise ValueError(err)
 
             # Do not treat the common options or similar specifications as
             # benchmarks
@@ -385,12 +386,12 @@ def run_benchmarks(args: argparse.ArgumentParser):
             if (not "gen" in benchmark_name) and (not "synth" in benchmark_name):
                 datasets_dir = os.getenv("DATASETS_DIR")
                 if datasets_dir is None:
-                    logger.error("Datasets directory has not been set.  If "
-                                 "the model requires a dataset, please set "
-                                 "DATASETS_DIR env at the base of the dataset "
-                                 "directory. For example run: 'export "
-                                 "DATASETS_DIR=/localdata/datasets/'")
-                    sys.exit(1)
+                    err = ("Datasets directory has not been set.  If the model "
+                           "requires a dataset, please set DATASETS_DIR env at "
+                           "the base of the dataset directory. For example "
+                           "run: 'export DATASETS_DIR=/localdata/datasets/'")
+                    logger.error(err)
+                    raise ValueError(err)
 
             # Get all benchmark variants made by combinations of parameters
             # specified in the benchmark
@@ -400,8 +401,9 @@ def run_benchmarks(args: argparse.ArgumentParser):
 
         # If no variants are possible, exit
         if not variant_dictionary:
-            logger.error("No valid benchmarks selected")
-            sys.exit(1)
+            err = "No valid benchmarks selected"
+            logger.error(err)
+            raise ValueError(err)
 
         # Run each variant
         for benchmark_name in variant_dictionary:
