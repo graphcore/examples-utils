@@ -4,7 +4,8 @@ import argparse
 import logging
 import os
 
-from examples_utils.load_lib_utils.load_lib_utils import load_lib_all, load_lib
+from examples_utils.load_lib_utils.cppimport_safe import cppimport_build_safe
+from examples_utils.load_lib_utils.load_lib_utils import load_lib_all
 
 
 def load_lib_build_parser(parser: argparse.ArgumentParser):
@@ -34,7 +35,7 @@ def load_lib_builder_run(args):
     for path in args.root or ["."]:
         path = os.path.abspath(os.path.expandvars(path))
         if os.path.isfile(path):
-            load_lib(filepath=path)
+            cppimport_build_safe(filepath=path, sdk_version_check=True)
         elif os.path.isdir(path):
             load_lib_all(dir_path=path or os.getcwd(), load=False)
         else:
