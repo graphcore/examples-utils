@@ -386,9 +386,7 @@ def run_benchmarks(args: argparse.ArgumentParser):
 
             # Skip convergence tests by default unless --include-convergence
             # is provided, or they are explicitly named in --benchmarks
-            if ((args.benchmark is None) and
-                ("_conv" in benchmark_name) and
-                (not args.include_convergence)):
+            if ((args.benchmark is None) and ("_conv" in benchmark_name) and (not args.include_convergence)):
                 continue
 
             # Enforce DATASETS_DIR set only if this benchmark needs real data

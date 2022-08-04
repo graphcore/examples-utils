@@ -63,7 +63,7 @@ def infer_paths(args: ArgumentParser, benchmark_dict: dict) -> ArgumentParser:
         logger.error(err)
         raise EnvironmentError(err)
     args.sdk_path = str(Path(sdk_path).parents[1].resolve())
-    
+
     # Find based on the required environment variable when a venv is activated
     venv_path = os.getenv("VIRTUAL_ENV")
     if venv_path is None:
