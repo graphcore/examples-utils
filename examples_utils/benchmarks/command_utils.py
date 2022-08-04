@@ -157,6 +157,10 @@ def formulate_benchmark_command(
     resolved_file = str(Path(called_file).resolve())
     cmd = cmd.replace(called_file, resolved_file)
 
+    # Change cwd to where the resolved file is, in case benchmarks file is not
+    # in same dir as called python file
+    os.chdir(Path(resolved_file).parent)
+
     if not args.allow_wandb and "--wandb" in cmd:
         logger.info("'--allow-wandb' was not passed, however '--wandb' is an "
                     "argument provided to the benchmark. The default value of "

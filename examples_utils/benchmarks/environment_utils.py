@@ -43,7 +43,6 @@ def infer_paths(args: ArgumentParser, benchmark_dict: dict) -> ArgumentParser:
     """
 
     spec_path = benchmark_dict["benchmark_path"]
-    print(spec_path)
     offset = 4
     # If the benchmarks.yml file is in train/infer the application root dir
     if ("train" in spec_path) or ("infer" in spec_path):
