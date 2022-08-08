@@ -5,6 +5,8 @@ SDK_PATH="~/sdks/"
 APPLICATION_NAME=$1
 BENCHMARK=$2
 BUILD_STEPS=$3
+# Only for Pytorch cnns for now, the one exception
+ADDITIONAL_DIR=$4
 
 # Enable SDK (poplar and popart)
 cd SDK_PATH/poplar-*
@@ -24,10 +26,6 @@ source ~/$APPLICATION/bin/activate
 # Upgrade pip
 pip3 install --upgrade pip
 
-# Install the framework-specific wheels
-cd SDK_PATH
-pip3 install 
-
 # Determine framework used
 FRAMEWORK=${BENCHMARK_NAME:0:3}
 if [[ $FRAMEWORK == "pyt" ]]
@@ -35,7 +33,8 @@ then
     FRAMEWORK="pytorch"
 fi
 
-# Install application requirementsx
+# Install the framework-specific wheels
+cd SDK_PATH
 if [[ $FRAMEWORK == "pytorch" ]]
 then
     pip3 install poptorch*
@@ -51,12 +50,17 @@ then
 fi
 
 pip3 install horovod*
+cd -
+
+# Install application requirementsx
+cd ~/examples/*/$APP_NAME/$FRAMEWORK/$ADDITIONAL_DIR/
+pip3 install -r requirements.txt
 
 # Run additional build steps
 eval " $BUILD_STEPS"
 
 # Run benchmark
-python3 -m examples-utils --spec ~/examples/*/$APP_NAME/$FRAMEWORK/benchmark --benchmark $BENCHMARK --logdir ./${APP_NAME}_logs/
+python3 -m examples-utils --spec ./$ADDITIONAL_DIR/benchmarks.yml --benchmark $BENCHMARK --logdir ./tmp/${APP_NAME}_logs/
 
 # Deactivate venv and disable sdk
 deactivate
