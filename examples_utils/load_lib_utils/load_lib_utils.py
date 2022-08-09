@@ -1,10 +1,8 @@
 # Copyright (c) 2022 Graphcore Ltd. All rights reserved.
 
 import ctypes
-import hashlib
 import os
 import logging
-from unittest.mock import patch
 import cppimport
 from cppimport.find import _check_first_line_contains_cppimport
 from cppimport.importer import (
@@ -12,44 +10,33 @@ from cppimport.importer import (
     is_build_needed,
     setup_module_data,
 )
+import tempfile
 
 __all__ = ['load_lib']
 
 settings = {'file_exts': ('.cpp', )}
 
 
-def _calc_cur_checksum_with_sdk_version():
-    from examples_utils.sdk_version_hash import sdk_version_hash
-    version = sdk_version_hash()
-
-    def func(file_lst, module_data):
-        text = b""
-        for filepath in file_lst:
-            with open(filepath, "rb") as f:
-                text += f.read()
-        cpphash = hashlib.md5(text).hexdigest()
-        hash = f'SDK-VERSION-{version}-{cpphash}'
-        return hash
-
-    return func
-
-
 def _build(filepath, timeout: int = 5 * 60):
+    """
+    Code taken and modified from cppimport:
+    https://github.com/tbenthompson/cppimport/blob/3d3de85c708effa9e27bbd32de1a48aac301d870/cppimport/__init__.py
+
+    The MIT License (MIT)
+    Copyright (c) 2021 T. Ben Thompson
+    """
     if not os.path.exists(filepath):
         raise FileNotFoundError(f'File does not exist: {filepath}')
     filepath = os.path.abspath(filepath)
+    fullname = os.path.splitext(os.path.basename(filepath))[0]
 
     old_timeout = cppimport.settings.get('lock_timeout', 5 * 60)
     try:
         cppimport.settings['lock_timeout'] = timeout
-        # TODO: remove hack once ticket resolved: https://github.com/tbenthompson/cppimport/issues/76
-        # TODO: A hack to include the SDK version hash as part of the cppimport hash
-        with patch('cppimport.checksum._calc_cur_checksum', new=_calc_cur_checksum_with_sdk_version()):
-            fullname = os.path.splitext(os.path.basename(filepath))[0]
-            module_data = setup_module_data(fullname, filepath)
-            if is_build_needed(module_data):
-                build_safely(filepath, module_data)
-            binary_path = module_data["ext_path"]
+        module_data = setup_module_data(fullname, filepath)
+        if is_build_needed(module_data):
+            build_safely(filepath, module_data)
+        binary_path = module_data["ext_path"]
     finally:
         cppimport.settings['lock_timeout'] = old_timeout
 
@@ -66,8 +53,9 @@ def load_lib(filepath: str, timeout: int = 5 * 60):
     """Compile a C++ source file using `cppimport`, load the shared library into the process using `ctypes` and
     return it.
 
-    Compilation is not triggered if an existing binary matches the source file hash and Graphcore SDK version which is
-    embedded in the binary file.
+    Compilation is only triggered if an existing binary does not match the source file hash. You can also use
+    `depend_on_sdk_version` within the `cppimport` comment to trigger recompilation when the Graphcore SDK version
+    changes.
 
     `cppimport` is used to compile the source which uses a special comment in the C++ file that includes the
     compilation parameters. Here is an example of such a comment which defines compiler flags, additional sources files
@@ -79,6 +67,8 @@ def load_lib(filepath: str, timeout: int = 5 * 60):
     cfg['sources'] = ['another_source.cpp']
     cfg['extra_compile_args'] = ['-std=c++14', '-fPIC', '-O2', '-DONNX_NAMESPACE=onnx', '-Wall']
     cfg['libraries'] = ['popart', 'poplar', 'popops', 'poputil', 'popnn']
+    from examples_utils.load_lib_utils.load_lib_utils import depend_on_sdk_version
+    depend_on_sdk_version(cfg)
     setup_pybind11(cfg)
     %>
     */
@@ -134,3 +124,13 @@ def load_lib_all(dir_path: str, timeout: int = 5 * 60, load: bool = True):
                                  f'{full_path}')
 
     return libs
+
+
+def depend_on_sdk_version(cfg):
+    """Add this within the cppimport comment in the C++ source file to ensure a rebuild is triggered when the SDK
+    version changes"""
+    from examples_utils.sdk_version_hash import sdk_version_hash
+    _, tmp_path = tempfile.mkstemp(suffix='.h')
+    with open(tmp_path, 'w') as f:
+        f.write('// ' + sdk_version_hash())
+    cfg['dependencies'].append(tmp_path)
