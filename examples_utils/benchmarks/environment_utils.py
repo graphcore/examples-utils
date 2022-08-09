@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 POPRUN_VARS = ["HOSTS", "PARTITION", "CLUSTER", "TCP_IF_INCLUDE", "VIPU_CLI_API_HOST"]
 
+
 def get_mpinum(command: str) -> int:
     """Get num replicas (mpinum) from the cmd.
 
@@ -37,7 +38,7 @@ def check_poprun_env_variables(benchmark_name: str, cmd: str) -> str:
     """
     # Python call is guarunteed to exist
     using_python3 = "python3" in cmd
-    if using_python3 :
+    if using_python3:
         poprun_call, python_call = cmd.split("python3")
     else:
         poprun_call, python_call = cmd.split("python")
@@ -45,11 +46,8 @@ def check_poprun_env_variables(benchmark_name: str, cmd: str) -> str:
     # Check if $IPUOF_VIPU_API_PARTITION_ID is asked for (incorrect name),
     # and replace this with $PARTITION (evaluated or not)
     if "$IPUOF_VIPU_API_PARTITION_ID" in poprun_call:
-        poprun_call = poprun_call.replace(
-            "$IPUOF_VIPU_API_PARTITION_ID",
-            os.getenv("PARTITION", "$PARTITION")
-        )
-    
+        poprun_call = poprun_call.replace("$IPUOF_VIPU_API_PARTITION_ID", os.getenv("PARTITION", "$PARTITION"))
+
     python_call_prefix = "python"
     if using_python3: python_call_prefix += "3"
     cmd = poprun_call + python_call_prefix + python_call
@@ -78,6 +76,7 @@ def check_poprun_env_variables(benchmark_name: str, cmd: str) -> str:
             raise EnvironmentError(err)
 
     return cmd
+
 
 def infer_paths(args: ArgumentParser, benchmark_dict: dict) -> ArgumentParser:
     """Infer paths to key directories based on argument and environment info.
