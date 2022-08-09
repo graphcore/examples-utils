@@ -1,27 +1,29 @@
 #!/bin/bash
 
 # Default inputs
-SDK_PATH="~/sdks/"
-APPLICATION_NAME=$1
-BENCHMARK=$2
-BUILD_STEPS=$3
+SDK_PATH=$1
+APPLICATION_NAME=$2
+BENCHMARK_NAME=$3
+BUILD_STEPS=$4
 # Only for Pytorch cnns for now, the one exception
-ADDITIONAL_DIR=$4
+ADDITIONAL_DIR=$5
 
 # Enable SDK (poplar and popart)
-cd SDK_PATH/poplar-*
+cd $SDK_PATH/poplar-*
 source enable.sh
-cd -
+cd - > /dev/null
 
-cd SDK_PATH/popart-*
+cd $SDK_PATH/popart-*
 source enable.sh
-cd -
+cd - > /dev/null
+echo "Poplar SDK at ${SDK_PATH} enabled"
 
 # Create and activate venv
 # Assuming a compatible version of python is already available
-apt-get install python3-virtualenv
-python3 -m venv ~/$APPLICATION
-source ~/$APPLICATION/bin/activate
+sudo apt-get install python3-virtualenv
+python3 -m venv ~/$APPLICATION_NAME
+source ~/$APPLICATION_NAME/bin/activate
+echo "Python venv at ${HOME}/${APPLICATION_NAME} activated"
 
 # Upgrade pip
 pip3 install --upgrade pip
@@ -30,11 +32,11 @@ pip3 install --upgrade pip
 FRAMEWORK=${BENCHMARK_NAME:0:3}
 if [[ $FRAMEWORK == "pyt" ]]
 then
-    FRAMEWORK="pytorch"
+    $FRAMEWORK="pytorch"
 fi
 
 # Install the framework-specific wheels
-cd SDK_PATH
+cd $SDK_PATH
 if [[ $FRAMEWORK == "pytorch" ]]
 then
     pip3 install poptorch*
@@ -49,20 +51,20 @@ then
     pip3 install keras-2*
 fi
 
-pip3 install horovod*
-cd -
+# pip3 install horovod*
+# cd -
 
-# Install application requirementsx
-cd ~/examples/*/$APP_NAME/$FRAMEWORK/$ADDITIONAL_DIR/
-pip3 install -r requirements.txt
+# # Install application requirementsx
+# cd ~/examples/*/$APP_NAME/$FRAMEWORK/$ADDITIONAL_DIR/
+# pip3 install -r requirements.txt
 
-# Run additional build steps
-eval " $BUILD_STEPS"
+# # Run additional build steps
+# eval " $BUILD_STEPS"
 
-# Run benchmark
-python3 -m examples-utils --spec ./$ADDITIONAL_DIR/benchmarks.yml --benchmark $BENCHMARK --logdir ./tmp/${APP_NAME}_logs/
+# # Run benchmark
+# python3 -m examples-utils --spec ./$ADDITIONAL_DIR/benchmarks.yml --benchmark $BENCHMARK --logdir ./tmp/${APP_NAME}_logs/
 
-# Deactivate venv and disable sdk
-deactivate
-rm -rf ~/$APPLICATION
-popsdk-clean
+# # Deactivate venv and disable sdk
+# deactivate
+# rm -rf ~/$APPLICATION
+# popsdk-clean

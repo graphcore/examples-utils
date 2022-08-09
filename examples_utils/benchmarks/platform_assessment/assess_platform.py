@@ -2,6 +2,7 @@ import argparse
 import csv
 import subprocess
 import yaml
+from getpass import getpass
 from pathlib import Path
 
 
@@ -16,6 +17,12 @@ if __name__ == "__main__":
         type=str,
         help="Path to yaml file with benchmark spec",
     )
+    parser.add_argument(
+        "--sdk-path",
+        required=True,
+        type=str,
+        help="Path to the SDK root dir used for benchmarking",
+    )
     args = parser.parse_args()
 
     benchmarks = yaml.load(open(args.spec).read(), Loader=yaml.FullLoader)
@@ -28,13 +35,18 @@ if __name__ == "__main__":
 
         # Run all benchmarks 
         for name, setup in benchmarks.items():
+            if setup.get("additional_dir") is None:
+                setup["additional_dir"] = ""
+
             # Formulate command for each benchmark
             benchmark_cmd = [
-                "source",
+                "bash",
                 "./assess_platform.sh",
+                args.sdk_path,
                 setup["application_name"],
                 setup["benchmark"],
-                setup["build_steps"]
+                setup["build_steps"],
+                setup["additional_dir"],
             ]
 
             # Run benchmark in a poplar SDK enabled environment
