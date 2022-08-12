@@ -112,17 +112,22 @@ def test_copyrights(root_path, amend=False, exclude_josn=None):
         print("Copyright headers checks passed.")
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Copyright header test")
+def copyright_argparser(parser: argparse.ArgumentParser):
+    """Add load lib build CLI commands to argparse parser"""
     parser.add_argument('path',
                         nargs='?',
                         default='.',
                         help='Directory to start searching for files. '
-                        'Defaults to current working directory.')
+                             'Defaults to current working directory.')
     parser.add_argument("--amend", action="store_true", help="Amend copyright headers in files.")
     parser.add_argument("--exclude_json",
                         default=None,
                         help="Provide a path to a JSON file which include files to exclude")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Copyright header test")
+    copyright_argparser(parser)
 
     opts = parser.parse_args()
     try:
