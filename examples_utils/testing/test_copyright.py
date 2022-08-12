@@ -118,7 +118,7 @@ def copyright_argparser(parser: argparse.ArgumentParser):
                         nargs='?',
                         default='.',
                         help='Directory to start searching for files. '
-                             'Defaults to current working directory.')
+                        'Defaults to current working directory.')
     parser.add_argument("--amend", action="store_true", help="Amend copyright headers in files.")
     parser.add_argument("--exclude_json",
                         default=None,

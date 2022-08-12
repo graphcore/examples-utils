@@ -21,8 +21,7 @@ def main(raw_args):
         'benchmark', description="Run applications benchmarks from the application's root directory.")
     benchmarks_parser(benchmarks_subparser)
 
-    copyright_subparser = subparsers.add_parser(
-        'test_copyright', description="Run copyright header test.")
+    copyright_subparser = subparsers.add_parser('test_copyright', description="Run copyright header test.")
     copyright_argparser(copyright_subparser)
 
     args = parser.parse_args(raw_args[1:])
