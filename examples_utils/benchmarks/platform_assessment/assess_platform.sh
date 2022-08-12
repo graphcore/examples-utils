@@ -1,13 +1,21 @@
 #!/bin/bash
 
-# Default inputs
+# Inputs with defaults
 SDK_PATH=$1
 APPLICATION_NAME=$2
 BENCHMARK_NAME=$3
-BUILD_STEPS=$4
-# Only for Pytorch cnns for now, the one exception
-ADDITIONAL_DIR=$5
+ADDITIONAL_DIR=${4:-""}
+BUILD_STEPS=${5:-""}
 
+# If an additional dir is given, the benchmarks yml file will be one up
+BENCHMARKS_YAML=./benchmarks.yml
+if [[ $ADDITIONAL_DIR != "" ]]
+then
+    BENCHMARKS_YAML=../benchmarks.yml
+fi
+
+# In case a SDK is already enabled
+popsdk-clean
 # Enable SDK (poplar and popart)
 cd $SDK_PATH/poplar-*
 source enable.sh
@@ -28,43 +36,45 @@ echo "Python venv at ${HOME}/${APPLICATION_NAME} activated"
 # Upgrade pip
 pip3 install --upgrade pip
 
-# Determine framework used
-FRAMEWORK=${BENCHMARK_NAME:0:3}
-if [[ $FRAMEWORK == "pyt" ]]
-then
-    $FRAMEWORK="pytorch"
-fi
-
-# Install the framework-specific wheels
+# Determine framework used and install packages needed
 cd $SDK_PATH
-if [[ $FRAMEWORK == "pytorch" ]]
-then
-    pip3 install poptorch*
-elif [[ $FRAMEWORK == "tf1" ]]
-then
-    pip3 install tensorflow-1*amd*
-    pip3 install ipu_tensorflow_addons-1*
-elif [[ $FRAMEWORK == "tf2" ]]
-then
-    pip3 install tensorflow-2*amd*
-    pip3 install ipu_tensorflow_addons-2*
-    pip3 install keras-2*
-fi
+FRAMEWORK=${BENCHMARK_NAME:0:3}
+case $FRAMEWORK in
+    "pyt")
+        FRAMEWORK="pytorch"
+        pip3 install poptorch*
+        ;;
+    "pop")
+        FRAMEWORK="popart"
+        ;;
+    "tf1")
+        FRAMEWORK="tensorflow1"
+        pip3 install tensorflow-1*amd*
+        pip3 install ipu_tensorflow_addons-1*
+        ;;
+    "tf2")
+        FRAMEWORK="tensorflow2"
+        pip3 install tensorflow-2*amd*
+        pip3 install ipu_tensorflow_addons-2*
+        pip3 install keras-2*
+        ;;
+esac
 
-# pip3 install horovod*
-# cd -
+pip3 install horovod*
+cd -
 
-# # Install application requirementsx
-# cd ~/examples/*/$APP_NAME/$FRAMEWORK/$ADDITIONAL_DIR/
-# pip3 install -r requirements.txt
+# Install application requirementsx
+cd ~/examples/*/$APPLICATION_NAME/$FRAMEWORK/$ADDITIONAL_DIR/
+pip3 install -r ./requirements.txt
 
-# # Run additional build steps
-# eval " $BUILD_STEPS"
+# Run additional build steps
+eval " $BUILD_STEPS"
 
-# # Run benchmark
-# python3 -m examples-utils --spec ./$ADDITIONAL_DIR/benchmarks.yml --benchmark $BENCHMARK --logdir ./tmp/${APP_NAME}_logs/
+# Run benchmark
+python3 -m examples_utils benchmark --spec $BENCHMARKS_YAML --benchmark $BENCHMARK_NAME --log-dir /tmp/${APPLICATION_NAME}_logs/
+cd -
 
-# # Deactivate venv and disable sdk
-# deactivate
-# rm -rf ~/$APPLICATION
-# popsdk-clean
+# Deactivate venv and disable sdk
+deactivate
+rm -rf ~/$APPLICATION_NAME
+popsdk-clean
