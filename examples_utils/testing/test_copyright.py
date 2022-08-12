@@ -120,7 +120,9 @@ if __name__ == "__main__":
                         help='Directory to start searching for files. '
                         'Defaults to current working directory.')
     parser.add_argument("--amend", action="store_true", help="Amend copyright headers in files.")
-    parser.add_argument("--exclude_json", default=None, help="Provide a path to a JSON file which include files to exclude")
+    parser.add_argument("--exclude_json",
+                        default=None,
+                        help="Provide a path to a JSON file which include files to exclude")
 
     opts = parser.parse_args()
     try:
