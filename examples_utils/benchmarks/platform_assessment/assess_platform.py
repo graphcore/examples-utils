@@ -1,3 +1,4 @@
+# Copyright (c) 2022 Graphcore Ltd. All rights reserved.
 import argparse
 import csv
 import logging
@@ -6,9 +7,7 @@ import sys
 import yaml
 from pathlib import Path
 
-
 HEADER_METRICS = ["benchmark name", "variant_name", "throughput", "latency", "total_compiling_time"]
-
 
 if __name__ == "__main__":
     # Setup logger
@@ -47,7 +46,7 @@ if __name__ == "__main__":
         common_writer = csv.writer(common_file, quoting=csv.QUOTE_ALL)
         common_writer.writerow(HEADER_METRICS)
 
-        # Run all benchmarks 
+        # Run all benchmarks
         for name, setup in benchmarks.items():
             logger.info(f"Running {name}:")
 
@@ -77,7 +76,7 @@ if __name__ == "__main__":
                     stdout=output_stream,
                     stderr=output_stream,
                 )
-            
+
             # Merge CSV outputs from this benchmark into the common CSV
             with open(Path(f"/tmp/{setup['application_name']}_logs/benchmark_results.csv"), "r") as benchmark_csv:
                 # Skip header
