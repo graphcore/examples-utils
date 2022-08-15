@@ -194,10 +194,6 @@ def run_benchmark_variant(
     # Create the actual command for the variant
     variant_command = formulate_benchmark_command(benchmark_dict, variant_dict, args)
 
-    # Check if benchmark calls poprun and might require some env variables,
-    # and modify if needs be
-    check_poprun_env_variables(benchmark_name, variant_command)
-
     # Expand any environment variables in the command and split the command
     # into a list, respecting things like quotes, like the shell would
     cmd = shlex.split(os.path.expandvars(variant_command))
@@ -418,6 +414,10 @@ def run_benchmarks(args: argparse.ArgumentParser):
             err = "No valid benchmarks selected"
             logger.error(err)
             raise ValueError(err)
+
+        # Early check for poprun calls that might require some env variables
+        for benchmark_name in variant_dictionary:
+            check_poprun_env_variables(benchmark_name, spec[benchmark_name]["cmd"])
 
         # Run each variant
         for benchmark_name in variant_dictionary:
