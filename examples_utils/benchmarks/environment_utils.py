@@ -55,14 +55,20 @@ def check_poprun_env_variables(benchmark_name: str, cmd: str):
     """
 
     # Check if any of the poprun env vars are required but not set
-    for env_var, help_msg in POPRUN_VARS.items():
-        if f"${env_var}" in cmd and os.getenv(env_var) is None:
-            err = (f"Environment variable {env_var} is a value passed to an "
-                   f"argument in {benchmark_name}, but has not been set in "
-                   f"your environment.\nHint: {env_var} = {help_msg}")
-            logger.error(err)
-
-            raise EnvironmentError(err)
+    missing_env_vars = [
+        env_var for env_var in POPRUN_VARS.keys()
+        if f"${env_var}" in cmd and os.getenv(env_var) is None
+    ]
+    if missing_env_vars:
+        err = (
+            f"{len(missing_env_vars)} environment variables are needed by command"
+            f"{benchmark_name} but are not defined: {missing_env_vars}. Hints: \n"
+        ) + "".join([
+            f"\n\t{missing} : {POPRUN_VARS[missing]}"
+            for missing in missing_env_vars
+        ])
+        logger.error(err)
+        raise EnvironmentError(err)
 
 
 def infer_paths(args: ArgumentParser, benchmark_dict: dict) -> ArgumentParser:
