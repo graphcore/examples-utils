@@ -1,3 +1,4 @@
+# Copyright (c) 2022 Graphcore Ltd. All rights reserved.
 #!/bin/bash
 
 # Inputs with defaults
