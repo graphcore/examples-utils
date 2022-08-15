@@ -9,7 +9,19 @@ from pathlib import Path
 # Get the module logger
 logger = logging.getLogger(__name__)
 
-POPRUN_VARS = ["HOSTS", "PARTITION", "CLUSTER", "TCP_IF_INCLUDE", "VIPU_CLI_API_HOST"]
+POPRUN_VARS = {
+    "HOSTS": ("Comma seperated list of IP addresses/names of the machines you "
+        "want to run on. Try to copy across ssh-keys before attempting if "
+        "possible. e.g. 10.1.3.101,10.1.3.102,... or lr17-1,lr17-2,..."),
+    "PARTITION": ("Name of the Virtual IPU partition. Can be found with "
+        "'vipu list partitions'."),
+    "CLUSTER": ("Name of the Virtual IPU cluster. Can be found with 'vipu "
+        "list partition'."),
+    "TCP_IF_INCLUDE": ("The range of network interfaces available to use for "
+        "poprun to communicate between hosts."),
+    "VIPU_CLI_API_HOST": ("The IP address/name of the HOST where the Virtual "
+        "IPU server is running."),
+}
 
 
 def get_mpinum(command: str) -> int:
@@ -32,50 +44,24 @@ def get_mpinum(command: str) -> int:
     return mpinum
 
 
-def check_poprun_env_variables(benchmark_name: str, cmd: str) -> str:
-    """
+def check_poprun_env_variables(benchmark_name: str, cmd: str):
+    """Check if poprun environment variables have been set prior to running.
+
+    Args:
+        benchmark_name (str): The name of the benchmark being run
+        cmd (str): The command being run
 
     """
-    # Python call is guarunteed to exist
-    using_python3 = "python3" in cmd
-    if using_python3:
-        poprun_call, python_call = cmd.split("python3")
-    else:
-        poprun_call, python_call = cmd.split("python")
-
-    # Check if $IPUOF_VIPU_API_PARTITION_ID is asked for (incorrect name),
-    # and replace this with $PARTITION (evaluated or not)
-    if "$IPUOF_VIPU_API_PARTITION_ID" in poprun_call:
-        poprun_call = poprun_call.replace("$IPUOF_VIPU_API_PARTITION_ID", os.getenv("PARTITION", "$PARTITION"))
-
-    python_call_prefix = "python"
-    if using_python3: python_call_prefix += "3"
-    cmd = poprun_call + python_call_prefix + python_call
 
     # Check if any of the poprun env vars are required but not set
-    for env_var in POPRUN_VARS:
-        if f"${env_var}" in poprun_call and os.getenv(env_var) is None:
+    for env_var, help_msg in POPRUN_VARS.items():
+        if f"${env_var}" in cmd and os.getenv(env_var) is None:
             err = (f"Environment variable {env_var} is a value passed to an "
                    f"argument in {benchmark_name}, but has not been set in "
-                   "your environment.")
+                   f"your environment.\nHint: {env_var} = {help_msg}")
             logger.error(err)
 
-            print("Hints:\n"
-                  "    HOSTS = Comma seperated list of IP addresses/names of "
-                  "the machines you want to run on. Try to copy across "
-                  "ssh-keys before attempting if possible. e.g. "
-                  "10.1.3.101,10.1.3.102,... or lr17-1,lr17-2,...\n"
-                  "    PARTITION = Name of the Virtual IPU partition. Can be "
-                  "found with 'vipu list partitions'.\n"
-                  "    CLUSTER = Name of the Virtual IPU cluster. Can be found "
-                  "with 'vipu list partition'.\n"
-                  "    TCP_IF_INCLUDE = The range of network interfaces "
-                  "available to use for poprun to communicate between hosts.\n"
-                  "    VIPU_CLI_API_HOST = The IP address/name of the HOST "
-                  "where the Virtual IPU server is running.\n")
             raise EnvironmentError(err)
-
-    return cmd
 
 
 def infer_paths(args: ArgumentParser, benchmark_dict: dict) -> ArgumentParser:

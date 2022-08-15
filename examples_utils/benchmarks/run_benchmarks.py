@@ -196,7 +196,7 @@ def run_benchmark_variant(
 
     # Check if benchmark calls poprun and might require some env variables,
     # and modify if needs be
-    variant_command = check_poprun_env_variables(benchmark_name, variant_command)
+    check_poprun_env_variables(benchmark_name, variant_command)
 
     # Expand any environment variables in the command and split the command
     # into a list, respecting things like quotes, like the shell would
