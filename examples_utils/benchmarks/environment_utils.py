@@ -70,7 +70,7 @@ def check_poprun_env_variables(benchmark_name: str, cmd: str) -> str:
                   "    CLUSTER = Name of the Virtual IPU cluster. Can be found "
                   "with 'vipu list partition'.\n"
                   "    TCP_IF_INCLUDE = The range of network interfaces "
-                  "available to use for poprun to communicate between.\n"
+                  "available to use for poprun to communicate between hosts.\n"
                   "    VIPU_CLI_API_HOST = The IP address/name of the HOST "
                   "where the Virtual IPU server is running.\n")
             raise EnvironmentError(err)
