@@ -56,17 +56,14 @@ def check_poprun_env_variables(benchmark_name: str, cmd: str):
 
     # Check if any of the poprun env vars are required but not set
     missing_env_vars = [
-        env_var for env_var in POPRUN_VARS.keys()
-        if f"${env_var}" in cmd and os.getenv(env_var) is None
+        env_var for env_var in POPRUN_VARS.keys() if f"${env_var}" in cmd and os.getenv(env_var) is None
     ]
     if missing_env_vars:
-        err = (
-            f"{len(missing_env_vars)} environment variables are needed by command"
-            f"{benchmark_name} but are not defined: {missing_env_vars}. Hints: \n"
-        ) + "".join([
-            f"\n\t{missing} : {POPRUN_VARS[missing]}"
-            for missing in missing_env_vars
-        ])
+        err = (f"{len(missing_env_vars)} environment variables are needed by "
+               f"command {benchmark_name} but are not defined: "
+               f"{missing_env_vars}. Hints: \n")
+        err += "".join([f"\n\t{missing} : {POPRUN_VARS[missing]}" for missing in missing_env_vars])
+
         logger.error(err)
         raise EnvironmentError(err)
 
