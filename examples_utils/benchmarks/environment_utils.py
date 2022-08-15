@@ -11,16 +11,17 @@ logger = logging.getLogger(__name__)
 
 POPRUN_VARS = {
     "HOSTS": ("Comma seperated list of IP addresses/names of the machines you "
-        "want to run on. Try to copy across ssh-keys before attempting if "
-        "possible. e.g. 10.1.3.101,10.1.3.102,... or lr17-1,lr17-2,..."),
+              "want to run on. Try to copy across ssh-keys before attempting "
+              "if possible. e.g. 10.1.3.101,10.1.3.102,... or "
+              "lr17-1,lr17-2,..."),
     "PARTITION": ("Name of the Virtual IPU partition. Can be found with "
-        "'vipu list partitions'."),
+                  "'vipu list partitions'."),
     "CLUSTER": ("Name of the Virtual IPU cluster. Can be found with 'vipu "
-        "list partition'."),
+                "list partition'."),
     "TCP_IF_INCLUDE": ("The range of network interfaces available to use for "
-        "poprun to communicate between hosts."),
-    "VIPU_CLI_API_HOST": ("The IP address/name of the HOST where the Virtual "
-        "IPU server is running."),
+                       "poprun to communicate between hosts."),
+    "VIPU_CLI_API_HOST": ("The IP address/name of the HOST where the virtual "
+                          "IPU server is running."),
 }
 
 
