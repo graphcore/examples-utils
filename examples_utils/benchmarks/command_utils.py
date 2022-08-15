@@ -255,7 +255,7 @@ def get_poprun_hosts(cmd: list) -> list:
             )
             out, _ = process.communicate()
         except:
-            out = "inet "
+            out = "inet x "
         possible_hostnames.append(str(re.search(r"inet *(.*?) ", str(out)).group(1)))
 
     # Remove this machines name/IP from the list
