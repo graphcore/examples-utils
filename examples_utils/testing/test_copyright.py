@@ -12,18 +12,15 @@ import logging
 
 C_FILE_EXTS = ['c', 'cpp', 'C', 'cxx', 'c++', 'h', 'hpp']
 
-EXT_TO_LANGUAGE = {
-    'py': 'python',
-    **{ext: 'c' for ext in C_FILE_EXTS}
-}
-            
+EXT_TO_LANGUAGE = {'py': 'python', **{ext: 'c' for ext in C_FILE_EXTS}}
+
 
 def check_file(path, amend):
     logging.debug(f"Checking: {path}")
 
     ext = path.split('.')[-1]
     language = EXT_TO_LANGUAGE[ext]
-            
+
     if os.stat(path).st_size == 0:
         # Empty file
         return True
@@ -31,7 +28,7 @@ def check_file(path, amend):
     comment = "#" if language == "python" else "//"
     found_copyright = False
     first_line_index = 0
-    line = ''
+    line = '\n'
     with open(path, "r") as f:
         regexp = r"{} Copyright \(c\) \d+ Graphcore Ltd. All (r|R)ights (r|R)eserved.".format(comment)
 
@@ -101,7 +98,7 @@ def test_copyrights(root_path, amend=False, exclude_josn=None):
             exclude = []
         exclude = [os.path.join(root_path, p) for p in exclude]
 
-        logging.info(f"Exclude file list: {exclude}")
+        logging.debug(f"Exclude file list: {exclude}")
 
         # Search directories for files
         files = []
@@ -139,22 +136,23 @@ def test_copyrights(root_path, amend=False, exclude_josn=None):
 
 def copyright_argparser(parser: argparse.ArgumentParser):
     """Add load lib build CLI commands to argparse parser"""
-    parser.add_argument('path',
-                        nargs='?',
-                        default='.',
-                        help='Directory to start searching for files. '
-                        'Defaults to current working directory. You can also specify a file if you would like to only check that file.')
+    parser.add_argument(
+        'path',
+        nargs='?',
+        default='.',
+        help='Directory to start searching for files. '
+        'Defaults to current working directory. You can also specify a file if you would like to only check that file.')
     parser.add_argument("--amend", action="store_true", help="Amend copyright headers in files.")
     parser.add_argument("--exclude_json",
                         default=None,
                         help="Provide a path to a JSON file which include files to exclude. "
                         "The paths should be relative to the current working directory.")
-    parser.add_argument(
-            "--log_level",
-            choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
-            type=str,
-            default='WARNING',
-            help=("Loging level for the app. "))
+    parser.add_argument("--log_level",
+                        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+                        type=str,
+                        default='WARNING',
+                        help=("Loging level for the app. "))
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Copyright header test")
