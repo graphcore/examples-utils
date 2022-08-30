@@ -25,26 +25,6 @@ POPRUN_VARS = {
 }
 
 
-def get_mpinum(command: str) -> int:
-    """Get num replicas (mpinum) from the cmd.
-
-    Args:
-        command (str): The command line that includes a call to mpirun
-
-    Returns:
-        mpinum (int): Number of processes passed to mpirun
-    
-    """
-
-    m = re.search(r"mpirun.+--np.(\d*) ", command)
-    if m:
-        mpinum = float(m.group(1))
-    else:
-        mpinum = 1
-
-    return mpinum
-
-
 def check_poprun_env_variables(benchmark_name: str, cmd: str):
     """Check if poprun environment variables have been set prior to running.
 
@@ -66,6 +46,51 @@ def check_poprun_env_variables(benchmark_name: str, cmd: str):
 
         logger.error(err)
         raise EnvironmentError(err)
+
+
+def enter_benchmark_dir(benchmark_dict: dict):
+    """Find and change to the path required to run the benchmark.
+
+    Notes:
+        For examples where the directory structure is non-standard (does not
+        follow the <category>/<model>/<framework>/'train.py' etc. convention),
+        the benchmark specification in the benchmarks.yml file will contain an
+        additional field 'location' which will inform this sub-module on how to
+        locate the python file that needs to be called.
+
+    Args:
+        benchmark_dict (dict): Dict created when evaluating the benchmark spec
+
+    """
+
+    # Find the root dir of the benchmarks.yml file
+    benchmark_path = Path(benchmark_dict["benchmark_path"]).parent
+
+    # If a special path is required, find and move to that in addition
+    if benchmark_dict.get("location"):
+        benchmark_path = benchmark_path.joinpath(benchmark_dict["location"])
+
+    os.chdir(benchmark_path)
+
+
+def get_mpinum(command: str) -> int:
+    """Get num replicas (mpinum) from the cmd.
+
+    Args:
+        command (str): The command line that includes a call to mpirun
+
+    Returns:
+        mpinum (int): Number of processes passed to mpirun
+    
+    """
+
+    m = re.search(r"mpirun.+--np.(\d*) ", command)
+    if m:
+        mpinum = float(m.group(1))
+    else:
+        mpinum = 1
+
+    return mpinum
 
 
 def infer_paths(args: ArgumentParser, benchmark_dict: dict) -> ArgumentParser:
