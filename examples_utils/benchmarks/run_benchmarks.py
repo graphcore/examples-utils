@@ -266,7 +266,7 @@ def run_benchmark_variant(
 
         if not args.ignore_errors:
             error_tail = "\n\t" + "\n\t".join(stderr.splitlines()[-10:]) + "\n"
-            logger.error(f"Last 10 lines of stderr from {variant_name}:" f"{error_tail}")
+            logger.error(f"Last 10 lines of stderr from {variant_name}:{error_tail}")
             sys.excepthook = lambda exctype, exc, traceback: print("{}: {}".format(exctype.__name__, exc))
             raise RuntimeError(err)
         else:
