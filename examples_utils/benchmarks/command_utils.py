@@ -230,7 +230,7 @@ def get_poprun_hosts(cmd: list) -> list:
         else:
             poprun_hostnames = cmd[host_index + 1].split(",")
 
-        num_hosts = len(poprun_hostnames)
+    num_hosts = len(poprun_hostnames)
 
     if num_hosts > 1:
         logger.info("Benchmark is running multiple instances over multiple hosts, preparing all hosts.")
