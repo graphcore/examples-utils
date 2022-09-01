@@ -14,8 +14,8 @@ POPRUN_VARS = {
               "want to run on. Try to copy across ssh-keys before attempting "
               "if possible. e.g. 10.1.3.101,10.1.3.102,... or "
               "lr17-1,lr17-2,..."),
-    "PARTITION": ("Name of the Virtual IPU partition. Can be found with "
-                  "'vipu list partitions'."),
+    "IPUOF_VIPU_API_PARTITION_ID": ("Name of the Virtual IPU partition. Can be "
+                                    "found with 'vipu list partitions'."),
     "CLUSTER": ("Name of the Virtual IPU cluster. Can be found with 'vipu "
                 "list partition'."),
     "TCP_IF_INCLUDE": ("The range of network interfaces available to use for "
@@ -33,6 +33,12 @@ def check_poprun_env_variables(benchmark_name: str, cmd: str):
         cmd (str): The command being run
 
     """
+
+    # If PARTITION exists in env but IPUOF_VIPU_API_PARTITION_ID isnt, set it
+    # to the existing value
+    if ((os.getenv("PARTITION") is not None) and
+        (os.getenv("IPUOF_VIPU_API_PARTITION_ID") is None)):
+        os.environ["IPUOF_VIPU_API_PARTITION_ID"] = os.getenv("PARTITION")
 
     # Check if any of the poprun env vars are required but not set
     missing_env_vars = [
