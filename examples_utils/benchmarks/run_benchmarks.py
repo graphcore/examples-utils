@@ -391,7 +391,7 @@ def run_benchmarks(args: argparse.ArgumentParser):
 
             # Enforce DATASETS_DIR set only if this benchmark needs real data
             if (not "gen" in benchmark_name) and (not "synth" in benchmark_name):
-                if os.getenv("DATASETS_DIR") is None:
+                if "DATASETS_DIR" not in os.environ:
                     err = (f"Benchmark '{benchmark_name}' requires a dataset "
                            "as it is not configured to use generated or "
                            "synthetic ('gen' or 'synth' in the benchmark name) "
