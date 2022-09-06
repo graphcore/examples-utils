@@ -36,7 +36,7 @@ def check_poprun_env_variables(benchmark_name: str, cmd: str):
 
     # If PARTITION exists in env but IPUOF_VIPU_API_PARTITION_ID isnt, set it
     # to the existing value
-    if (os.getenv("PARTITION") is not None) and (os.getenv("IPUOF_VIPU_API_PARTITION_ID") is None):
+    if ("PARTITION" in os.environ) and ("IPUOF_VIPU_API_PARTITION_ID" not in os.environ):
         os.environ["IPUOF_VIPU_API_PARTITION_ID"] = os.getenv("PARTITION")
 
     # Check if any of the poprun env vars are required but not set
