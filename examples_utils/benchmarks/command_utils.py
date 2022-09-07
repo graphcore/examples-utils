@@ -160,13 +160,12 @@ def formulate_benchmark_command(
     # Change cwd to where the resolved file is, in case benchmarks file is not
     # in same dir as called python file
     os.chdir(Path(resolved_file).parent)
-
     if not args.allow_wandb and "--wandb" in cmd:
         logger.info("'--allow-wandb' was not passed, however '--wandb' is an "
                     "argument provided to the benchmark. The default value of "
                     "'--allow-wandb' (False) is overriding, purging '--wandb' "
                     " from command.")
-        cmd = cmd.replace("--wandb", "")
+        cmd = " ".join([x for x in cmd.split(" ") if "--wandb" not in x])
 
     if args.compile_only:
         logger.info("'--compile-only' was passed here. Appending '--compile-only' to the benchmark command.")
@@ -175,8 +174,9 @@ def formulate_benchmark_command(
         # Dont import wandb if compile only mode
         if "--wandb" in cmd:
             logger.info("--compile-only was passed, and wandb is not used for "
-                        "compile only runs, purging '--wandb' from command.")
-            cmd = cmd.replace("--wandb", "")
+                        "compile only runs, purging '--wandb' and all args "
+                        "containing 'wandb' in their names from command.")
+            cmd = " ".join([x for x in cmd.split(" ") if "--wandb" not in x])
 
         # Remove vipu settings that prevent from running in compile-only mode
         cmd = re.sub(r"--vipu-partition.*?=.*?\S*", "", cmd)
