@@ -165,7 +165,7 @@ def formulate_benchmark_command(
         logger.info("'--allow-wandb' was not passed, however '--wandb' is an "
                     "argument provided to the benchmark. The default value of "
                     "'--allow-wandb' (False) is overriding, purging '--wandb' "
-                    " from command.")
+                    "and all args containing 'wandb' from command.")
         cmd = " ".join([x for x in cmd.split(" ") if "--wandb" not in x])
 
     if args.compile_only:
