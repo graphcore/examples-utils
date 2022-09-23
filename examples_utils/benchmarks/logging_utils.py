@@ -76,20 +76,27 @@ def print_benchmark_summary(results: dict):
         print(f"================ {failed} failed, {passed} passed ===============")
 
 
-def get_checkpoint_dir(cmd: list):
-    """Get the root dir where checkpoints are storied for a model.
+def get_latest_checkpoint_path(benchmark_path: str, variant_command: list) -> Path:
+    """Get the path to the latest available checkpoint for a model.
 
     Args:
+        benchmark_path (str): The path to the benchmarks.yml file
         cmd (str): The command used for this model run (benchmark)
-    """
     
+    Returns:
+        latest_checkpoint_path (Path): The directory containing all checkpoints
+            as specified in the benchmarks.yml (or 'None' if this is not found.)
+
+    """
+
     # List of possible keywords to look for in an argument passed to examples
     checkpoint_keywords = ["checkpoint", "ckpt"]
     path_keywords = ["dir", "path", "location"]
 
-    cmd_args = cmd.split(" --")
+    cmd_args = variant_command.split(" --")
 
     # Look at each arg to see if it could be a checkpoint path
+    checkpoint_dir = None
     for arg in cmd_args:
         is_checkpoint_arg = any([x in arg for x in checkpoint_keywords])
         is_path_arg = any([x in arg for x in path_keywords])
@@ -97,24 +104,19 @@ def get_checkpoint_dir(cmd: list):
         if is_checkpoint_arg and is_path_arg:
             checkpoint_dir = arg.replace("=", " ").split(" ")[1]
             break
-
-    return checkpoint_dir
-
-
-def get_latest_checkpoint_path(checkpoint_root_dir: str):
-    """Get the path to the latest available checkpoint for a model.
-
-    Args:
-        checkpoint_root_dir (str): The directory where checkpoints are saved
-    """
-
-    # Find all directories in checkpoint root dir
-    list_of_dirs = filter(os.path.isdir, glob.glob(checkpoint_root_dir + "/**"))
-    print(list(list_of_dirs))
     
-    # Sort list of files based on last modification time and take latest
-    time_sorted_dirs = sorted(list_of_dirs, key=os.path.getmtime, reverse=True)
-    latest_checkpoint_path = time_sorted_dirs[0]
+    if checkpoint_dir is not None:
+        # Resolve relative to the benchmarks.yml path
+        checkpoint_dir = Path(benchmark_path).parent.joinpath(checkpoint_dir).resolve()
+
+        # Find all directories in checkpoint root dir
+        list_of_dirs = [x for x in checkpoint_dir.glob('**/*') if x.is_dir()]
+        
+        # Sort list of files based on last modification time and take latest
+        time_sorted_dirs = sorted(list_of_dirs, key=os.path.getmtime, reverse=True)
+        latest_checkpoint_path = time_sorted_dirs[0]
+    else:
+        latest_checkpoint_path = None
 
     return latest_checkpoint_path
 

@@ -179,11 +179,6 @@ def run_benchmark_variant(
     # Expand any environment variables in the command and split the command
     # into a list, respecting things like quotes, like the shell would
     cmd = shlex.split(os.path.expandvars(variant_command))
-    # Find checkpoints from this run
-    checkpoint_root_dir = get_checkpoint_dir(variant_command)
-    checkpoint_path = get_latest_checkpoint_path(checkpoint_root_dir)
-    print(checkpoint_path)
-    sys.exit()
 
     # Define where the benchmark should be run (dir containing examples)
     cwd = str(Path.cwd().resolve())
@@ -295,14 +290,16 @@ def run_benchmark_variant(
             upload_compile_time(wandb_link, results)
     
     # Find checkpoints from this run
-    checkpoint_root_dir = get_checkpoint_dir(cmd)
-    checkpoint_path = get_latest_checkpoint_path(checkpoint_root_dir)
+    latest_checkpoint_path = get_latest_checkpoint_path(
+        benchmark_dict["benchmark_path"],
+        variant_command
+    )
 
     # Upload checkpoints if required
-    if args.upload_checkpoints and checkpoint_root_dir is not None:
+    if args.upload_checkpoints and latest_checkpoint_path is not None:
         upload_checkpoints(
             args.upload_checkpoints,
-            checkpoint_path,
+            latest_checkpoint_path,
             variant_name,
             stderr,
         )
