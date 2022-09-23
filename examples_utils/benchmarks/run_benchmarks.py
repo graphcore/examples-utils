@@ -1,7 +1,5 @@
 # Copyright (c) 2022 Graphcore Ltd. All rights reserved.
 import argparse
-import csv
-import json
 import logging
 import os
 import selectors
@@ -34,8 +32,12 @@ from examples_utils.benchmarks.environment_utils import (
 )
 from examples_utils.benchmarks.logging_utils import (
     WANDB_AVAILABLE,
+    get_checkpoint_dir,
+    get_latest_checkpoint_path,
     get_wandb_link,
     print_benchmark_summary,
+    save_results,
+    upload_checkpoints,
     upload_compile_time,
 )
 from examples_utils.benchmarks.metrics_utils import (
@@ -145,20 +147,6 @@ def run_benchmark_variant(
 ) -> dict:
     """Run a variant and collect results.
 
-    Note:
-        For each variant:
-        1) Create the variants (benchmark_test (cases)) and define the UID
-            (variant_id, aka benchmark_test (case))
-        2) Define and clean the command (swap out markers) Clean the command
-        3) Define the config["mpirun"]
-        4) Define the Working Dir
-        5) Create the logs directory
-        6) Actually run the benchmark
-        7) Calculate and log end time and total run time
-            - IF errored, log logs and exit (if not ignore errors)
-        8) Write logs to files to a file - extract metrics and post-process them
-        9) Return a dictionary of results dictionaries
-
     Args:
         variant_name (str): The name of the variant to be run
         benchmark_name (str): The name of the benchmark to be run
@@ -191,6 +179,11 @@ def run_benchmark_variant(
     # Expand any environment variables in the command and split the command
     # into a list, respecting things like quotes, like the shell would
     cmd = shlex.split(os.path.expandvars(variant_command))
+    # Find checkpoints from this run
+    checkpoint_root_dir = get_checkpoint_dir(variant_command)
+    checkpoint_path = get_latest_checkpoint_path(checkpoint_root_dir)
+    print(checkpoint_path)
+    sys.exit()
 
     # Define where the benchmark should be run (dir containing examples)
     cwd = str(Path.cwd().resolve())
@@ -300,6 +293,19 @@ def run_benchmark_variant(
         wandb_link = get_wandb_link(stderr)
         if wandb_link is not None:
             upload_compile_time(wandb_link, results)
+    
+    # Find checkpoints from this run
+    checkpoint_root_dir = get_checkpoint_dir(cmd)
+    checkpoint_path = get_latest_checkpoint_path(checkpoint_root_dir)
+
+    # Upload checkpoints if required
+    if args.upload_checkpoints and checkpoint_root_dir is not None:
+        upload_checkpoints(
+            args.upload_checkpoints,
+            checkpoint_path,
+            variant_name,
+            stderr,
+        )
 
     with open(outlog_path, "w") as f:
         f.write(stdout)
@@ -447,35 +453,13 @@ def run_benchmarks(args: argparse.ArgumentParser):
     # Print PASSED/FAILED summary
     print_benchmark_summary(results)
 
-    # Save results dict as JSON
-    with open(Path(args.log_dir, "benchmark_results.json"), "w") as json_file:
-        json.dump(results, json_file, sort_keys=True, indent=2)
-
-    # Parse summary into CSV and save in logs directory
-    csv_metrics = ["throughput", "latency", "total_compiling_time"]
-    with open(Path(args.log_dir, "benchmark_results.csv"), "w") as csv_file:
-        writer = csv.writer(csv_file, quoting=csv.QUOTE_ALL)
-        # Use a fixed set of headers, any more detail belongs in the JSON file
-        writer.writerow(["benchmark name", "Variant name"] + csv_metrics)
-
-        # Write a row for each variant
-        for benchmark, result in results.items():
-            for r in result:
-                csv_row = [benchmark, r["variant_name"]]
-
-                # Find all the metrics we have available from the list defined
-                for metric in csv_metrics:
-                    value = list(r["results"].get(metric, {0: None}).values())[0]
-                    if value is not None:
-                        value = float(value)
-                    csv_row.append(value)
-
-                writer.writerow(csv_row)
+    save_results(args.log_dir, results)
 
 
 def benchmarks_parser(parser: argparse.ArgumentParser):
     """Add benchmarking arguments to argparse parser"""
 
+    # Key arguments
     parser.add_argument(
         "--spec",
         required=True,
@@ -489,6 +473,8 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         nargs="+",
         help="List of benchmark ids to run",
     )
+
+    # Additional functionality controls
     parser.add_argument(
         "--allow-wandb",
         action="store_true",
@@ -552,4 +538,12 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         default=None,
         type=int,
         help="Maximum time allowed for any benchmark/variant (in seconds)",
+    )
+    parser.add_argument(
+        "--upload-checkpoints",
+        default=[],
+        type=list,
+        nargs="+",
+        choices=["wandb", "s3"],
+        help="List of locations to upload model checkpoints to",
     )
