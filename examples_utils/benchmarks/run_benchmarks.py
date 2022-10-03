@@ -32,7 +32,6 @@ from examples_utils.benchmarks.environment_utils import (
 )
 from examples_utils.benchmarks.logging_utils import (
     WANDB_AVAILABLE,
-    get_checkpoint_dir,
     get_latest_checkpoint_path,
     get_wandb_link,
     print_benchmark_summary,
@@ -538,8 +537,8 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
     )
     parser.add_argument(
         "--upload-checkpoints",
-        default=[],
-        type=list,
+        default="",
+        type=str,
         nargs="+",
         choices=["wandb", "s3"],
         help="List of locations to upload model checkpoints to",
