@@ -3,10 +3,15 @@
 # for the platform assessment tools, and also as a suggestion, for users who
 # want to test both the IPUs and the Hosts on a new platform
 
-# Quick test
+# GNNs (Quick tests)
 tgn:
   application_name: tgn
   benchmark: tf1_tgn_train_real_1ipu
+
+cluster_gcn:
+  application_name: cgcn
+  benchmark: tf2_cluster_gcn_ppi_train_real_pod4
+  build_steps: "apt-get install libmetis-dev=5.1.0.dfsg-5"
 
 # IPU intensive benchmark
 pytorch_bert:
