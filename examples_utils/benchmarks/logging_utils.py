@@ -21,6 +21,7 @@ except:
 # Get the module logger
 logger = logging.getLogger(__name__)
 
+
 def configure_logger(args: argparse.ArgumentParser):
     """Setup the benchmarks runner logger
 
@@ -104,14 +105,14 @@ def get_latest_checkpoint_path(benchmark_path: str, variant_command: list) -> Pa
         if is_checkpoint_arg and is_path_arg:
             checkpoint_dir = arg.replace("=", " ").split(" ")[1]
             break
-    
+
     if checkpoint_dir is not None:
         # Resolve relative to the benchmarks.yml path
         checkpoint_dir = Path(benchmark_path).parent.joinpath(checkpoint_dir).resolve()
 
         # Find all directories in checkpoint root dir
         list_of_dirs = [x for x in checkpoint_dir.glob('**/*') if x.is_dir()]
-        
+
         # Sort list of files based on last modification time and take latest
         time_sorted_dirs = sorted(list_of_dirs, key=os.path.getmtime, reverse=True)
         latest_checkpoint_path = time_sorted_dirs[0]
@@ -171,8 +172,7 @@ def save_results(log_dir: str, results: dict):
     logger.info(f"Results saved to {str(csv_filepath)}")
 
 
-def upload_checkpoints(upload_targets: list, checkpoint_path: str,
-    run_name: str, stderr: str):
+def upload_checkpoints(upload_targets: list, checkpoint_path: str, run_name: str, stderr: str):
     """Upload checkpoints from model run to 
 
     Args:
@@ -195,7 +195,7 @@ def upload_checkpoints(upload_targets: list, checkpoint_path: str,
             run.log_artifact(artifact, aliases="convergence testing")
         except:
             logger.info("failed to archive checkpoint on wandb")
-    
+
     if "s3" in upload_targets:
         # Placeholder
         pass

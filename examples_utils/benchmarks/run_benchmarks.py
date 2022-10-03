@@ -287,12 +287,9 @@ def run_benchmark_variant(
         wandb_link = get_wandb_link(stderr)
         if wandb_link is not None:
             upload_compile_time(wandb_link, results)
-    
+
     # Find checkpoints from this run
-    latest_checkpoint_path = get_latest_checkpoint_path(
-        benchmark_dict["benchmark_path"],
-        variant_command
-    )
+    latest_checkpoint_path = get_latest_checkpoint_path(benchmark_dict["benchmark_path"], variant_command)
 
     # Upload checkpoints if required
     if args.upload_checkpoints and latest_checkpoint_path is not None:
