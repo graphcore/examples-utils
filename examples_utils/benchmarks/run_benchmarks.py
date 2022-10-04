@@ -289,7 +289,8 @@ def run_benchmark_variant(
             upload_compile_time(wandb_link, results)
 
     # Find checkpoints from this run
-    latest_checkpoint_path = get_latest_checkpoint_path(benchmark_dict["benchmark_path"], variant_command)
+    checkpoint_root_dir = Path(benchmark_dict["benchmark_path"]).parent.joinpath(benchmark_dict.get("location", ""))
+    latest_checkpoint_path = get_latest_checkpoint_path(checkpoint_root_dir, variant_command)
 
     # Upload checkpoints if required
     if args.upload_checkpoints and latest_checkpoint_path is not None:

@@ -77,11 +77,11 @@ def print_benchmark_summary(results: dict):
         print(f"================ {failed} failed, {passed} passed ===============")
 
 
-def get_latest_checkpoint_path(benchmark_path: str, variant_command: list) -> Path:
+def get_latest_checkpoint_path(checkpoint_root_dir: Path, variant_command: list) -> Path:
     """Get the path to the latest available checkpoint for a model.
 
     Args:
-        benchmark_path (str): The path to the benchmarks.yml file
+        checkpoint_root_dir (Path): The path to the benchmarking dir
         cmd (str): The command used for this model run (benchmark)
     
     Returns:
@@ -90,25 +90,18 @@ def get_latest_checkpoint_path(benchmark_path: str, variant_command: list) -> Pa
 
     """
 
-    # List of possible keywords to look for in an argument passed to examples
-    checkpoint_keywords = ["checkpoint", "ckpt"]
-    path_keywords = ["dir", "path", "location"]
-
     cmd_args = variant_command.split(" --")
 
     # Look at each arg to see if it could be a checkpoint path
     checkpoint_dir = None
     for arg in cmd_args:
-        is_checkpoint_arg = any([x in arg for x in checkpoint_keywords])
-        is_path_arg = any([x in arg for x in path_keywords])
-
-        if is_checkpoint_arg and is_path_arg:
+        if "checkpoint-output-dir" in arg:
             checkpoint_dir = arg.replace("=", " ").split(" ")[1]
             break
 
     if checkpoint_dir is not None:
         # Resolve relative to the benchmarks.yml path
-        checkpoint_dir = Path(benchmark_path).parent.joinpath(checkpoint_dir).resolve()
+        checkpoint_dir = checkpoint_root_dir.joinpath(checkpoint_dir).resolve()
 
         # Find all directories in checkpoint root dir
         list_of_dirs = [x for x in checkpoint_dir.glob('**/*') if x.is_dir()]
@@ -192,7 +185,7 @@ def upload_checkpoints(upload_targets: list, checkpoint_path: str, run_name: str
             artifact = wandb.Artifact(name=run_name + "-checkpoint", type="model")
             artifact.add_dir(checkpoint_path)
 
-            run.log_artifact(artifact, aliases="convergence testing")
+            run.log_artifact(artifact)
         except:
             logger.info("failed to archive checkpoint on wandb")
 
