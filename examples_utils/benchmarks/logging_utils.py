@@ -113,7 +113,6 @@ def get_latest_checkpoint_path(checkpoint_root_dir: Path, variant_command: list)
             latest_checkpoint_path = time_sorted_dirs[0]
         except:
             logger.warn("Checkpoint file(s) in {checkpoint_dir} could not be found. Skipping uploading")
-        
 
     return latest_checkpoint_path
 
@@ -203,7 +202,7 @@ def upload_checkpoints(upload_targets: list, checkpoint_path: str, run_name: str
             logger.warn(e)
 
     if "s3" in upload_targets:
-        
+
         pass
 
 
@@ -227,4 +226,3 @@ def upload_compile_time(wandb_link: str, results: dict):
 
     # Revert stdout to normal
     sys.stdout = old_stdout
-

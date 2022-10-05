@@ -342,7 +342,7 @@ def run_benchmarks(args: argparse.ArgumentParser):
 
     """
 
-    # Preprocess args to resolve any inconsistencies or cover up any gaps 
+    # Preprocess args to resolve any inconsistencies or cover up any gaps
     args = preprocess_args(args)
 
     # Resolve paths to benchmarks specs

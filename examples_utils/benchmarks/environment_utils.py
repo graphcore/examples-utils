@@ -10,40 +10,31 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 POPRUN_VARS = {
-    "HOSTS": 
-        ("Comma seperated list of IP addresses/names of the machines you want "
-         "to run on. Try to copy across ssh-keys before attempting if "
-         "possible. e.g. 10.1.3.101,10.1.3.102,... or lr17-1,lr17-2,..."),
-    "IPUOF_VIPU_API_PARTITION_ID": 
-        ("Name of the Virtual IPU partition. Can be found with 'vipu list "
-         "partitions'."),
-    "CLUSTER":
-        ("Name of the Virtual IPU cluster. Can be found with 'vipu list "
-         "partition'."),
-    "TCP_IF_INCLUDE":
-        ("The range of network interfaces available to use for poprun to "
-         "communicate between hosts."),
-    "VIPU_CLI_API_HOST":
-        ("The IP address/name of the HOST where the virtual IPU server is "
-         "running."),
+    "HOSTS": ("Comma seperated list of IP addresses/names of the machines you want "
+              "to run on. Try to copy across ssh-keys before attempting if "
+              "possible. e.g. 10.1.3.101,10.1.3.102,... or lr17-1,lr17-2,..."),
+    "IPUOF_VIPU_API_PARTITION_ID": ("Name of the Virtual IPU partition. Can be found with 'vipu list "
+                                    "partitions'."),
+    "CLUSTER": ("Name of the Virtual IPU cluster. Can be found with 'vipu list "
+                "partition'."),
+    "TCP_IF_INCLUDE": ("The range of network interfaces available to use for poprun to "
+                       "communicate between hosts."),
+    "VIPU_CLI_API_HOST": ("The IP address/name of the HOST where the virtual IPU server is "
+                          "running."),
 }
 
 WANDB_VARS = {
-    "WANDB_API_KEY":
-        ("The API access key for your W&B account. Available from your W&B "
-         "account > settings > API keys."),
-    "WANDB_BASE_URL":
-        ("The base URL for your W&B server (www.wandb.<domain name>.net). "
-         "Available by checking your organisations wandb account."),
+    "WANDB_API_KEY": ("The API access key for your W&B account. Available from your W&B "
+                      "account > settings > API keys."),
+    "WANDB_BASE_URL": ("The base URL for your W&B server (www.wandb.<domain name>.net). "
+                       "Available by checking your organisations wandb account."),
 }
 
 AWSCLI_VARS = {
-    "AWS_ACCESS_KEY_ID": 
-        ("The AWSCLI access key for the S3 storage account. Available from "
-         "your AWS account > security credentials."),
-    "AWS_SECRET_ACCESS_KEY": 
-        ("The AWSCLI secret key for your AWS account. Available from your AWS "
-         "account > security credentials."),
+    "AWS_ACCESS_KEY_ID": ("The AWSCLI access key for the S3 storage account. Available from "
+                          "your AWS account > security credentials."),
+    "AWS_SECRET_ACCESS_KEY": ("The AWSCLI secret key for your AWS account. Available from your AWS "
+                              "account > security credentials."),
 }
 
 
@@ -74,22 +65,18 @@ def check_env_variables(args: ArgumentParser, benchmark_name: str, cmd: str):
 
         logger.error(err)
         raise EnvironmentError(err)
-    
+
     missing_env_vars = []
     # Check wandb variables if required
     if args.allow_wandb:
-        missing_env_vars.extend([
-            env_var for env_var in WANDB_VARS.keys() if os.getenv(env_var) is None
-        ])
+        missing_env_vars.extend([env_var for env_var in WANDB_VARS.keys() if os.getenv(env_var) is None])
 
     # Check AWSCLI env vars if required
     if "s3" in args.upload_checkpoints:
         # Check for default credentials file or a env var to its path first
-        if (not Path(os.getenv("HOME"), ".aws", "credentials").exists() 
-            and not os.getenv("AWS_SHARED_CREDENTIALS_FILE")):
-            missing_env_vars.extend([
-                env_var for env_var in AWSCLI_VARS.keys() if os.getenv(env_var) is None
-            ])
+        if (not Path(os.getenv("HOME"), ".aws", "credentials").exists()
+                and not os.getenv("AWS_SHARED_CREDENTIALS_FILE")):
+            missing_env_vars.extend([env_var for env_var in AWSCLI_VARS.keys() if os.getenv(env_var) is None])
 
     joint_vars_dict = {**WANDB_VARS, **AWSCLI_VARS}
     if missing_env_vars:
@@ -239,5 +226,5 @@ def preprocess_args(args: ArgumentParser) -> ArgumentParser:
     # Force allow-wandb if user wants to upload checkpoints to wandb
     if "wandb" in args.upload_checkpoints:
         args.allow_wandb = True
-    
+
     return args
