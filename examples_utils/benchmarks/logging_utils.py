@@ -99,6 +99,7 @@ def get_latest_checkpoint_path(checkpoint_root_dir: Path, variant_command: list)
             checkpoint_dir = arg.replace("=", " ").split(" ")[1]
             break
 
+    latest_checkpoint_path = None
     if checkpoint_dir is not None:
         # Resolve relative to the benchmarks.yml path
         checkpoint_dir = checkpoint_root_dir.joinpath(checkpoint_dir).resolve()
@@ -108,9 +109,11 @@ def get_latest_checkpoint_path(checkpoint_root_dir: Path, variant_command: list)
 
         # Sort list of files based on last modification time and take latest
         time_sorted_dirs = sorted(list_of_dirs, key=os.path.getmtime, reverse=True)
-        latest_checkpoint_path = time_sorted_dirs[0]
-    else:
-        latest_checkpoint_path = None
+        try:
+            latest_checkpoint_path = time_sorted_dirs[0]
+        except:
+            logger.warn("Checkpoint file(s) in {checkpoint_dir} could not be found. Skipping uploading")
+        
 
     return latest_checkpoint_path
 
@@ -181,16 +184,26 @@ def upload_checkpoints(upload_targets: list, checkpoint_path: str, run_name: str
             wandb_link = get_wandb_link(stderr)
             link_parts = wandb_link.split("/")
 
+            # Prevent wandb from printing to terminal unecessarily
+            old_stdout = sys.stdout
+            sys.stdout = open(os.devnull, "w")
+
             run = wandb.init(project=link_parts[-3], id=link_parts[-1], resume="allow")
             artifact = wandb.Artifact(name=run_name + "-checkpoint", type="model")
             artifact.add_dir(checkpoint_path)
 
             run.log_artifact(artifact)
-        except:
-            logger.info("failed to archive checkpoint on wandb")
+
+            # Revert stdout to normal
+            sys.stdout = old_stdout
+
+            logger.info(f"Checkpoint at {checkpoint_path} successfully uploaded to wandb.")
+        except Exception as e:
+            logger.warn(f"Failed to upload checkpoint at {checkpoint_path} to wandb.")
+            logger.warn(e)
 
     if "s3" in upload_targets:
-        # Placeholder
+        
         pass
 
 
@@ -204,6 +217,14 @@ def upload_compile_time(wandb_link: str, results: dict):
 
     # Re-initialise link to allow uploading again
     link_parts = wandb_link.split("/")
-    run = wandb.init(project=link_parts[-3], id=link_parts[-1], resume="allow")
 
+    # Prevent wandb from printing to terminal unecessarily
+    old_stdout = sys.stdout
+    sys.stdout = open(os.devnull, "w")
+
+    run = wandb.init(project=link_parts[-3], id=link_parts[-1], resume="allow")
     run.log({"Total compile time": results["total_compiling_time"]["mean"]})
+
+    # Revert stdout to normal
+    sys.stdout = old_stdout
+

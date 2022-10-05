@@ -24,11 +24,12 @@ from examples_utils.benchmarks.distributed_utils import (
     setup_distributed_filesystems,
 )
 from examples_utils.benchmarks.environment_utils import (
-    check_poprun_env_variables,
+    check_env_variables,
     enter_benchmark_dir,
     get_mpinum,
     infer_paths,
     merge_environment_variables,
+    preprocess_args,
 )
 from examples_utils.benchmarks.logging_utils import (
     WANDB_AVAILABLE,
@@ -341,6 +342,9 @@ def run_benchmarks(args: argparse.ArgumentParser):
 
     """
 
+    # Preprocess args to resolve any inconsistencies or cover up any gaps 
+    args = preprocess_args(args)
+
     # Resolve paths to benchmarks specs
     args.spec = [str(Path(file).resolve()) for file in args.spec]
 
@@ -416,9 +420,9 @@ def run_benchmarks(args: argparse.ArgumentParser):
             logger.error(err)
             raise ValueError(err)
 
-        # Early check for poprun calls that might require some env variables
+        # Early check for env variables required by poprun and other calls
         for benchmark_name in variant_dictionary:
-            check_poprun_env_variables(benchmark_name, spec[benchmark_name]["cmd"])
+            check_env_variables(args, benchmark_name, spec[benchmark_name]["cmd"])
 
         # Run each variant
         for benchmark_name in variant_dictionary:
