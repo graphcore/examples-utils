@@ -1,4 +1,5 @@
 import os
+import argparse
 
 import nbformat
 from nbconvert.preprocessors import ExecutePreprocessor
@@ -6,8 +7,12 @@ from nbconvert import Exporter
 from nbformat import NotebookNode
 from nbconvert.exporters.exporter import ResourcesDict
 
+DEFAULT_TIMEOUT = 600
 
-def run_notebook(notebook_filename: str, working_directory: str) -> str:
+
+def run_notebook(
+    notebook_filename: str, working_directory: str, timeout: int=DEFAULT_TIMEOUT
+) -> str:
     """Run a notebook and return all its outputs to stdstream together
 
     Args:
@@ -17,7 +22,7 @@ def run_notebook(notebook_filename: str, working_directory: str) -> str:
     """
     with open(notebook_filename) as f:
         nb = nbformat.read(f, as_version=4)
-    ep = ExecutePreprocessor(timeout=600, kernel_name="python3")
+    ep = ExecutePreprocessor(timeout=timeout, kernel_name="python3")
     ep.preprocess(nb, {"metadata": {"path": f"{working_directory}"}})
 
     exporter = OutputExporter()
@@ -53,3 +58,16 @@ class OutputExporter(Exporter):
         outputs = os.linesep.join(cell_outputs)
 
         return outputs, ResourcesDict()
+
+
+def cli():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("filename", type=str, help="The filename of the notebook to run")
+    parser.add_argument("working_dir", type=str, help="The working directory in which to run")
+    parser.add_argument("--timeout", type=int,default=DEFAULT_TIMEOUT, help="The timeout of the notebook")
+    arg = parser.parse_args()
+    stream, _ = run_notebook(arg.filename, arg.working_dir, arg.timeout)
+    print(stream)
+
+if __name__ == "__main__":
+    cli()
