@@ -1,11 +1,18 @@
 import os
 import argparse
 
-import nbformat
-from nbconvert.preprocessors import ExecutePreprocessor
-from nbconvert import Exporter
-from nbformat import NotebookNode
-from nbconvert.exporters.exporter import ResourcesDict
+try:
+    import nbformat
+    from nbconvert.preprocessors import ExecutePreprocessor
+    from nbconvert import Exporter
+    from nbformat import NotebookNode
+    from nbconvert.exporters.exporter import ResourcesDict
+except (ImportError, ModuleNotFoundError) as error:
+    raise ModuleNotFoundError(
+        "To use notebook utilities `examples_utils` needs to have been installed with "
+        "the [jupyter] set of requirements, reinstall the package with"
+        " `pip install examples_utils[jupyter]`"
+    ) from error
 
 DEFAULT_TIMEOUT = 600
 
@@ -26,7 +33,7 @@ def run_notebook(
     ep.preprocess(nb, {"metadata": {"path": f"{working_directory}"}})
 
     exporter = OutputExporter()
-    output = exporter.from_notebook_node(nb)
+    output, _ = exporter.from_notebook_node(nb)
     return output
 
 
@@ -66,7 +73,7 @@ def cli():
     parser.add_argument("working_dir", type=str, help="The working directory in which to run")
     parser.add_argument("--timeout", type=int,default=DEFAULT_TIMEOUT, help="The timeout of the notebook")
     arg = parser.parse_args()
-    stream, _ = run_notebook(arg.filename, arg.working_dir, arg.timeout)
+    stream = run_notebook(arg.filename, arg.working_dir, arg.timeout)
     print(stream)
 
 if __name__ == "__main__":

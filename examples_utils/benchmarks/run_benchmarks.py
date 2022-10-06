@@ -45,6 +45,7 @@ from examples_utils.benchmarks.metrics_utils import (
 )
 from examples_utils.benchmarks.profiling_utils import add_profiling_vars
 
+
 # Get the module logger
 logger = logging.getLogger()
 
@@ -332,6 +333,28 @@ def run_benchmark_variant(
     return variant_result
 
 
+def process_notebook_to_command(variant):
+    if "notebook" not in variant:
+        return variant
+    if "notebook" in variant and "cmd" in variant:
+        raise ValueError(
+            "Invalid combination of entries 'notebook' and 'cmd' in "
+            f"benchmark: {variant.get('name', 'unknown')}"
+        )
+    notebook_def = variant.pop("notebook")
+    if not isinstance(notebook_def, dict):
+        notebook_def = {"file": str(notebook_def)}
+
+    variant["cmd"] = " ".join([
+        f"python3", "-m","examples_utils.benchmarks.notebook_utils",
+        str(notebook_def['file']),
+        str(notebook_def.get('working_directory', '.')),
+    ] + (["--timeout", str(notebook_def['timeout'])] if "timeout" in notebook_def else [])
+    )
+
+    return variant
+
+
 def run_benchmarks(args: argparse.ArgumentParser):
     """Run benchmarks.
 
@@ -432,6 +455,7 @@ def run_benchmarks(args: argparse.ArgumentParser):
 
             result_list = []
             for variant in variant_dictionary[benchmark_name]:
+                variant = notebook_utils.process_notebook_to_command(variant)
                 benchmark_result = run_benchmark_variant(
                     variant["name"],
                     benchmark_name,
