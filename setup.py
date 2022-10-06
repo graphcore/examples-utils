@@ -51,7 +51,10 @@ setup(
         "Programming Language :: Python :: 3",
     ],
     install_requires=read_requirements("requirements.txt"),
-    extras_require={"dev": read_requirements("requirements-dev.txt")},
+    extras_require={
+        "dev": read_requirements("requirements-dev.txt"),
+        "jupyter": read_requirements("requirements-jupyter.txt"),
+    },
     packages=['examples_utils'],
     package_data={
         'examples_utils':
