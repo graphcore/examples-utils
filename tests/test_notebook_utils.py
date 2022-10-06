@@ -9,7 +9,7 @@ from examples_utils.benchmarks import notebook_utils
 from examples_utils.benchmarks.run_benchmarks import process_notebook_to_command
 
 TEST_DIRECTORY = Path(__file__).resolve().parent
-
+SAMPLE_NOTEBOOK = TEST_DIRECTORY / "test_files/sample.ipynb"
 
 def test_notebook_runner_captures_outputs():
     notebook_path = TEST_DIRECTORY / "test_files/sample.ipynb"
@@ -55,6 +55,21 @@ class TestNotebook2Cmd:
         variant = process_notebook_to_command(copy.deepcopy(variant))
         cli_out = subprocess.check_output(variant["cmd"].split(" "))
         assert reference_out.strip() == cli_out.decode().strip()
+
+
+def test_end_2_end(tmp_path: Path):
+    yaml_file = tmp_path / "sample.yaml"
+    yaml_file.write_text(f"""
+notebook_benchmark:
+    generated: true
+    notebook:
+        file: {SAMPLE_NOTEBOOK}
+    """)
+    out = subprocess.check_output([
+        "python3", "-m", "examples_utils", "benchmark", "--spec", str(yaml_file)
+    ])
+    assert "PASSED notebook_benchmark::notebook_benchmark" in out.decode()
+
 
 if __name__ == "__main__":
     test_notebook_runner_captures_outputs()

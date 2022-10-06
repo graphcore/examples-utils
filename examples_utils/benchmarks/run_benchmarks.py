@@ -393,6 +393,8 @@ def run_benchmarks(args: argparse.ArgumentParser):
         else:
             benchmarks_list = args.benchmark
 
+        for variant_name, variant in spec.items():
+            variant = process_notebook_to_command(variant, variant_name)
         variant_dictionary = OrderedDict()
         for benchmark_name in benchmarks_list:
             # Check if this benchmark exists
@@ -406,13 +408,16 @@ def run_benchmarks(args: argparse.ArgumentParser):
             if "options" in benchmark_name:
                 continue
 
-            # Skip convergence tests by default unless --include-convergence
             # is provided, or they are explicitly named in --benchmarks
             if ((args.benchmark is None) and ("_conv" in benchmark_name) and (not args.include_convergence)):
                 continue
-
+            spec_entry = spec.get(benchmark_name, {})
+            if "gen" in benchmark_name:
+                spec_entry["generated"] = True
+            if "synth" in benchmark_name:
+                spec_entry["synthetic"] = True
             # Enforce DATASETS_DIR set only if this benchmark needs real data
-            if ("gen" not in benchmark_name) and ("synth" not in benchmark_name):
+            if not (spec_entry.get("generated") or spec_entry.get("synthetic")):
                 if "DATASETS_DIR" not in os.environ:
                     err = (f"Benchmark '{benchmark_name}' requires a dataset "
                            "as it is not configured to use generated or "
@@ -454,7 +459,6 @@ def run_benchmarks(args: argparse.ArgumentParser):
 
             result_list = []
             for variant in variant_dictionary[benchmark_name]:
-                variant = notebook_utils.process_notebook_to_command(variant)
                 benchmark_result = run_benchmark_variant(
                     variant["name"],
                     benchmark_name,
