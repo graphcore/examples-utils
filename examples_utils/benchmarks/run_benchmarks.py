@@ -298,6 +298,7 @@ def run_benchmark_variant(
         upload_checkpoints(
             args.upload_checkpoints,
             latest_checkpoint_path,
+            benchmark_dict["benchmark_path"],
             variant_name,
             stderr,
         )

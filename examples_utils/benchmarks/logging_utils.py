@@ -1,11 +1,10 @@
 # Copyright (c) 2022 Graphcore Ltd. All rights reserved.
 import argparse
 import csv
-from distutils.command.upload import upload
-import glob
 import json
 import logging
 import os
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -119,6 +118,10 @@ def get_latest_checkpoint_path(checkpoint_root_dir: Path, variant_command: list)
 
 def get_wandb_link(stderr: str) -> str:
     """Get a wandb link from stderr if it exists.
+
+    Args:
+        stderr (str): the stderr output from the benchmark
+
     """
 
     wandb_link = None
@@ -136,6 +139,7 @@ def save_results(log_dir: str, results: dict):
     Args:
         log_dir (str): The path to the logging directory
         results (dict): The results for this benchmark
+
     """
     # Save results dict as JSON
     json_filepath = Path(log_dir, "benchmark_results.json")
@@ -167,15 +171,19 @@ def save_results(log_dir: str, results: dict):
     logger.info(f"Results saved to {str(csv_filepath)}")
 
 
-def upload_checkpoints(upload_targets: list, checkpoint_path: str, run_name: str, stderr: str):
+def upload_checkpoints(upload_targets: list, checkpoint_path: Path, benchmark_path: str, run_name: str, stderr: str):
     """Upload checkpoints from model run to 
 
     Args:
-        upload_targets (list):
-        checkpoint_path (str):
-        run_name (str):
-        stderr (str): 
+        upload_targets (list): Which targets/locations to upload checkpoints to
+        checkpoint_path (Path): Path to the checkpoint to upload
+        benchmark_path (str): Path to the benchmark dir
+        run_name (str): Name for this benchmarking run
+        stderr (str): Stderr output from this benchmarking run
+
     """
+
+    checkpoint_path = str(checkpoint_path)
 
     if "wandb" in upload_targets:
         try:
@@ -184,17 +192,17 @@ def upload_checkpoints(upload_targets: list, checkpoint_path: str, run_name: str
             link_parts = wandb_link.split("/")
 
             # Prevent wandb from printing to terminal unecessarily
-            old_stdout = sys.stdout
-            sys.stdout = open(os.devnull, "w")
+            os.environ["WANDB_SILENT"] = "true"
 
             run = wandb.init(project=link_parts[-3], id=link_parts[-1], resume="allow")
+
             artifact = wandb.Artifact(name=run_name + "-checkpoint", type="model")
             artifact.add_dir(checkpoint_path)
 
             run.log_artifact(artifact)
 
-            # Revert stdout to normal
-            sys.stdout = old_stdout
+            # Revert to normal
+            os.environ["WANDB_SILENT"] = "false"
 
             logger.info(f"Checkpoint at {checkpoint_path} successfully uploaded to wandb.")
         except Exception as e:
@@ -202,8 +210,17 @@ def upload_checkpoints(upload_targets: list, checkpoint_path: str, run_name: str
             logger.warn(e)
 
     if "s3" in upload_targets:
+        # Compose the AWSCLI upload command
+        cmd = ["aws", "s3", "cp", f"{checkpoint_path}", f"s3://gc-public-examples/{benchmark_path}", "--recursive"]
 
-        pass
+        try:
+            subprocess.run(
+                cmd,
+                env=os.environ,
+            )
+        except Exception as e:
+            logger.warn(f"Failed to upload checkpoint at {checkpoint_path} to s3.")
+            logger.warn(e)
 
 
 def upload_compile_time(wandb_link: str, results: dict):
@@ -212,17 +229,17 @@ def upload_compile_time(wandb_link: str, results: dict):
     Args:
         wandb_link (str): The link to the W&B run for this benchmark
         results (dict): The results for this benchmark
+
     """
 
     # Re-initialise link to allow uploading again
     link_parts = wandb_link.split("/")
 
     # Prevent wandb from printing to terminal unecessarily
-    old_stdout = sys.stdout
-    sys.stdout = open(os.devnull, "w")
+    os.environ["WANDB_SILENT"] = "true"
 
     run = wandb.init(project=link_parts[-3], id=link_parts[-1], resume="allow")
     run.log({"Total compile time": results["total_compiling_time"]["mean"]})
 
-    # Revert stdout to normal
-    sys.stdout = old_stdout
+    # Revert to normal
+    os.environ["WANDB_SILENT"] = "false"
