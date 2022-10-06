@@ -51,7 +51,7 @@ class TestNotebook2Cmd:
     def test_replaces_notebook(self, variant_factory):
         notebook_path = TEST_DIRECTORY / "test_files/sample.ipynb"
         variant = variant_factory(notebook_path)
-        reference_out = notebook_utils.run_notebook(notebook_path, notebook_path.parent)
+        reference_out = notebook_utils.run_notebook(notebook_path, variant.get("working_directory", "."))
         variant = process_notebook_to_command(copy.deepcopy(variant))
         cli_out = subprocess.check_output(variant["cmd"].split(" "))
         assert reference_out.strip() == cli_out.decode().strip()
