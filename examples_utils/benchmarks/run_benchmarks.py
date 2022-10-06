@@ -333,18 +333,17 @@ def run_benchmark_variant(
     return variant_result
 
 
-def process_notebook_to_command(variant):
+def process_notebook_to_command(variant, name="unknown"):
     if "notebook" not in variant:
         return variant
     if "notebook" in variant and "cmd" in variant:
         raise ValueError(
             "Invalid combination of entries 'notebook' and 'cmd' in "
-            f"benchmark: {variant.get('name', 'unknown')}"
+            f"benchmark: {name}"
         )
     notebook_def = variant.pop("notebook")
     if not isinstance(notebook_def, dict):
         notebook_def = {"file": str(notebook_def)}
-
     variant["cmd"] = " ".join([
         f"python3", "-m","examples_utils.benchmarks.notebook_utils",
         str(notebook_def['file']),
