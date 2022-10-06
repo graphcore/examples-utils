@@ -33,7 +33,14 @@ class OutputExporter(Exporter):
 
     def from_notebook_node(self, nb: NotebookNode, **kwargs):
         notebook, _ = super().from_notebook_node(nb, **kwargs)
-
+        # notebooks are lists of cells, code cells are of the format:
+        # {"cell_type": "code",
+        #  "outputs":[
+        #     {
+        #         "output_type": "stream"|"bytes",
+        #         "text":"text of interest that we want to capture"
+        #     }, ...]}
+        # Hence the following list comprehension:
         cell_outputs = [
             output.get("text", "") + os.linesep
             for cell in notebook.cells
