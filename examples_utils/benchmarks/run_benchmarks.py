@@ -232,6 +232,13 @@ def run_benchmark_variant(
         setup_distributed_filesystems(args, poprun_hostnames)
 
     start_time = datetime.now()
+    reqs = benchmark_dict.get("requirements_file")
+    if reqs:
+        logger.info(f"Install python requirements")
+        if not Path(reqs).exists():
+            raise FileNotFoundError(f"Invalid python requirements where specified at {reqs}")
+        subprocess.check_output(["python", "-m", "pip", "install", "-r", str(reqs)])
+
     logger.info(f"Start test: {start_time}")
     stdout, stderr, exitcode = run_and_monitor_progress(
         cmd,
