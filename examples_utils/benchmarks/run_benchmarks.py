@@ -56,6 +56,7 @@ def run_and_monitor_progress(cmd: list, listener: TextIOWrapper, timeout: int = 
         cmd (list): The command to be run, as a list for use by subprocess
         listener (TextIOWrapper): Listener that takes the output from the process
         timeout (int): Seconds until the process will timeout, forcing termination
+        kwargs: all additional keyword arguments are passed to `subprocess.Popen`.
 
     Returns:
         output (str): stdout from the process
