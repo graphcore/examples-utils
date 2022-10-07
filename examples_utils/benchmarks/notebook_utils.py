@@ -1,3 +1,4 @@
+# Copyright (c) 2022 Graphcore Ltd. All rights reserved.
 import os
 import argparse
 
@@ -8,18 +9,14 @@ try:
     from nbformat import NotebookNode
     from nbconvert.exporters.exporter import ResourcesDict
 except (ImportError, ModuleNotFoundError) as error:
-    raise ModuleNotFoundError(
-        "To use notebook utilities `examples_utils` needs to have been installed with "
-        "the [jupyter] set of requirements, reinstall the package with"
-        " `pip install examples_utils[jupyter]`"
-    ) from error
+    raise ModuleNotFoundError("To use notebook utilities `examples_utils` needs to have been installed with "
+                              "the [jupyter] set of requirements, reinstall the package with"
+                              " `pip install examples_utils[jupyter]`") from error
 
 DEFAULT_TIMEOUT = 600
 
 
-def run_notebook(
-    notebook_filename: str, working_directory: str, timeout: int=DEFAULT_TIMEOUT
-) -> str:
+def run_notebook(notebook_filename: str, working_directory: str, timeout: int = DEFAULT_TIMEOUT) -> str:
     """Run a notebook and return all its outputs to stdstream together
 
     Args:
@@ -54,12 +51,8 @@ class OutputExporter(Exporter):
         #     }, ...]}
         # Hence the following list comprehension:
         cell_outputs = [
-            output.get("text", "") + os.linesep
-            for cell in notebook.cells
-            if cell.cell_type == "code"
-            for output in cell.outputs
-            if output
-            if output.get("output_type") == "stream"
+            output.get("text", "") + os.linesep for cell in notebook.cells if cell.cell_type == "code"
+            for output in cell.outputs if output if output.get("output_type") == "stream"
         ]
 
         outputs = os.linesep.join(cell_outputs)
@@ -71,10 +64,11 @@ def cli():
     parser = argparse.ArgumentParser()
     parser.add_argument("filename", type=str, help="The filename of the notebook to run")
     parser.add_argument("working_dir", type=str, help="The working directory in which to run")
-    parser.add_argument("--timeout", type=int,default=DEFAULT_TIMEOUT, help="The timeout of the notebook")
+    parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT, help="The timeout of the notebook")
     arg = parser.parse_args()
     stream = run_notebook(arg.filename, arg.working_dir, arg.timeout)
     print(stream)
+
 
 if __name__ == "__main__":
     cli()
