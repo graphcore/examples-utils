@@ -24,6 +24,7 @@ def run_notebook(notebook_filename: str, working_directory: str, timeout: int = 
         working_directory: The working directory from which the notebook is
             to be run.
     """
+
     with open(notebook_filename) as f:
         nb = nbformat.read(f, as_version=4)
     ep = ExecutePreprocessor(timeout=timeout, kernel_name="python3")

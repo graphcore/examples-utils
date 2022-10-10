@@ -36,6 +36,7 @@ def test_cli_equivalence():
 class TestNotebook2Cmd:
     """Test that conversion from notebook to variant is as expected"""
 
+
     def test_no_op_if_not_there(self):
         variant = {"cmd": "poprun"}
         variant_out = process_notebook_to_command(copy.deepcopy(variant))
@@ -43,6 +44,21 @@ class TestNotebook2Cmd:
             assert variant_out[k] == v
         for k, v in variant_out.items():
             assert variant[k] == v
+
+    def test_unknown_keys_throw_errors(self):
+        notebook_path = TEST_DIRECTORY / "test_files/sample.ipynb"
+        unknown_key = "not-a-key-name"
+        variant = {
+            "notebook": {
+                "file": notebook_path,
+                "working_directory": notebook_path.parent,
+                unknown_key: None,
+            },
+        }
+        # Check that an error containing the unknown key and the name of the
+        # config is thrown
+        with pytest.raises(Exception, match=f"bad-entry.*{unknown_key}"):
+            process_notebook_to_command(variant, "bad-entry")
 
     def test_error_if_cmd_and_notebook(self):
         variant = {"cmd": "poprun", "notebook": None}

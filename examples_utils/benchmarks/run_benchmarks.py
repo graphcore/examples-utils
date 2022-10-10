@@ -237,7 +237,7 @@ def run_benchmark_variant(
         logger.info(f"Install python requirements")
         if not Path(reqs).exists():
             raise FileNotFoundError(f"Invalid python requirements where specified at {reqs}")
-        subprocess.check_output(["python", "-m", "pip", "install", "-r", str(reqs)])
+        subprocess.check_output([sys.executable, "-m", "pip", "install", "-r", str(reqs)])
 
     logger.info(f"Start test: {start_time}")
     stdout, stderr, exitcode = run_and_monitor_progress(
@@ -348,6 +348,11 @@ def process_notebook_to_command(variant, name="unknown"):
     notebook_def = variant.pop("notebook")
     if not isinstance(notebook_def, dict):
         notebook_def = {"file": str(notebook_def)}
+
+    allowed_fields = {"file", "working_directory", "timeout"}
+    unknown_entries = [f for f in notebook_def if f not in allowed_fields]
+    if unknown_entries:
+        raise yaml.YAMLError(f"Notebook entry '{name}' has un-recognised options: {unknown_entries}")
     variant["cmd"] = " ".join([
         f"python3",
         "-m",
