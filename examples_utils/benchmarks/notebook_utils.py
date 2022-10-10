@@ -4,7 +4,7 @@ import argparse
 
 try:
     import nbformat
-    from nbconvert.preprocessors import ExecutePreprocessor
+    from nbconvert.preprocessors import ExecutePreprocessor, CellExecutionError
     from nbconvert import Exporter
     from nbformat import NotebookNode
     from nbconvert.exporters.exporter import ResourcesDict
@@ -28,9 +28,13 @@ def run_notebook(notebook_filename: str, working_directory: str, timeout: int = 
     with open(notebook_filename) as f:
         nb = nbformat.read(f, as_version=4)
     ep = ExecutePreprocessor(timeout=timeout, kernel_name="python3")
-    ep.preprocess(nb, {"metadata": {"path": f"{working_directory}"}})
-
     exporter = OutputExporter()
+    try:
+        ep.preprocess(nb, {"metadata": {"path": f"{working_directory}"}})
+    except CellExecutionError:
+        output, _ = exporter.from_notebook_node(nb)
+        print(output)
+        raise
     output, _ = exporter.from_notebook_node(nb)
     return output
 
