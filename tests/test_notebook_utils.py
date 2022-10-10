@@ -35,8 +35,6 @@ def test_cli_equivalence():
 
 class TestNotebook2Cmd:
     """Test that conversion from notebook to variant is as expected"""
-
-
     def test_no_op_if_not_there(self):
         variant = {"cmd": "poprun"}
         variant_out = process_notebook_to_command(copy.deepcopy(variant))
