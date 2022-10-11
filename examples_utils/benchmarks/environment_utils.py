@@ -79,7 +79,7 @@ def check_env(args: ArgumentParser, benchmark_name: str, cmd: str):
     if "s3" in args.upload_checkpoints:
         # Check for default credentials file or a env var to its path first
         if (not (Path(os.getenv("HOME"), ".aws", "credentials").exists())
-            and (not os.getenv("AWS_SHARED_CREDENTIALS_FILE"))):
+                and (not os.getenv("AWS_SHARED_CREDENTIALS_FILE"))):
             logger.warn("AWSCLI has not been configured. Checking for environment variables to be used instead...")
             missing_env_vars.extend([env_var for env_var in AWSCLI_VARS.keys() if os.getenv(env_var) is None])
 
