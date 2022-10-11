@@ -38,8 +38,8 @@ AWSCLI_VARS = {
 }
 
 
-def check_env_variables(args: ArgumentParser, benchmark_name: str, cmd: str):
-    """Check if environment variables have been set prior to running.
+def check_env(args: ArgumentParser, benchmark_name: str, cmd: str):
+    """Check if environment has been correctly set up prior to running.
 
     Args:
         args: CLI arguments provided to this benchmarking run
@@ -67,15 +67,21 @@ def check_env_variables(args: ArgumentParser, benchmark_name: str, cmd: str):
         raise EnvironmentError(err)
 
     missing_env_vars = []
+    err = ""
     # Check wandb variables if required
     if args.allow_wandb:
-        missing_env_vars.extend([env_var for env_var in WANDB_VARS.keys() if os.getenv(env_var) is None])
+        # Determine if wandb login has not been done already
+        netrc_path = Path(os.environ["HOME"], ".netrc")
+        if netrc_path.exists() and os.stat(Path(os.environ["HOME"], ".netrc")).st_size == 0:
+            missing_env_vars.extend([env_var for env_var in WANDB_VARS.keys() if os.getenv(env_var) is None])
+            err += "wandb has not been logged in. Checking for environment variables to be used instead..."
 
     # Check AWSCLI env vars if required
     if "s3" in args.upload_checkpoints:
         # Check for default credentials file or a env var to its path first
-        if (not Path(os.getenv("HOME"), ".aws", "credentials").exists()
-                and not os.getenv("AWS_SHARED_CREDENTIALS_FILE")):
+        if (not (Path(os.getenv("HOME"), ".aws", "credentials").exists())
+            and (not os.getenv("AWS_SHARED_CREDENTIALS_FILE"))):
+            err += "AWSCLI has not been configured. Checking for environment variables to be used instead..."
             missing_env_vars.extend([env_var for env_var in AWSCLI_VARS.keys() if os.getenv(env_var) is None])
 
     joint_vars_dict = {**WANDB_VARS, **AWSCLI_VARS}

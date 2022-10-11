@@ -24,7 +24,7 @@ from examples_utils.benchmarks.distributed_utils import (
     setup_distributed_filesystems,
 )
 from examples_utils.benchmarks.environment_utils import (
-    check_env_variables,
+    check_env,
     enter_benchmark_dir,
     get_mpinum,
     infer_paths,
@@ -423,7 +423,7 @@ def run_benchmarks(args: argparse.ArgumentParser):
 
         # Early check for env variables required by poprun and other calls
         for benchmark_name in variant_dictionary:
-            check_env_variables(args, benchmark_name, spec[benchmark_name]["cmd"])
+            check_env(args, benchmark_name, spec[benchmark_name]["cmd"])
 
         # Run each variant
         for benchmark_name in variant_dictionary:
