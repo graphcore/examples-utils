@@ -96,18 +96,20 @@ def get_latest_checkpoint_path(checkpoint_root_dir: Path, variant_command: list)
     for arg in cmd_args:
         if "checkpoint-output-dir" in arg:
             checkpoint_dir = arg.replace("=", " ").split(" ")[1]
+            checkpoint_dir = checkpoint_dir.replace("\"", "").replace("'", "")
             break
 
     latest_checkpoint_path = None
     if checkpoint_dir is not None:
         # Resolve relative to the benchmarks.yml path
         checkpoint_dir = checkpoint_root_dir.joinpath(checkpoint_dir).resolve()
-
+        print(checkpoint_dir)
         # Find all directories in checkpoint root dir
         list_of_dirs = [x for x in checkpoint_dir.glob('**/*') if x.is_dir()]
-
+        print(list_of_dirs)
         # Sort list of files based on last modification time and take latest
         time_sorted_dirs = sorted(list_of_dirs, key=os.path.getmtime, reverse=True)
+
         try:
             latest_checkpoint_path = time_sorted_dirs[0]
         except:
