@@ -138,12 +138,12 @@ def run_and_monitor_progress(cmd: list, listener: TextIOWrapper, timeout: int = 
 
 
 def run_benchmark_variant(
-        variant_name: str,
-        benchmark_name: str,
-        variant_dict: dict,
-        benchmark_dict: dict,
-        listener: TextIOWrapper,
-        args: argparse.ArgumentParser,
+    variant_name: str,
+    benchmark_name: str,
+    variant_dict: dict,
+    benchmark_dict: dict,
+    listener: TextIOWrapper,
+    args: argparse.ArgumentParser,
 ) -> dict:
     """Run a variant and collect results.
 
@@ -296,11 +296,12 @@ def run_benchmark_variant(
     # Upload checkpoints if required
     if args.upload_checkpoints and latest_checkpoint_path is not None:
         upload_checkpoints(
-            args.upload_checkpoints,
-            latest_checkpoint_path,
-            benchmark_dict["benchmark_path"],
-            variant_name,
-            stderr,
+            upload_targets=args.upload_checkpoints,
+            checkpoint_path=latest_checkpoint_path,
+            benchmark_path=benchmark_dict["benchmark_path"],
+            checkpoint_dir_depth=(4 if benchmark_dict.get("location") else 3),
+            run_name=variant_name,
+            stderr=stderr,
         )
 
     with open(outlog_path, "w") as f:

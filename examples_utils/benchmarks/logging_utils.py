@@ -173,7 +173,14 @@ def save_results(log_dir: str, results: dict):
     logger.info(f"Results saved to {str(csv_filepath)}")
 
 
-def upload_checkpoints(upload_targets: list, checkpoint_path: Path, benchmark_path: str, run_name: str, stderr: str):
+def upload_checkpoints(
+    upload_targets: list,
+    checkpoint_path: Path,
+    benchmark_path: str,
+    checkpoint_dir_depth: int,
+    run_name: str,
+    stderr: str
+):
     """Upload checkpoints from model run to 
 
     Args:
@@ -212,8 +219,11 @@ def upload_checkpoints(upload_targets: list, checkpoint_path: Path, benchmark_pa
             logger.warn(e)
 
     if "s3" in upload_targets:
+        # Create the upload path (target within the bucket)
+        upload_path = "/".join(benchmark_path.replace("/benchmarks.yml", "").split("/")[-checkpoint_dir_depth:]) + "/"
+        
         # Compose the AWSCLI upload command
-        cmd = ["aws", "s3", "cp", f"{checkpoint_path}", f"s3://gc-public-examples/{benchmark_path}", "--recursive"]
+        cmd = ["aws", "s3", "cp", f"{checkpoint_path}", f"s3://gc-public-examples/{upload_path}", "--recursive"]
 
         try:
             proc = subprocess.run(
@@ -221,7 +231,7 @@ def upload_checkpoints(upload_targets: list, checkpoint_path: Path, benchmark_pa
                 env=os.environ,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                )
+            )
             stdout = proc.stdout.decode()
             stderr = proc.stderr.decode()
 
@@ -250,8 +260,7 @@ def upload_checkpoints(upload_targets: list, checkpoint_path: Path, benchmark_pa
                    "\n4 - Enter the MFA code from your "
                    "authenticator app you use when logging into AWS in the "
                    "web browser etc.")
-
-        logger.info(msg)
+            logger.info(msg)
 
 
 def upload_compile_time(wandb_link: str, results: dict):
