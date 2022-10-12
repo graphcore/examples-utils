@@ -103,10 +103,10 @@ def get_latest_checkpoint_path(checkpoint_root_dir: Path, variant_command: list)
     if checkpoint_dir is not None:
         # Resolve relative to the benchmarks.yml path
         checkpoint_dir = checkpoint_root_dir.joinpath(checkpoint_dir).resolve()
-        print(checkpoint_dir)
+
         # Find all directories in checkpoint root dir
         list_of_dirs = [x for x in checkpoint_dir.glob('**/*') if x.is_dir()]
-        print(list_of_dirs)
+
         # Sort list of files based on last modification time and take latest
         time_sorted_dirs = sorted(list_of_dirs, key=os.path.getmtime, reverse=True)
 
@@ -216,13 +216,42 @@ def upload_checkpoints(upload_targets: list, checkpoint_path: Path, benchmark_pa
         cmd = ["aws", "s3", "cp", f"{checkpoint_path}", f"s3://gc-public-examples/{benchmark_path}", "--recursive"]
 
         try:
-            subprocess.run(
+            proc = subprocess.run(
                 cmd,
                 env=os.environ,
-            )
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                )
+            stdout = proc.stdout.decode()
+            stderr = proc.stderr.decode()
+
+            if proc.returncode == 0:
+                logger.info(f"Checkpoint at {checkpoint_path} successfully uploaded to s3.")
+
         except Exception as e:
             logger.warn(f"Failed to upload checkpoint at {checkpoint_path} to s3.")
             logger.warn(e)
+
+        if "AccessDenied" in stdout + stderr:
+            msg = ("It appears that awscli is denied access when uploading. "
+                   "If you have MFA (Multi-factor authentication) enabled for "
+                   "your AWS account, then it will require setting up prior "
+                   "to attempting any uploads. Please repeat this benchmarking "
+                   "run after configuring aws-mfa "
+                   "(https://github.com/broamski/aws-mfa) in your environment: "
+                   "\n1 - `pip3 install aws-mfa`"
+                   "\n2 - In your aws credentials, append '-long-term' to the "
+                   "profile you want to use (e.g. [default-long-term]) and add "
+                   "a new field called aws_mfa_device, the value of which you "
+                   "can get from your AWS account > security credentials (e.g "
+                   "aws_mfa_device "
+                   "= arn:aws:iam::<account number>:mfa/<username>) "
+                   "\n3 - `aws-mfa` "
+                   "\n4 - Enter the MFA code from your "
+                   "authenticator app you use when logging into AWS in the "
+                   "web browser etc.")
+
+        logger.info(msg)
 
 
 def upload_compile_time(wandb_link: str, results: dict):
