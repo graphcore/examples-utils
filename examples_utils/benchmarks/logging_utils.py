@@ -173,14 +173,8 @@ def save_results(log_dir: str, results: dict):
     logger.info(f"Results saved to {str(csv_filepath)}")
 
 
-def upload_checkpoints(
-    upload_targets: list,
-    checkpoint_path: Path,
-    benchmark_path: str,
-    checkpoint_dir_depth: int,
-    run_name: str,
-    stderr: str
-):
+def upload_checkpoints(upload_targets: list, checkpoint_path: Path, benchmark_path: str, checkpoint_dir_depth: int,
+                       run_name: str, stderr: str):
     """Upload checkpoints from model run to 
 
     Args:
@@ -221,7 +215,7 @@ def upload_checkpoints(
     if "s3" in upload_targets:
         # Create the upload path (target within the bucket)
         upload_path = "/".join(benchmark_path.replace("/benchmarks.yml", "").split("/")[-checkpoint_dir_depth:]) + "/"
-        
+
         # Compose the AWSCLI upload command
         cmd = ["aws", "s3", "cp", f"{checkpoint_path}", f"s3://gc-public-examples/{upload_path}", "--recursive"]
 

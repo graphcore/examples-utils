@@ -138,12 +138,12 @@ def run_and_monitor_progress(cmd: list, listener: TextIOWrapper, timeout: int = 
 
 
 def run_benchmark_variant(
-    variant_name: str,
-    benchmark_name: str,
-    variant_dict: dict,
-    benchmark_dict: dict,
-    listener: TextIOWrapper,
-    args: argparse.ArgumentParser,
+        variant_name: str,
+        benchmark_name: str,
+        variant_dict: dict,
+        benchmark_dict: dict,
+        listener: TextIOWrapper,
+        args: argparse.ArgumentParser,
 ) -> dict:
     """Run a variant and collect results.
 
