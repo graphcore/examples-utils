@@ -3,6 +3,7 @@ import copy
 import logging
 import os
 import re
+import sys
 import subprocess
 from argparse import ArgumentParser
 from pathlib import Path
@@ -148,7 +149,7 @@ def infer_paths(args: ArgumentParser, benchmark_dict: dict) -> ArgumentParser:
 
 def get_git_commit_hash() -> str:
     # assumed we're in the top level directory of 
-    process = subprocess.check_output(['git', 'rev-parse', 'HEAD'])
+    process = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode(sys.stdout.encoding).strip()
     return str(process)
 
 
