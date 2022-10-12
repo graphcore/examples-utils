@@ -376,10 +376,14 @@ def get_match_of_list(regex_list: list, line: str) -> str:
 
 
 def additional_metrics(results: dict, cmd: str, exitcode: int, 
-                       env: str, git_commit_hash: str) -> dict:
+                       env: list, git_commit_hash: str) -> dict:
     results["cmd"] = {"cmd": cmd}
     results["result"] = {"result": str(bool(not exitcode))}
-    results["env"] = {"env": env}
     results["git_commit_hash"] = {"git_commit_hash": git_commit_hash}
 
+    env_string = str()
+    for k, v in env.items():
+        env_string = env_string + f"{k}={v} "
+    results["env"] = {"env": env_string}
+    
     return results
