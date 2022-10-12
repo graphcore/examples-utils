@@ -28,6 +28,7 @@ from examples_utils.benchmarks.distributed_utils import (
 from examples_utils.benchmarks.environment_utils import (
     check_poprun_env_variables,
     enter_benchmark_dir,
+    get_git_commit_hash,
     get_mpinum,
     infer_paths,
     merge_environment_variables,
@@ -42,6 +43,7 @@ from examples_utils.benchmarks.metrics_utils import (
     derive_metrics,
     extract_metrics,
     get_results_for_compile_time,
+    additional_metrics,
 )
 from examples_utils.benchmarks.profiling_utils import add_profiling_vars
 
@@ -272,6 +274,10 @@ def run_benchmark_variant(
         else:
             logger.info("Continuing to next benchmark as `--ignore-error` was passed")
 
+    git_commit_hash = get_git_commit_hash()
+
+    print(env)
+
     # Get 'data' metrics, these are metrics scraped from the log
     results, extraction_failure = extract_metrics(
         benchmark_dict.get("data", {}),
@@ -279,6 +285,15 @@ def run_benchmark_variant(
         exitcode,
         get_mpinum(variant_command),
     )
+
+    if args.additional_metrics:
+        results = additional_metrics(
+            results,
+            str(' '.join(cmd)),
+            exitcode,
+            new_env, # just additional environment variables
+            git_commit_hash
+        )
 
     # Get 'derived' metrics, these are metrics 'derived' from other metrics
     results, derivation_failure = derive_metrics(
@@ -431,15 +446,17 @@ def run_benchmarks(args: argparse.ArgumentParser):
                 logger.info(f"\t{name}")
 
             result_list = []
+            benchmark_result = dict()
             for variant in variant_dictionary[benchmark_name]:
-                benchmark_result = run_benchmark_variant(
-                    variant["name"],
-                    benchmark_name,
-                    variant["config"],
-                    benchmark_spec,
-                    listener,
-                    args,
-                )
+                if variant["name"] in "pytorch_resnet50_infer_gen_pod4_batchsize_1":
+                    benchmark_result = run_benchmark_variant(
+                        variant["name"],
+                        benchmark_name,
+                        variant["config"],
+                        benchmark_spec,
+                        listener,
+                        args,
+                    )
                 result_list.append(benchmark_result)
 
             results[benchmark_name] = result_list
@@ -452,7 +469,7 @@ def run_benchmarks(args: argparse.ArgumentParser):
         json.dump(results, json_file, sort_keys=True, indent=2)
 
     # Parse summary into CSV and save in logs directory
-    csv_metrics = ["throughput", "latency", "total_compiling_time"]
+    csv_metrics = ["throughput", "latency", "total_compiling_time", "loss", "result", "cmd", "env", "git_commit_hash"]
     with open(Path(args.log_dir, "benchmark_results.csv"), "w") as csv_file:
         writer = csv.writer(csv_file, quoting=csv.QUOTE_ALL)
         # Use a fixed set of headers, any more detail belongs in the JSON file
@@ -466,8 +483,8 @@ def run_benchmarks(args: argparse.ArgumentParser):
                 # Find all the metrics we have available from the list defined
                 for metric in csv_metrics:
                     value = list(r["results"].get(metric, {0: None}).values())[0]
-                    if value is not None:
-                        value = float(value)
+                    # if value is not None:
+                    #     value = float(value)
                     csv_row.append(value)
 
                 writer.writerow(csv_row)
@@ -552,4 +569,10 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         default=None,
         type=int,
         help="Maximum time allowed for any benchmark/variant (in seconds)",
+    )
+
+    parser.add_argument(
+        "--additional-metrics",
+        action="store_true",
+        help="Collect additional metrics to the output CSV file",
     )
