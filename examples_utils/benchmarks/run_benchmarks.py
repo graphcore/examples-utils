@@ -53,8 +53,8 @@ logger = logging.getLogger()
 def reattempt_run(variant, output, err, exitcode) -> Union[bool, str]:
     if "Timeout" in err:
         return False
-
-    if "notebook" in variant and "ModuleNotFoundError" in err and exitcode != 0:
+    is_a_notebook = "examples_utils.benchmarks.notebook_utils" in variant["cmd"]
+    if is_a_notebook and "ModuleNotFoundError" in err and exitcode != 0:
         if "Successfully installed" in output:
             return "Notebook has installed some packages, need to restart kernel"
 
@@ -269,6 +269,7 @@ def run_benchmark_variant(
             Path("./final_out.log").write_text(stdout)
             Path("./final_err.log").write_text(stderr)
             Path("./final_bench_dict.log").write_text(json.dumps(benchmark_dict))
+
     end_time = datetime.now()
     total_runtime = (end_time - start_time).total_seconds()
     logger.info(f"End test: {end_time}")
