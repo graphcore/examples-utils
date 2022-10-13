@@ -1,6 +1,8 @@
 # Copyright (c) 2022 Graphcore Ltd. All rights reserved.
 import os
 import argparse
+import subprocess
+import sys
 
 try:
     import nbformat
@@ -31,8 +33,11 @@ def run_notebook(notebook_filename: str, working_directory: str, timeout: int = 
     exporter = OutputExporter()
     try:
         ep.preprocess(nb, {"metadata": {"path": f"{working_directory}"}})
-    except CellExecutionError:
+    except CellExecutionError as error:
+
         output, _ = exporter.from_notebook_node(nb)
+        if "ModuleNotFoundError" in str(error) or "ModuleNotFoundError" in output:
+            return str(subprocess.check_output([sys.executable, *sys.argv]))
         print(output)
         raise
     output, _ = exporter.from_notebook_node(nb)
