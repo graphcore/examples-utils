@@ -483,8 +483,6 @@ def run_benchmarks(args: argparse.ArgumentParser):
                 # Find all the metrics we have available from the list defined
                 for metric in csv_metrics:
                     value = list(r["results"].get(metric, {0: None}).values())[0]
-                    # if value is not None:
-                    #     value = float(value)
                     csv_row.append(value)
 
                 writer.writerow(csv_row)
