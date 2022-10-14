@@ -289,6 +289,7 @@ def run_benchmark_variant(
     if args.additional_metrics:
         results = additional_metrics(
             results,
+            total_runtime,
             str(' '.join(cmd)),
             exitcode,
             new_env, # just additional environment variables
@@ -468,7 +469,7 @@ def run_benchmarks(args: argparse.ArgumentParser):
         json.dump(results, json_file, sort_keys=True, indent=2)
 
     # Parse summary into CSV and save in logs directory
-    csv_metrics = ["throughput", "latency", "total_compiling_time", "loss", "result", "cmd", "env", "git_commit_hash"]
+    csv_metrics = ["throughput", "latency", "total_compiling_time", "test_duration", "loss", "result", "cmd", "env", "git_commit_hash"]
     with open(Path(args.log_dir, "benchmark_results.csv"), "w") as csv_file:
         writer = csv.writer(csv_file, quoting=csv.QUOTE_ALL)
         # Use a fixed set of headers, any more detail belongs in the JSON file

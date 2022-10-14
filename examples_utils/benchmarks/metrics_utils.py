@@ -375,8 +375,9 @@ def get_match_of_list(regex_list: list, line: str) -> str:
     return match
 
 
-def additional_metrics(results: dict, cmd: str, exitcode: int, 
+def additional_metrics(results: dict, test_duration: float, cmd: str, exitcode: int, 
                        env: list, git_commit_hash: str) -> dict:
+    results["test_duration"] = {"test_duration": test_duration}
     results["cmd"] = {"cmd": cmd}
     results["result"] = {"result": str(bool(not exitcode))}
     results["git_commit_hash"] = {"git_commit_hash": git_commit_hash}
