@@ -448,15 +448,14 @@ def run_benchmarks(args: argparse.ArgumentParser):
             result_list = []
             benchmark_result = dict()
             for variant in variant_dictionary[benchmark_name]:
-                if variant["name"] in "pytorch_resnet50_infer_gen_pod4_batchsize_1":
-                    benchmark_result = run_benchmark_variant(
-                        variant["name"],
-                        benchmark_name,
-                        variant["config"],
-                        benchmark_spec,
-                        listener,
-                        args,
-                    )
+                benchmark_result = run_benchmark_variant(
+                    variant["name"],
+                    benchmark_name,
+                    variant["config"],
+                    benchmark_spec,
+                    listener,
+                    args,
+                )
                 result_list.append(benchmark_result)
 
             results[benchmark_name] = result_list
