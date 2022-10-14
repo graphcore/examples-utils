@@ -186,6 +186,8 @@ def run_benchmark_variant(
 
     # Change cwd to where the benchmarks file was
     enter_benchmark_dir(benchmark_dict)
+    # get the hash of the head commit of the benchmark directory
+    git_commit_hash = get_git_commit_hash()
 
     # Create the actual command for the variant
     variant_command = formulate_benchmark_command(benchmark_dict, variant_dict, args)
@@ -273,8 +275,6 @@ def run_benchmark_variant(
             raise RuntimeError(err)
         else:
             logger.info("Continuing to next benchmark as `--ignore-error` was passed")
-
-    git_commit_hash = get_git_commit_hash()
 
     # Get 'data' metrics, these are metrics scraped from the log
     results, extraction_failure = extract_metrics(
