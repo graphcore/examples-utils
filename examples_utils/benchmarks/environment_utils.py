@@ -42,7 +42,7 @@ def check_env(args: ArgumentParser, benchmark_name: str, cmd: str):
     """Check if environment has been correctly set up prior to running.
 
     Args:
-        args: CLI arguments provided to this benchmarking run
+        args (ArgumentParser): CLI arguments provided to this benchmarking run
         benchmark_name (str): The name of the benchmark being run
         cmd (str): The command being run
 

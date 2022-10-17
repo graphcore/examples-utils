@@ -76,12 +76,12 @@ def print_benchmark_summary(results: dict):
         print(f"================ {failed} failed, {passed} passed ===============")
 
 
-def get_latest_checkpoint_path(checkpoint_root_dir: Path, variant_command: list) -> Path:
+def get_latest_checkpoint_path(checkpoint_root_dir: Path, variant_cmd: str) -> Path:
     """Get the path to the latest available checkpoint for a model.
 
     Args:
         checkpoint_root_dir (Path): The path to the benchmarking dir
-        cmd (str): The command used for this model run (benchmark)
+        variant_cmd (str): The command used for this model run (benchmark)
     
     Returns:
         latest_checkpoint_path (Path): The directory containing all checkpoints
@@ -89,7 +89,7 @@ def get_latest_checkpoint_path(checkpoint_root_dir: Path, variant_command: list)
 
     """
 
-    cmd_args = variant_command.split(" --")
+    cmd_args = variant_cmd.split(" --")
 
     # Look at each arg to see if it could be a checkpoint path
     checkpoint_dir = None
