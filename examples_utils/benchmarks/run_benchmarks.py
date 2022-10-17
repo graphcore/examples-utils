@@ -490,6 +490,11 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
     """Add benchmarking arguments to argparse parser"""
 
     parser.add_argument(
+        "--additional-metrics",
+        action="store_true",
+        help="Collect additional metrics to the output CSV file",
+    )
+    parser.add_argument(
         "--spec",
         required=True,
         type=str,
@@ -565,10 +570,4 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         default=None,
         type=int,
         help="Maximum time allowed for any benchmark/variant (in seconds)",
-    )
-
-    parser.add_argument(
-        "--additional-metrics",
-        action="store_true",
-        help="Collect additional metrics to the output CSV file",
     )
