@@ -8,6 +8,7 @@ import subprocess
 from argparse import ArgumentParser
 from pathlib import Path
 
+
 # Get the module logger
 logger = logging.getLogger(__name__)
 
@@ -147,10 +148,14 @@ def infer_paths(args: ArgumentParser, benchmark_dict: dict) -> ArgumentParser:
 
     return args
 
+
 def get_git_commit_hash() -> str:
     # assumed we're in the top level directory of the git repo
-    process = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode(sys.stdout.encoding).strip()
-    return str(process)
+    try:
+        process = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode(sys.stdout.encoding).strip()
+        return str(process)
+    except:
+        return "Not a git repo"
 
 
 def merge_environment_variables(new_env: dict, benchmark_spec: dict) -> dict:
