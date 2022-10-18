@@ -8,7 +8,7 @@ from examples_utils.benchmarks.environment_utils import get_git_commit_hash
 
 cwd = pathlib.Path.cwd()
 
-@pytest.fixture()
+@pytest.fixture(autouse=True)
 def teardown():
     yield
     os.chdir(cwd)

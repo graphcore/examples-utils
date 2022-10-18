@@ -154,7 +154,8 @@ def get_git_commit_hash() -> str:
     try:
         process = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode(sys.stdout.encoding).strip()
         return str(process)
-    except:
+    except Exception as error:
+        logger.warning(f"Failed to get git revision: {error}")
         return "Not a git repo"
 
 
