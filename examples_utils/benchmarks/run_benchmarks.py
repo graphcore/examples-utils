@@ -50,7 +50,7 @@ from examples_utils.benchmarks.profiling_utils import add_profiling_vars
 logger = logging.getLogger()
 
 
-def reattempt_run(variant, output, err, exitcode) -> Union[bool, str]:
+def should_reattempt_benchmark(variant, output, err, exitcode) -> Union[bool, str]:
     if "Timeout" in err:
         return False
     is_a_notebook = "examples_utils.benchmarks.notebook_utils" in variant["cmd"]
@@ -252,8 +252,8 @@ def run_benchmark_variant(
         subprocess.check_output([sys.executable, "-m", "pip", "install", "-r", str(reqs)])
 
     logger.info(f"Start test: {start_time}")
-    attempt_run = True
-    while attempt_run:
+    need_to_run = True
+    while need_to_run:
         stdout, stderr, exitcode = run_and_monitor_progress(
             cmd,
             listener,
@@ -261,7 +261,7 @@ def run_benchmark_variant(
             cwd=cwd,
             env=env,
         )
-        attempt_run = reattempt_run(benchmark_dict, stdout, stderr, exitcode)
+        need_to_run = should_reattempt_benchmark(benchmark_dict, stdout, stderr, exitcode)
         if attempt_run:
             logger.info(f"Re-running benchmark because: {attempt_run}")
 
