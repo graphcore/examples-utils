@@ -1,7 +1,5 @@
 # Copyright (c) 2022 Graphcore Ltd. All rights reserved.
 import argparse
-import csv
-import json
 import logging
 import os
 import selectors
@@ -26,17 +24,21 @@ from examples_utils.benchmarks.distributed_utils import (
     setup_distributed_filesystems,
 )
 from examples_utils.benchmarks.environment_utils import (
-    check_poprun_env_variables,
+    check_env,
     enter_benchmark_dir,
     get_git_commit_hash,
     get_mpinum,
     infer_paths,
     merge_environment_variables,
+    preprocess_args,
 )
 from examples_utils.benchmarks.logging_utils import (
     WANDB_AVAILABLE,
+    get_latest_checkpoint_path,
     get_wandb_link,
     print_benchmark_summary,
+    save_results,
+    upload_checkpoints,
     upload_compile_time,
 )
 from examples_utils.benchmarks.metrics_utils import (
@@ -58,6 +60,7 @@ def run_and_monitor_progress(cmd: list, listener: TextIOWrapper, timeout: int = 
         cmd (list): The command to be run, as a list for use by subprocess
         listener (TextIOWrapper): Listener that takes the output from the process
         timeout (int): Seconds until the process will timeout, forcing termination
+        kwargs: all additional keyword arguments are passed to `subprocess.Popen`.
 
     Returns:
         output (str): stdout from the process
@@ -147,20 +150,6 @@ def run_benchmark_variant(
 ) -> dict:
     """Run a variant and collect results.
 
-    Note:
-        For each variant:
-        1) Create the variants (benchmark_test (cases)) and define the UID
-            (variant_id, aka benchmark_test (case))
-        2) Define and clean the command (swap out markers) Clean the command
-        3) Define the config["mpirun"]
-        4) Define the Working Dir
-        5) Create the logs directory
-        6) Actually run the benchmark
-        7) Calculate and log end time and total run time
-            - IF errored, log logs and exit (if not ignore errors)
-        8) Write logs to files to a file - extract metrics and post-process them
-        9) Return a dictionary of results dictionaries
-
     Args:
         variant_name (str): The name of the variant to be run
         benchmark_name (str): The name of the benchmark to be run
@@ -235,6 +224,13 @@ def run_benchmark_variant(
         setup_distributed_filesystems(args, poprun_hostnames)
 
     start_time = datetime.now()
+    reqs = benchmark_dict.get("requirements_file")
+    if reqs:
+        logger.info(f"Install python requirements")
+        if not Path(reqs).exists():
+            raise FileNotFoundError(f"Invalid python requirements where specified at {reqs}")
+        subprocess.check_output([sys.executable, "-m", "pip", "install", "-r", str(reqs)])
+
     logger.info(f"Start test: {start_time}")
     stdout, stderr, exitcode = run_and_monitor_progress(
         cmd,
@@ -315,6 +311,21 @@ def run_benchmark_variant(
         if wandb_link is not None:
             upload_compile_time(wandb_link, results)
 
+    # Find checkpoints from this run
+    checkpoint_root_dir = Path(benchmark_dict["benchmark_path"]).parent.joinpath(benchmark_dict.get("location", ""))
+    latest_checkpoint_path = get_latest_checkpoint_path(checkpoint_root_dir, variant_command)
+
+    # Upload checkpoints if required
+    if args.upload_checkpoints and latest_checkpoint_path is not None:
+        upload_checkpoints(
+            upload_targets=args.upload_checkpoints,
+            checkpoint_path=latest_checkpoint_path,
+            benchmark_path=benchmark_dict["benchmark_path"],
+            checkpoint_dir_depth=(4 if benchmark_dict.get("location") else 3),
+            run_name=variant_name,
+            stderr=stderr,
+        )
+
     with open(outlog_path, "w") as f:
         f.write(stdout)
     with open(errlog_path, "w") as f:
@@ -346,6 +357,30 @@ def run_benchmark_variant(
     return variant_result
 
 
+def process_notebook_to_command(variant, name="unknown"):
+    if "notebook" not in variant:
+        return variant
+    if "notebook" in variant and "cmd" in variant:
+        raise ValueError("Invalid combination of entries 'notebook' and 'cmd' in " f"benchmark: {name}")
+    notebook_def = variant.pop("notebook")
+    if not isinstance(notebook_def, dict):
+        notebook_def = {"file": str(notebook_def)}
+
+    allowed_fields = {"file", "working_directory", "timeout"}
+    unknown_entries = [f for f in notebook_def if f not in allowed_fields]
+    if unknown_entries:
+        raise yaml.YAMLError(f"Notebook entry '{name}' has un-recognised options: {unknown_entries}")
+    variant["cmd"] = " ".join([
+        f"python3",
+        "-m",
+        "examples_utils.benchmarks.notebook_utils",
+        str(notebook_def['file']),
+        str(notebook_def.get('working_directory', '.')),
+    ] + (["--timeout", str(notebook_def['timeout'])] if "timeout" in notebook_def else []))
+
+    return variant
+
+
 def run_benchmarks(args: argparse.ArgumentParser):
     """Run benchmarks.
 
@@ -354,6 +389,9 @@ def run_benchmarks(args: argparse.ArgumentParser):
             with
 
     """
+
+    # Preprocess args to resolve any inconsistencies or cover up any gaps
+    args = preprocess_args(args)
 
     # Resolve paths to benchmarks specs
     args.spec = [str(Path(file).resolve()) for file in args.spec]
@@ -385,6 +423,8 @@ def run_benchmarks(args: argparse.ArgumentParser):
         else:
             benchmarks_list = args.benchmark
 
+        for variant_name, variant in spec.items():
+            variant = process_notebook_to_command(variant, variant_name)
         variant_dictionary = OrderedDict()
         for benchmark_name in benchmarks_list:
             # Check if this benchmark exists
@@ -398,13 +438,16 @@ def run_benchmarks(args: argparse.ArgumentParser):
             if "options" in benchmark_name:
                 continue
 
-            # Skip convergence tests by default unless --include-convergence
             # is provided, or they are explicitly named in --benchmarks
             if ((args.benchmark is None) and ("_conv" in benchmark_name) and (not args.include_convergence)):
                 continue
-
+            spec_entry = spec.get(benchmark_name, {})
+            if "gen" in benchmark_name:
+                spec_entry["generated"] = True
+            if "synth" in benchmark_name:
+                spec_entry["synthetic"] = True
             # Enforce DATASETS_DIR set only if this benchmark needs real data
-            if ("gen" not in benchmark_name) and ("synth" not in benchmark_name):
+            if not (spec_entry.get("generated") or spec_entry.get("synthetic")):
                 if "DATASETS_DIR" not in os.environ:
                     err = (f"Benchmark '{benchmark_name}' requires a dataset "
                            "as it is not configured to use generated or "
@@ -430,9 +473,9 @@ def run_benchmarks(args: argparse.ArgumentParser):
             logger.error(err)
             raise ValueError(err)
 
-        # Early check for poprun calls that might require some env variables
+        # Early check for env variables required by poprun and other calls
         for benchmark_name in variant_dictionary:
-            check_poprun_env_variables(benchmark_name, spec[benchmark_name]["cmd"])
+            check_env(args, benchmark_name, spec[benchmark_name]["cmd"])
 
         # Run each variant
         for benchmark_name in variant_dictionary:
@@ -462,6 +505,7 @@ def run_benchmarks(args: argparse.ArgumentParser):
     # Print PASSED/FAILED summary
     print_benchmark_summary(results)
 
+<<<<<<< HEAD
     # Save results dict as JSON
     with open(Path(args.log_dir, "benchmark_results.json"), "w") as json_file:
         json.dump(results, json_file, sort_keys=True, indent=2)
@@ -484,11 +528,15 @@ def run_benchmarks(args: argparse.ArgumentParser):
                     csv_row.append(value)
 
                 writer.writerow(csv_row)
+=======
+    save_results(args.log_dir, results)
+>>>>>>> origin/master
 
 
 def benchmarks_parser(parser: argparse.ArgumentParser):
     """Add benchmarking arguments to argparse parser"""
 
+    # Key arguments
     parser.add_argument(
         "--additional-metrics",
         action="store_true",
@@ -507,6 +555,8 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         nargs="+",
         help="List of benchmark ids to run",
     )
+
+    # Additional functionality controls
     parser.add_argument(
         "--allow-wandb",
         action="store_true",
@@ -570,4 +620,12 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         default=None,
         type=int,
         help="Maximum time allowed for any benchmark/variant (in seconds)",
+    )
+    parser.add_argument(
+        "--upload-checkpoints",
+        default="",
+        type=str,
+        nargs="+",
+        choices=["wandb", "s3"],
+        help="List of locations to upload model checkpoints to",
     )
