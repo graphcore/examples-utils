@@ -150,7 +150,8 @@ def save_results(log_dir: str, results: dict):
     logger.info(f"Results saved to {str(json_filepath)}")
 
     # Parse summary into CSV and save in logs directory
-    csv_metrics = ["throughput", "latency", "total_compiling_time"]
+    csv_metrics = ["throughput", "latency", "total_compiling_time", "test_duration", "loss", "result", "cmd", "env", "git_commit_hash"]
+
     csv_filepath = Path(log_dir, "benchmark_results.csv")
     with open(csv_filepath, "w") as csv_file:
         writer = csv.writer(csv_file, quoting=csv.QUOTE_ALL)
