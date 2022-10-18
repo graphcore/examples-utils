@@ -262,8 +262,8 @@ def run_benchmark_variant(
             env=env,
         )
         need_to_run = should_reattempt_benchmark(benchmark_dict, stdout, stderr, exitcode)
-        if attempt_run:
-            logger.info(f"Re-running benchmark because: {attempt_run}")
+        if need_to_run:
+            logger.info(f"Re-running benchmark because: {need_to_run}")
 
     end_time = datetime.now()
     total_runtime = (end_time - start_time).total_seconds()
