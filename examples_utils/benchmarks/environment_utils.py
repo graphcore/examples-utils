@@ -7,7 +7,7 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 # Get the module logger
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 POPRUN_VARS = {
     "HOSTS": ("Comma seperated list of IP addresses/names of the machines you want "
@@ -229,8 +229,18 @@ def preprocess_args(args: ArgumentParser) -> ArgumentParser:
     
     """
 
+    # Resolve paths to benchmarks specs
+    args.spec = [str(Path(file).resolve()) for file in args.spec]
+
     # Force allow-wandb if user wants to upload checkpoints to wandb
     if "wandb" in args.upload_checkpoints:
         args.allow_wandb = True
+    
+    # Set developer options if requested
+    if args.developer_mode:
+        args.allow_wandb = True
+        args.include_convergence = True
+        args.ignore_error = True
+        args.verbose = True
 
     return args

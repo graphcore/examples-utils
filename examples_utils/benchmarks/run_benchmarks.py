@@ -50,6 +50,22 @@ from examples_utils.benchmarks.profiling_utils import add_profiling_vars
 # Get the module logger
 logger = logging.getLogger()
 
+# Progress spinner frames to iterate through
+progress_frames = [
+    "      ",
+    ">     ",
+    "=>    ",
+    "==>   ",
+    "===>  ",
+    "====> ",
+    "<====>",
+    " <====",
+    "  <===",
+    "   <==",
+    "    <=",
+    "     <",
+]
+
 
 def run_and_monitor_progress(cmd: list, listener: TextIOWrapper, timeout: int = None, **kwargs) -> Tuple[str, str, int]:
     """Run the benchmark monitor progress.
@@ -122,7 +138,9 @@ def run_and_monitor_progress(cmd: list, listener: TextIOWrapper, timeout: int = 
             proc.kill()
 
         sys.stderr.write("\r")
-        sys.stderr.write(f"\tBenchmark elapsed time: {str(timedelta(seconds=total_time))} ({total_time} seconds)")
+        index = total_time % len(progress_frames)
+        sys.stderr.write(f"\tBenchmark elapsed time: {str(timedelta(seconds=total_time))} "
+                         f"({total_time} seconds) {progress_frames[index]}")
         sys.stderr.flush()
 
     sys.stderr.write("\r")
@@ -163,7 +181,8 @@ def run_benchmark_variant(
 
     """
 
-    logger.info(f"Running variant: '{variant_name}'")
+    if variant_name != benchmark_name:
+        logger.info(f"\tRunning variant: '{variant_name}'")
 
     # Purge data fields for compile only tests
     if args.compile_only:
@@ -238,7 +257,7 @@ def run_benchmark_variant(
     end_time = datetime.now()
     total_runtime = (end_time - start_time).total_seconds()
     logger.info(f"End test: {end_time}")
-    logger.info(f"Total runtime: {total_runtime} seconds")
+    print(f"Total runtime: {total_runtime} seconds")
 
     # TODO: Analyse profile data and output to logs with REPTIL
     # if args.profile:
@@ -249,7 +268,7 @@ def run_benchmark_variant(
         remove_distributed_filesystems(args, poprun_hostnames)
 
     if not is_distributed and args.remove_dirs_after:
-        logger.info("'--remove-dirs-after has been set but this benchmark has "
+        logger.warn("'--remove-dirs-after has been set but this benchmark has "
                     "not been specified to use multiple hosts, and so there "
                     "are no remote temporary filesystems to delete. Local "
                     "filesystems on this host will not automatically be "
@@ -266,7 +285,7 @@ def run_benchmark_variant(
             sys.excepthook = lambda exctype, exc, traceback: print("{}: {}".format(exctype.__name__, exc))
             raise RuntimeError(err)
         else:
-            logger.info("Continuing to next benchmark as `--ignore-error` was passed")
+            logger.warn("Previous benchmark Continuing to next benchmark as `--ignore-error` was passed")
 
     # Get 'data' metrics, these are metrics scraped from the log
     results, extraction_failure = extract_metrics(
@@ -376,19 +395,13 @@ def run_benchmarks(args: argparse.ArgumentParser):
 
     """
 
-    # Preprocess args to resolve any inconsistencies or cover up any gaps
-    args = preprocess_args(args)
-
-    # Resolve paths to benchmarks specs
-    args.spec = [str(Path(file).resolve()) for file in args.spec]
-
     spec_files = ",".join([str(sf) for sf in args.spec if ".yml" in str(sf)])
     logger.info(f"Running benchmark suite: '{spec_files}'")
 
     # Load all benchmark configs from all files given
     spec = {}
     for spec_file in args.spec:
-        logger.debug(f"Examining: '{spec_file}'")
+        logger.info(f"Examining: '{spec_file}'")
         found_benchmarks = yaml.load(open(spec_file).read(), Loader=yaml.FullLoader)
 
         # Add the file each benchmark config came from
@@ -399,9 +412,9 @@ def run_benchmarks(args: argparse.ArgumentParser):
     results = {}
     output_log_path = Path(args.log_dir, "output.log")
     with open(output_log_path, "w", buffering=1) as listener:
-        print("\n" + "#" * 80)
-        logger.info(f"Logs at: {output_log_path}")
-        print("#" * 80 + "\n")
+        print("#"*80)
+        print(f"Logs at: {output_log_path}")
+        print("#"*80 + "\n")
 
         # Only check explicitily listed benchmarks if provided
         if args.benchmark is None:
@@ -466,12 +479,14 @@ def run_benchmarks(args: argparse.ArgumentParser):
         # Run each variant
         for benchmark_name in variant_dictionary:
             benchmark_spec = spec.get(benchmark_name, {})
-            logger.info("Running " + benchmark_name)
-            logger.info(f"Running {str(len(variant_dictionary[benchmark_name]))} variants:")
+            print("Running " + benchmark_name)
 
-            for variant_name in variant_dictionary[benchmark_name]:
-                name = variant_name.get("name")
-                logger.info(f"\t{name}")
+            if len(variant_dictionary) > 1:
+                print(f"Running {str(len(variant_dictionary[benchmark_name]))} variants:")
+
+                for variant_name in variant_dictionary[benchmark_name]:
+                    name = variant_name.get("name")
+                    logger.info(f"\t{name}")
 
             result_list = []
             for variant in variant_dictionary[benchmark_name]:
@@ -499,9 +514,9 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
     # Key arguments
     parser.add_argument(
         "--spec",
-        required=True,
         type=str,
         nargs="+",
+        default=["./benchmarks.yml"],
         help="Yaml files with benchmark spec",
     )
     parser.add_argument(
@@ -521,6 +536,14 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         "--compile-only",
         action="store_true",
         help="Enable compile only options in compatible models",
+    )
+    parser.add_argument(
+        "-d",
+        "--developer-mode",
+        action="store_true",
+        help=("Run in developer model (internal use only). Equivalent to "
+              "`--allow-wandb --include-convergence --ignore-errors "
+              "--verbose`"),
     )
     parser.add_argument(
         "--include-convergence",
@@ -547,7 +570,7 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         "--logging",
         choices=["DEBUG", "INFO", "ERROR", "CRITICAL", "WARNING"],
         default="INFO",
-        help="Specify the logging level",
+        help="Specify the logging level set for poplar/popart (the example's code)",
     )
     parser.add_argument(
         "--profile",
@@ -583,4 +606,11 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         nargs="+",
         choices=["wandb", "s3"],
         help="List of locations to upload model checkpoints to",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        default=False,
+        help="Increase the amount of information and outputs logged to stdout",
     )

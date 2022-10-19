@@ -6,6 +6,8 @@ import subprocess
 from argparse import ArgumentParser
 from pathlib import Path
 
+#from examples_utils.benchmarks.logging_utils import #verbose_log
+
 # Get the module logger
 logger = logging.getLogger(__name__)
 
@@ -143,8 +145,8 @@ def formulate_benchmark_command(
     cmd = cmd.replace("\n", " ")
 
     cmd = " ".join(cmd.split())
-    logger.info(f"original cmd = '{cmd}'")
-    logger.info(f"Cleaning and modifying command if required...")
+    #verbose_log(f"original cmd = '{cmd}'", args.verbose)
+    #verbose_log(f"Cleaning and modifying command if required...", args.verbose)
 
     # Append application location from yaml to command
     cmd_parts = cmd.split(" ")
@@ -159,21 +161,24 @@ def formulate_benchmark_command(
         cmd = cmd.replace(called_file, resolved_file)
 
     if not args.allow_wandb and "--wandb" in cmd:
-        logger.info("'--allow-wandb' was not passed, however '--wandb' is an "
-                    "argument provided to the benchmark. The default value of "
-                    "'--allow-wandb' (False) is overriding, purging '--wandb' "
-                    "and all args containing 'wandb' from command.")
+        # verbose_log(
+        #     "'--allow-wandb' was not passed, however '--wandb' is an "
+        #     "argument provided to the benchmark. The default value of "
+        #     "'--allow-wandb' (False) is overriding, purging '--wandb' "
+        #     "and all args containing 'wandb' from command.", args.verbose)
         cmd = " ".join([x for x in cmd.split(" ") if "--wandb" not in x])
 
     if args.compile_only:
-        logger.info("'--compile-only' was passed here. Appending '--compile-only' to the benchmark command.")
+        # verbose_log("'--compile-only' was passed here. Appending "
+        #             "'--compile-only' to the benchmark command.", args.verbose)
         cmd = cmd + " --compile-only"
 
         # Dont import wandb if compile only mode
         if "--wandb" in cmd:
-            logger.info("--compile-only was passed, and wandb is not used for "
-                        "compile only runs, purging '--wandb' and all args "
-                        "containing 'wandb' in their names from command.")
+            # verbose_log(
+            #     "--compile-only was passed, and wandb is not used for "
+            #     "compile only runs, purging '--wandb' and all args "
+            #     "containing 'wandb' in their names from command.", args.verbose)
             cmd = " ".join([x for x in cmd.split(" ") if "--wandb" not in x])
 
         # Remove vipu settings that prevent from running in compile-only mode
@@ -184,7 +189,7 @@ def formulate_benchmark_command(
     # Cleanse the string of new line chars and extra spaces
     cmd = " ".join(cmd.replace("\n", " ").split())
 
-    logger.info(f"new cmd = '{cmd}'")
+    #verbose_log(f"new cmd = '{cmd}'", args.verbose)
 
     return cmd
 
@@ -213,7 +218,7 @@ def get_poprun_hosts(cmd: list) -> list:
     try:
         host_index = cmd.index([x for x in cmd if "--host" in x][0])
     except:
-        logger.info("'--host' argument not provided, assuming all poprun "
+        logger.warn("'--host' argument not provided, assuming all poprun "
                     "instances defined in this benchmark will run on this host "
                     "only")
         return []
@@ -237,7 +242,7 @@ def get_poprun_hosts(cmd: list) -> list:
     if num_hosts > 1:
         logger.info("Benchmark is running multiple instances over multiple hosts, preparing all hosts.")
     else:
-        logger.info("Only one value has been passed to the '--host' argument, "
+        logger.warn("Only one value has been passed to the '--host' argument, "
                     "assuming all instances defined for this benchmark will "
                     "run on this host only")
 
@@ -262,7 +267,7 @@ def get_poprun_hosts(cmd: list) -> list:
             poprun_hostnames.remove(hostname)
 
     if len(poprun_hostnames) == num_hosts:
-        logger.info("This machines hostname/IP could not be found in the "
+        logger.warn("This machines hostname/IP could not be found in the "
                     "values provided to the '--host' argument for poprun. "
                     "Assuming that the first value in the list provided is the "
                     "this machines hostname, and skipping interacting with the "

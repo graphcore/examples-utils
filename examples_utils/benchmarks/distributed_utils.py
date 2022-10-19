@@ -8,7 +8,7 @@ from io import TextIOWrapper
 from pathlib import Path
 
 # Get the module logger
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 
 def ssh_copy_ids(poprun_hostnames: list, output_stream: TextIOWrapper):

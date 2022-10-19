@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Tuple
 
 # Get the module logger
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 # Regexes below for both TF and popart/poptorch
 date_regex = r"(\d{4}\-\d{2}\-\d{2}[T ?]\d{2}:\d{2}:\d{2}.\d{6})"
@@ -180,7 +180,7 @@ def get_results_for_compile_time(results: dict, stderr: str, exitcode: int) -> d
     else:
         compile_time_output = f"   Total compile time: ERROR"
 
-    logger.info(compile_time_output)
+    print(compile_time_output)
 
     return results
 
@@ -271,7 +271,7 @@ def extract_metrics(extraction_config: dict, log: str, exitcode: int, num_replic
                 result *= num_replicas
 
         extracted_metrics[name] = {metric_spec["reduction_type"]: result}
-        logger.info(f"   {name} = '{str(result) if result is not None else 'VALUE_NOT_FOUND'}'")
+        print(f"   {name} = '{str(result) if result is not None else 'VALUE_NOT_FOUND'}'")
 
         if result is None:
             did_extraction_fail = True

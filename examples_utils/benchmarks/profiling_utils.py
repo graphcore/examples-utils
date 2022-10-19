@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 
 # Get the module logger
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 
 def add_profiling_vars(current_env: dict, benchmark_name: str, app_dir: str) -> dict:
@@ -23,7 +23,7 @@ def add_profiling_vars(current_env: dict, benchmark_name: str, app_dir: str) -> 
     """
 
     report_dir = Path(app_dir).joinpath(benchmark_name + "_profile").resolve()
-    logger.info(f"Profile will be saved in: {report_dir}")
+    print(f"Profile will be saved in: {report_dir}")
 
     profiling_opts = {
         "autoReport.all": "true",

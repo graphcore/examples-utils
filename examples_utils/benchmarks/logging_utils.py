@@ -18,7 +18,7 @@ except:
     WANDB_AVAILABLE = False
 
 # Get the module logger
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 
 def configure_logger(args: argparse.ArgumentParser):
@@ -46,6 +46,9 @@ def configure_logger(args: argparse.ArgumentParser):
     handler.setFormatter(formatter)
     logger.addHandler(handler)
     logger.setLevel(args.logging)
+
+    # No INFO level logs if not verbose
+    logger.info = logger.info if args.verbose else lambda args : None
 
     logger.info(f"Logging directory: '{args.log_dir}'")
 
@@ -115,6 +118,8 @@ def get_latest_checkpoint_path(checkpoint_root_dir: Path, variant_cmd: str) -> P
         except:
             logger.warn("Checkpoint file(s) in {checkpoint_dir} could not be found. Skipping uploading")
 
+    logger.info(f"Checkpoints to be uploaded: {latest_checkpoint_path}")
+
     return latest_checkpoint_path
 
 
@@ -131,6 +136,8 @@ def get_wandb_link(stderr: str) -> str:
         if "https://wandb.sourcevertex.net" in line and "/runs/" in line:
             wandb_link = "https:/" + line.split("https:/")[1]
             wandb_link = wandb_link.replace("\n", "")
+    
+    logger.info(f"Wandb link found from stdout/stderr: {wandb_link}")
 
     return wandb_link
 
@@ -254,7 +261,7 @@ def upload_checkpoints(upload_targets: list, checkpoint_path: Path, benchmark_pa
                    "\n4 - Enter the MFA code from your "
                    "authenticator app you use when logging into AWS in the "
                    "web browser etc.")
-            logger.info(msg)
+            logger.warn(msg)
 
 
 def upload_compile_time(wandb_link: str, results: dict):
