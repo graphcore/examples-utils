@@ -6,8 +6,6 @@ import subprocess
 from argparse import ArgumentParser
 from pathlib import Path
 
-#from examples_utils.benchmarks.logging_utils import #verbose_log
-
 # Get the module logger
 logger = logging.getLogger(__name__)
 
