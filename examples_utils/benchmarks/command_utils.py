@@ -6,8 +6,6 @@ import subprocess
 from argparse import ArgumentParser
 from pathlib import Path
 
-#from examples_utils.benchmarks.logging_utils import #verbose_log
-
 # Get the module logger
 logger = logging.getLogger(__name__)
 
@@ -145,8 +143,8 @@ def formulate_benchmark_command(
     cmd = cmd.replace("\n", " ")
 
     cmd = " ".join(cmd.split())
-    #verbose_log(f"original cmd = '{cmd}'", args.verbose)
-    #verbose_log(f"Cleaning and modifying command if required...", args.verbose)
+    logger.info(f"original cmd = '{cmd}'")
+    logger.info(f"Cleaning and modifying command if required...")
 
     # Append application location from yaml to command
     cmd_parts = cmd.split(" ")
@@ -161,24 +159,22 @@ def formulate_benchmark_command(
         cmd = cmd.replace(called_file, resolved_file)
 
     if not args.allow_wandb and "--wandb" in cmd:
-        # verbose_log(
-        #     "'--allow-wandb' was not passed, however '--wandb' is an "
-        #     "argument provided to the benchmark. The default value of "
-        #     "'--allow-wandb' (False) is overriding, purging '--wandb' "
-        #     "and all args containing 'wandb' from command.", args.verbose)
+        logger.info("'--allow-wandb' was not passed, however '--wandb' is an "
+                    "argument provided to the benchmark. The default value of "
+                    "'--allow-wandb' (False) is overriding, purging '--wandb' "
+                    "and all args containing 'wandb' from command.")
         cmd = " ".join([x for x in cmd.split(" ") if "--wandb" not in x])
 
     if args.compile_only:
-        # verbose_log("'--compile-only' was passed here. Appending "
-        #             "'--compile-only' to the benchmark command.", args.verbose)
+        logger.info("'--compile-only' was passed here. Appending "
+                    "'--compile-only' to the benchmark command.")
         cmd = cmd + " --compile-only"
 
         # Dont import wandb if compile only mode
         if "--wandb" in cmd:
-            # verbose_log(
-            #     "--compile-only was passed, and wandb is not used for "
-            #     "compile only runs, purging '--wandb' and all args "
-            #     "containing 'wandb' in their names from command.", args.verbose)
+            logger.info("--compile-only was passed, and wandb is not used for "
+                        "compile only runs, purging '--wandb' and all args "
+                        "containing 'wandb' in their names from command.")
             cmd = " ".join([x for x in cmd.split(" ") if "--wandb" not in x])
 
         # Remove vipu settings that prevent from running in compile-only mode
@@ -189,7 +185,7 @@ def formulate_benchmark_command(
     # Cleanse the string of new line chars and extra spaces
     cmd = " ".join(cmd.replace("\n", " ").split())
 
-    #verbose_log(f"new cmd = '{cmd}'", args.verbose)
+    logger.info(f"new cmd = '{cmd}'")
 
     return cmd
 
