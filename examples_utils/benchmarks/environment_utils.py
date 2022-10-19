@@ -235,7 +235,7 @@ def preprocess_args(args: ArgumentParser) -> ArgumentParser:
     # Force allow-wandb if user wants to upload checkpoints to wandb
     if "wandb" in args.upload_checkpoints:
         args.allow_wandb = True
-    
+
     # Set developer options if requested
     if args.developer_mode:
         args.allow_wandb = True

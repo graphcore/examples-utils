@@ -48,7 +48,7 @@ def configure_logger(args: argparse.ArgumentParser):
     logger.setLevel(args.logging)
 
     # No INFO level logs if not verbose
-    logger.info = logger.info if args.verbose else lambda args : None
+    logger.info = logger.info if args.verbose else lambda args: None
 
     logger.info(f"Logging directory: '{args.log_dir}'")
 
@@ -136,7 +136,7 @@ def get_wandb_link(stderr: str) -> str:
         if "https://wandb.sourcevertex.net" in line and "/runs/" in line:
             wandb_link = "https:/" + line.split("https:/")[1]
             wandb_link = wandb_link.replace("\n", "")
-    
+
     logger.info(f"Wandb link found from stdout/stderr: {wandb_link}")
 
     return wandb_link

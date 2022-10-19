@@ -412,9 +412,9 @@ def run_benchmarks(args: argparse.ArgumentParser):
     results = {}
     output_log_path = Path(args.log_dir, "output.log")
     with open(output_log_path, "w", buffering=1) as listener:
-        print("#"*80)
+        print("#" * 80)
         print(f"Logs at: {output_log_path}")
-        print("#"*80 + "\n")
+        print("#" * 80 + "\n")
 
         # Only check explicitily listed benchmarks if provided
         if args.benchmark is None:
