@@ -152,7 +152,10 @@ def save_results(log_dir: str, additional_metrics: bool, results: dict):
     # Parse summary into CSV and save in logs directory
     csv_metrics = ["throughput", "latency", "total_compiling_time"]
     if additional_metrics:
-        csv_metrics = ["throughput", "latency", "total_compiling_time", "test_duration", "loss", "result", "cmd", "env", "git_commit_hash"]
+        csv_metrics = [
+            "throughput", "latency", "total_compiling_time", "test_duration", "loss", "result", "cmd", "env",
+            "git_commit_hash"
+        ]
 
     csv_filepath = Path(log_dir, "benchmark_results.csv")
     with open(csv_filepath, "w") as csv_file:

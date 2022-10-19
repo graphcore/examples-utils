@@ -286,9 +286,8 @@ def run_benchmark_variant(
             total_runtime,
             str(' '.join(cmd)),
             exitcode,
-            new_env, # just additional environment variables
-            git_commit_hash
-        )
+            new_env,  # just additional environment variables
+            git_commit_hash)
 
     # Get 'derived' metrics, these are metrics 'derived' from other metrics
     results, derivation_failure = derive_metrics(

@@ -8,15 +8,17 @@ from examples_utils.benchmarks.environment_utils import get_git_commit_hash
 
 cwd = pathlib.Path.cwd()
 
+
 @pytest.fixture(autouse=True)
 def teardown():
     yield
     os.chdir(cwd)
 
+
 def test_git_commit_hash_in_repo():
     os.chdir(pathlib.Path(__file__).parent)
     hash = get_git_commit_hash()
-    assert(is_sha_1(hash))
+    assert (is_sha_1(hash))
 
 
 def test_git_commit_hash_out_of_repo():
@@ -29,7 +31,7 @@ def is_sha_1(hash_input: str) -> bool:
     # length check
     if len(hash_input) != 40:
         return False
-    
+
     # can convert to hex value
     try:
         int(hash_input, 16)

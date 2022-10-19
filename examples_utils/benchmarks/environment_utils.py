@@ -8,7 +8,6 @@ import subprocess
 from argparse import ArgumentParser
 from pathlib import Path
 
-
 # Get the module logger
 logger = logging.getLogger(__name__)
 
