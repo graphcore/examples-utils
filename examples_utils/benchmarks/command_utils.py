@@ -166,8 +166,7 @@ def formulate_benchmark_command(
         cmd = " ".join([x for x in cmd.split(" ") if "--wandb" not in x])
 
     if args.compile_only:
-        logger.info("'--compile-only' was passed here. Appending "
-                    "'--compile-only' to the benchmark command.")
+        logger.info("'--compile-only' was passed here. Appending '--compile-only' to the benchmark command.")
         cmd = cmd + " --compile-only"
 
         # Dont import wandb if compile only mode
