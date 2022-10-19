@@ -505,7 +505,7 @@ def run_benchmarks(args: argparse.ArgumentParser):
     # Print PASSED/FAILED summary
     print_benchmark_summary(results)
 
-    save_results(args.log_dir, results)
+    save_results(args.log_dir, args.additional_metrics, results)
 
 
 def benchmarks_parser(parser: argparse.ArgumentParser):
