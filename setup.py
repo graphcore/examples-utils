@@ -39,10 +39,10 @@ def get_version():
             f"were identified as candidates: {version_lines}"
         )
     version_line = version_lines[0]
-    m = re.search(r"['\"]([0-9a-zA-Z\.])['\"]", version_line)
+    m = re.search(r"['\"]([0-9a-zA-Z\.]*)['\"]", version_line)
     if not m:
         raise ValueError(f"Could not identify version in line: {version_line}")
-    return m.group()[-1]
+    return m.groups()[-1]
 
 
 extra_requires = {
