@@ -7,6 +7,7 @@ from glob import glob
 
 from setuptools import find_packages, setup
 
+from examples_utils import __version__
 
 def read(*paths, **kwargs):
     """Read the contents of a text file safely.
@@ -65,5 +66,5 @@ setup(
         [os.path.join(*Path(f).parts[1:]) for f in glob('examples_utils/**/*.py', recursive=True)] +
         [os.path.join(*Path(f).parts[1:]) for f in glob('examples_utils/**/*.cpp', recursive=True)]
     },
-    version="0.0.0",
+    version=__version__,
 )
