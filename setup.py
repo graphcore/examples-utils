@@ -37,7 +37,7 @@ extra_requires["all"] = extra_requires["dev"] + extra_requires["jupyter"]
 
 setup(
     name='examples-utils',
-    description="Utils and common code for Graphcore's example applications",
+    description="Utilities, benchmarking and common code for Graphcore's example applications",
     long_description="file: README.md",
     long_description_content_type="text/markdown",
     license="MIT License",
@@ -47,7 +47,7 @@ setup(
     project_urls={
         # "Documentation": "https://graphcore.github.io/examples-utils",
         "Code": "https://github.com/graphcore/examples-utils",
-        # "Issue tracker": "https://github.com/graphcore/examples-utils/issues",
+        "Issue tracker": "https://github.com/graphcore/examples-utils/issues",
     },
     classifiers=[  # Optional
         "Development Status :: 4 - Beta",
@@ -65,4 +65,5 @@ setup(
         [os.path.join(*Path(f).parts[1:]) for f in glob('examples_utils/**/*.py', recursive=True)] +
         [os.path.join(*Path(f).parts[1:]) for f in glob('examples_utils/**/*.cpp', recursive=True)]
     },
+    version="0.0.0",
 )
