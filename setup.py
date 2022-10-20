@@ -34,10 +34,8 @@ def get_version():
     """Looks for __version__ attribute in top most __init__.py"""
     version_lines = [l for l in read("examples_utils/__init__.py").splitlines() if re.match("__version__\\s*=", l)]
     if len(version_lines) != 1:
-        raise ValueError(
-            "Cannot identify version: 0 or multiple lines "
-            f"were identified as candidates: {version_lines}"
-        )
+        raise ValueError("Cannot identify version: 0 or multiple lines "
+                         f"were identified as candidates: {version_lines}")
     version_line = version_lines[0]
     m = re.search(r"['\"]([0-9a-zA-Z\.]*)['\"]", version_line)
     if not m:
