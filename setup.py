@@ -8,7 +8,6 @@ import re
 
 from setuptools import find_packages, setup
 
-from examples_utils import __version__
 
 def read(*paths, **kwargs):
     """Read the contents of a text file safely.
