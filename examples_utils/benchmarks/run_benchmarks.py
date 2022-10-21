@@ -8,7 +8,7 @@ import subprocess
 import sys
 import threading
 import tempfile
-from typing import Union
+from typing import Union, Optional
 from collections import OrderedDict
 from datetime import datetime, timedelta
 from io import TextIOWrapper
@@ -156,6 +156,24 @@ def run_and_monitor_progress(cmd: list, listener: TextIOWrapper, timeout: int = 
     return (output, err, exitcode)
 
 
+def install_patched_requirements(requirements_file: Union[str, Path]):
+    """Removes any 'examples-utils' requirements from a a requirements
+    file before installing it. It returns the original unpatched requirements
+    in case they are needed later."""
+
+    requirements_file = Path(requirements_file)
+    logger.info(f"Install python requirements")
+    if not requirements_file.exists():
+        raise FileNotFoundError(f"Invalid python requirements where specified at {requirements_file}")
+    # Strip examples-utils requirement as it can break the installation
+    original_requirements = requirements_file.read_text()
+    requirements_file.write_text("\n".join(
+        l for l in original_requirements.splitlines() if "examples-utils" not in l))
+    out = subprocess.check_output([sys.executable, "-m", "pip", "install", "-r", str(requirements_file)])
+    logger.debug(out)
+    return original_requirements
+
+
 def run_benchmark_variant(
         variant_name: str,
         benchmark_name: str,
@@ -240,17 +258,10 @@ def run_benchmark_variant(
         setup_distributed_filesystems(args, poprun_hostnames)
 
     start_time = datetime.now()
-    reqs = benchmark_dict.get("requirements_file")
-    if reqs:
-        reqs = Path(reqs)
-        logger.info(f"Install python requirements")
-        if not reqs.exists():
-            raise FileNotFoundError(f"Invalid python requirements where specified at {reqs}")
-        # Strip examples-utils requirement as it can break the installation
-        temp_reqs = Path(tempfile.gettempdir()) / reqs.name
-        temp_reqs.write_text("\n".join(l for l in reqs.read_text().splitlines() if "examples-utils" not in l))
-        out = subprocess.check_output([sys.executable, "-m", "pip", "install", "-r", str(temp_reqs)])
-        logger.debug(out)
+    requirements_file: Optional[str] = benchmark_dict.get("requirements_file")
+    original_requirements = ""
+    if requirements_file:
+        original_requirements = install_patched_requirements(requirements_file)
 
     logger.info(f"Start test: {start_time}")
     need_to_run = True
@@ -275,6 +286,9 @@ def run_benchmark_variant(
     # if args.profile:
     #     output += analyse_profile(variant_name, cwd)
 
+    # Undo the patch to the requirements files
+    if requirements_file:
+        Path(requirements_file).write_text(original_requirements)
     # Teardown temporary filesystem on all hosts
     if is_distributed and args.remove_dirs_after:
         remove_distributed_filesystems(args, poprun_hostnames)
