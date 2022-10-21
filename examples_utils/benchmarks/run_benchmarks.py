@@ -7,6 +7,7 @@ import shlex
 import subprocess
 import sys
 import threading
+import tempfile
 from typing import Union
 from collections import OrderedDict
 from datetime import datetime, timedelta
@@ -241,10 +242,15 @@ def run_benchmark_variant(
     start_time = datetime.now()
     reqs = benchmark_dict.get("requirements_file")
     if reqs:
+        reqs = Path(reqs)
         logger.info(f"Install python requirements")
-        if not Path(reqs).exists():
+        if not reqs.exists():
             raise FileNotFoundError(f"Invalid python requirements where specified at {reqs}")
-        subprocess.check_output([sys.executable, "-m", "pip", "install", "-r", str(reqs)])
+        # Strip examples-utils requirement as it can break the installation
+        temp_reqs = Path(tempfile.gettempdir()) / reqs.name
+        temp_reqs.write_text("\n".join(l for l in reqs.read_text().splitlines() if "examples-utils" not in l))
+        out = subprocess.check_output([sys.executable, "-m", "pip", "install", "-r", str(temp_reqs)])
+        logger.debug(out)
 
     logger.info(f"Start test: {start_time}")
     need_to_run = True
