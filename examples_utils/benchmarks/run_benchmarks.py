@@ -274,15 +274,15 @@ def run_benchmark_variant(
         # Setup temporary filesystems on all hosts and modify cmd to use this
         setup_distributed_filesystems(args, poprun_hostnames)
 
-    start_time = datetime.now()
+    required_apt_packages: Optional[str] = benchmark_dict.get("required_apt_packages")
+    if required_apt_packages:
+        install_apt_packages(required_apt_packages)
     requirements_file: Optional[str] = benchmark_dict.get("requirements_file")
     original_requirements = ""
     if requirements_file:
         original_requirements = install_patched_requirements(requirements_file)
-    required_apt_packages: Optional[str] = benchmark_dict.get("required_apt_packages")
-    if required_apt_packages:
-        install_apt_packages(required_apt_packages)
 
+    start_time = datetime.now()
     logger.info(f"Start test: {start_time}")
     need_to_run = True
     while need_to_run:
