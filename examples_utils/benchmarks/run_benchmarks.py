@@ -167,9 +167,26 @@ def install_patched_requirements(requirements_file: Union[str, Path]):
         raise FileNotFoundError(f"Invalid python requirements where specified at {requirements_file}")
     # Strip examples-utils requirement as it can break the installation
     original_requirements = requirements_file.read_text()
-    requirements_file.write_text("\n".join(
-        l for l in original_requirements.splitlines() if "examples-utils" not in l))
+    requirements_file.write_text("\n".join(l for l in original_requirements.splitlines() if "examples-utils" not in l))
     out = subprocess.check_output([sys.executable, "-m", "pip", "install", "-r", str(requirements_file)])
+    logger.debug(out)
+    return original_requirements
+
+
+def install_apt_packages(requirements_file: Union[str, Path]):
+    """Removes any 'examples-utils' requirements from a a requirements
+    file before installing it. It returns the original unpatched requirements
+    in case they are needed later."""
+
+    requirements_file = Path(requirements_file)
+    logger.info(f"Install apt requirements")
+    if not requirements_file.exists():
+        raise FileNotFoundError(f"Invalid apt requirements where specified at {requirements_file}")
+    # Strip examples-utils requirement as it can break the installation
+    original_requirements = requirements_file.read_text()
+    out = subprocess.check_output(["apt", "update", "-y"])
+    logger.debug(out)
+    out = subprocess.check_output(["apt", "install", "-y", *original_requirements.splitlines()])
     logger.debug(out)
     return original_requirements
 
@@ -262,6 +279,9 @@ def run_benchmark_variant(
     original_requirements = ""
     if requirements_file:
         original_requirements = install_patched_requirements(requirements_file)
+    required_apt_packages: Optional[str] = benchmark_dict.get("required_apt_packages")
+    if required_apt_packages:
+        install_apt_packages(required_apt_packages)
 
     logger.info(f"Start test: {start_time}")
     need_to_run = True
