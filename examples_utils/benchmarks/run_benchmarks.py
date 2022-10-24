@@ -220,7 +220,7 @@ def run_benchmark_variant(
     cmd = shlex.split(os.path.expandvars(variant_command))
 
     # Define where the benchmark should be run (dir containing examples)
-    cwd = str(Path.cwd().resolve())
+    cwd = str(Path(variant_dict.get("cwd", Path.cwd())).resolve())
     logger.info(f"\tcwd = '{cwd}'")
 
     # Create the log directory
