@@ -8,7 +8,7 @@ import subprocess
 import sys
 import threading
 import tempfile
-from typing import Union, Optional
+from typing import Union, Optional, List
 from collections import OrderedDict
 from datetime import datetime, timedelta
 from io import TextIOWrapper
@@ -173,22 +173,21 @@ def install_patched_requirements(requirements_file: Union[str, Path]):
     return original_requirements
 
 
-def install_apt_packages(requirements_file: Union[str, Path]):
-    """Removes any 'examples-utils' requirements from a a requirements
-    file before installing it. It returns the original unpatched requirements
-    in case they are needed later."""
-
-    requirements_file = Path(requirements_file)
-    logger.info(f"Install apt requirements")
-    if not requirements_file.exists():
-        raise FileNotFoundError(f"Invalid apt requirements where specified at {requirements_file}")
-    # Strip examples-utils requirement as it can break the installation
-    original_requirements = requirements_file.read_text()
+def install_apt_packages(requirements_file_or_list: Union[str, Path, List[str]]):
+    """Installs system packages with apt."""
+    if not isinstance(requirements_file_or_list, list):
+        requirements_file = Path(requirements_file_or_list)
+        logger.info(f"Install apt requirements")
+        if not requirements_file.exists():
+            raise FileNotFoundError(f"Invalid apt requirements where specified at {requirements_file}")
+        requirements_list: List[str] = requirements_file.read_text().splitlines()
+    else:
+        requirements_list = requirements_file_or_list
     out = subprocess.check_output(["apt", "update", "-y"])
     logger.debug(out)
-    out = subprocess.check_output(["apt", "install", "-y", *original_requirements.splitlines()])
+    out = subprocess.check_output(["apt", "install", "-y", *requirements_list])
     logger.debug(out)
-    return original_requirements
+    return requirements_list
 
 
 def run_benchmark_variant(
