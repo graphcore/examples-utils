@@ -12,13 +12,15 @@ from collections import OrderedDict
 from datetime import datetime, timedelta
 from io import TextIOWrapper
 from pathlib import Path
-from typing import Tuple, List, Dict
-
+from typing import Tuple
 import yaml
+
+from examples_utils.benchmarks.slurm_utils import (configure_slurm_job, run_and_monitor_progress_on_slurm)
 from examples_utils.benchmarks.command_utils import (
     formulate_benchmark_command,
     get_benchmark_variants,
-    get_poprun_hosts,
+    get_poprun_config,
+    get_local_poprun_hosts,
 )
 from examples_utils.benchmarks.distributed_utils import (
     remove_distributed_filesystems,
@@ -157,12 +159,12 @@ def run_and_monitor_progress(cmd: list, listener: TextIOWrapper, timeout: int = 
 
 
 def run_benchmark_variant(
-        variant_name: str,
-        benchmark_name: str,
-        variant_dict: dict,
-        benchmark_dict: dict,
-        listener: TextIOWrapper,
-        args: argparse.ArgumentParser,
+    variant_name: str,
+    benchmark_name: str,
+    variant_dict: dict,
+    benchmark_dict: dict,
+    listener: TextIOWrapper,
+    args: argparse.ArgumentParser,
 ) -> dict:
     """Run a variant and collect results.
 
@@ -188,6 +190,8 @@ def run_benchmark_variant(
         benchmark_dict["data"] = {}
         benchmark_dict["derived"] = {}
         logger.info("Removed data metrics for compile only benchmark")
+
+    # TODO: Slurm set benchmarking working directory in script
 
     # Change cwd to where the benchmarks file was
     enter_benchmark_dir(benchmark_dict)
@@ -229,16 +233,21 @@ def run_benchmark_variant(
     # Infer examples, SDK and venv path for this benchmark
     args = infer_paths(args, benchmark_dict)
 
+    # TODO: DATASETS_DIR in Slurm is probably not correct
     logger.info(f"Datasets directory: '{os.getenv('DATASETS_DIR')}'")
 
     # Detect if benchmark requires instances running (not just compiling) on
     # other hosts, and then prepare hosts
-    poprun_hostnames = get_poprun_hosts(cmd)
+    poprun_config = get_poprun_config(args, cmd)
+    poprun_hostnames = get_local_poprun_hosts(poprun_config)
     is_distributed = len(poprun_hostnames) > 1 and not args.compile_only
-    if is_distributed:
+
+    # TODO: skip this on slurm
+    if is_distributed and not args.submit_on_slurm:
         # Setup temporary filesystems on all hosts and modify cmd to use this
         setup_distributed_filesystems(args, poprun_hostnames)
 
+    # TODO: make requirements mandatory if running on slurm?
     start_time = datetime.now()
     reqs = benchmark_dict.get("requirements_file")
     if reqs:
@@ -250,16 +259,20 @@ def run_benchmark_variant(
     logger.info(f"Start test: {start_time}")
     need_to_run = True
     while need_to_run:
-        stdout, stderr, exitcode = run_and_monitor_progress(
-            cmd,
-            listener,
-            args.timeout,
-            cwd=cwd,
-            env=env,
-        )
-        need_to_run = should_reattempt_benchmark(benchmark_dict, stdout, stderr, exitcode)
-        if need_to_run:
-            logger.info(f"Re-running benchmark because: {need_to_run}")
+        if args.submit_on_slurm:
+            slurm_config = configure_slurm_job(args, cmd, variant_name, variant_log_dir, cwd)
+            stdout, stderr, exitcode = run_and_monitor_progress_on_slurm(listener=listener, **slurm_config)
+        else:
+            stdout, stderr, exitcode = run_and_monitor_progress(
+                cmd,
+                listener,
+                args.timeout,
+                cwd=cwd,
+                env=env,
+            )
+            need_to_run = should_reattempt_benchmark(benchmark_dict, stdout, stderr, exitcode)
+            if need_to_run:
+                logger.info(f"Re-running benchmark because: {need_to_run}")
 
     end_time = datetime.now()
     total_runtime = (end_time - start_time).total_seconds()
@@ -271,15 +284,16 @@ def run_benchmark_variant(
     #     output += analyse_profile(variant_name, cwd)
 
     # Teardown temporary filesystem on all hosts
-    if is_distributed and args.remove_dirs_after:
-        remove_distributed_filesystems(args, poprun_hostnames)
+    if not args.submit_on_slurm:
+        if is_distributed and args.remove_dirs_after:
+            remove_distributed_filesystems(args, poprun_hostnames)
 
-    if not is_distributed and args.remove_dirs_after:
-        logger.info("'--remove-dirs-after has been set but this benchmark has "
-                    "not been specified to use multiple hosts, and so there "
-                    "are no remote temporary filesystems to delete. Local "
-                    "filesystems on this host will not automatically be "
-                    "deleted.")
+        if not is_distributed and args.remove_dirs_after:
+            logger.info("'--remove-dirs-after has been set but this benchmark has "
+                        "not been specified to use multiple hosts, and so there "
+                        "are no remote temporary filesystems to delete. Local "
+                        "filesystems on this host will not automatically be "
+                        "deleted.")
 
     # If process didnt end as expected
     if exitcode:
@@ -347,10 +361,11 @@ def run_benchmark_variant(
             stderr=stderr,
         )
 
-    with open(outlog_path, "w") as f:
-        f.write(stdout)
-    with open(errlog_path, "w") as f:
-        f.write(stderr)
+    if not args.submit_on_slurm:
+        with open(outlog_path, "w") as f:
+            f.write(stdout)
+        with open(errlog_path, "w") as f:
+            f.write(stderr)
 
     # Store metrics/details for this variant and return
     variant_result = {
@@ -382,7 +397,8 @@ def process_notebook_to_command(variant, name="unknown"):
     if "notebook" not in variant:
         return variant
     if "notebook" in variant and "cmd" in variant:
-        raise ValueError("Invalid combination of entries 'notebook' and 'cmd' in " f"benchmark: {name}")
+        raise ValueError("Invalid combination of entries 'notebook' and 'cmd' in "
+                         f"benchmark: {name}")
     notebook_def = variant.pop("notebook")
     if not isinstance(notebook_def, dict):
         notebook_def = {"file": str(notebook_def)}
@@ -410,7 +426,6 @@ def run_benchmarks(args: argparse.Namespace):
             with
 
     """
-
     # Preprocess args to resolve any inconsistencies or cover up any gaps
     args = preprocess_args(args)
     args.spec = [str(Path(file).resolve()) for file in args.spec]
@@ -634,3 +649,7 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         choices=["wandb", "s3"],
         help="List of locations to upload model checkpoints to",
     )
+    parser.add_argument("--submit-on-slurm",
+                        action="store_true",
+                        help="Submit the provided tests in a slurm queue. This will only work"
+                        "if the host machine has been configured to support SLURM.")

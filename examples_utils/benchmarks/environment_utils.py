@@ -50,6 +50,7 @@ def check_env(args: argparse.Namespace, benchmark_name: str, cmd: str):
         cmd (str): The command being run
 
     """
+    # TODO: skip sections that are not required by Slurm
 
     # If PARTITION exists in env but IPUOF_VIPU_API_PARTITION_ID isnt, set it
     # to the existing value
@@ -68,6 +69,8 @@ def check_env(args: argparse.Namespace, benchmark_name: str, cmd: str):
 
         logger.error(err)
         raise EnvironmentError(err)
+
+    # TODO: wandb porting for slurm
 
     missing_env_vars = []
     # Check wandb variables if required
@@ -175,7 +178,7 @@ def infer_paths(args: argparse.Namespace, benchmark_dict: dict) -> argparse.Name
                "environment (use 'source' when enabling/activating).")
         logger.error(err)
         raise EnvironmentError(err)
-    args.sdk_path = str(Path(sdk_path).parents[1].resolve())
+    args.sdk_path = str(Path(sdk_path).parent.resolve())
 
     # Find based on the required environment variable when a venv is activated
     venv_path = os.getenv("VIRTUAL_ENV")
@@ -187,7 +190,7 @@ def infer_paths(args: argparse.Namespace, benchmark_dict: dict) -> argparse.Name
                "'source' when enabling/activating).")
         logger.error(err)
         raise EnvironmentError(err)
-    args.venv_path = str(Path(venv_path).parents[1].resolve())
+    args.venv_path = str(Path(venv_path).resolve())
 
     return args
 
