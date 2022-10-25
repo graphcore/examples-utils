@@ -1,6 +1,7 @@
 # Copyright (c) 2022 Graphcore Ltd. All rights reserved.
 import copy
 import logging
+from typing import NamedTuple, Optional
 import os
 import re
 import sys
@@ -117,8 +118,42 @@ def enter_benchmark_dir(benchmark_dict: dict):
     # Find the root dir of the benchmarks.yml file
     benchmark_path = Path(benchmark_dict["benchmark_path"]).parent
 
+    if benchmark_dict.get("repository"):
+        import git
+        class Repository(NamedTuple):
+            origin: str
+            ref: Optional[str]=None
+
+            def prepare(self, cloning_directory: Path = Path(".").resolve()/"clones") -> Path:
+                """Clones and checkouts the correct ref of the origin"""
+                # Treat the origin as a folder, if it doesn't exist it's a URL to clone
+                repo_folder = Path(self.origin)
+                if not repo_folder.exists():
+                    repo_folder = cloning_directory / self._sanitised_url()
+
+                if not repo_folder.exists():
+                    repo = git.Repo.clone_from(self.origin, to_path=repo_folder)
+                else:
+                    repo = git.Repo(repo_folder)
+                if self.ref:
+                    repo.git.checkout(self.ref)
+                if not repo.head.is_detached and repo.remotes:
+                    repo.git.pull()
+                if self.ref:
+                    repo.git.checkout(self.ref)
+                return repo_folder
+
+            def _sanitised_url(self) -> str:
+                return "".join(
+                    [c if re.match("[a-zA-Z0-9]", c) else "-" for c in str(self.origin)]
+                )
+        repo_in = benchmark_dict.get("repository", {})
+        repo = Repository(**repo_in)
+        benchmark_path =repo.prepare()
+
     # If a special path is required, find and move to that in addition
     if benchmark_dict.get("location"):
+
         benchmark_path = benchmark_path.joinpath(benchmark_dict["location"])
 
     os.chdir(benchmark_path)
