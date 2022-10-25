@@ -10,6 +10,13 @@ import argparse
 import argparse
 from pathlib import Path
 
+try:
+    import git
+except (ImportError, ModuleNotFoundError) as error:
+    from . import _incorrect_requirement_variant_error
+    raise _incorrect_requirement_variant_error from error
+
+
 # Get the module logger
 logger = logging.getLogger(__name__)
 
@@ -100,6 +107,36 @@ def check_env(args: argparse.Namespace, benchmark_name: str, cmd: str):
         raise EnvironmentError(err)
 
 
+class Repository(NamedTuple):
+    origin: str
+    ref: Optional[str]=None
+
+    def prepare(self, cloning_directory: Path = Path(".").resolve()/"clones") -> Path:
+        """Clones and checkouts the correct ref of the origin"""
+        # Treat the origin as a folder, if it doesn't exist it's a URL to clone
+        repo_folder = Path(self.origin)
+        if not repo_folder.exists():
+            repo_folder = cloning_directory / self._sanitised_url()
+            cloning_directory.mkdir(exist_ok=True, parents=True)
+
+        if not repo_folder.exists():
+            repo = git.Repo.clone_from(self.origin, to_path=repo_folder)
+        else:
+            repo = git.Repo(repo_folder)
+        if self.ref:
+            repo.git.checkout(self.ref)
+        if not repo.head.is_detached and repo.remotes:
+            repo.git.pull()
+        if self.ref:
+            repo.git.checkout(self.ref)
+        return repo_folder
+
+    def _sanitised_url(self) -> str:
+        return "".join(
+            [c if re.match("[a-zA-Z0-9]", c) else "-" for c in str(self.origin)]
+        )
+
+
 def enter_benchmark_dir(benchmark_dict: dict):
     """Find and change to the path required to run the benchmark.
 
@@ -119,35 +156,6 @@ def enter_benchmark_dir(benchmark_dict: dict):
     benchmark_path = Path(benchmark_dict["benchmark_path"]).parent
 
     if benchmark_dict.get("repository"):
-        import git
-        class Repository(NamedTuple):
-            origin: str
-            ref: Optional[str]=None
-
-            def prepare(self, cloning_directory: Path = Path(".").resolve()/"clones") -> Path:
-                """Clones and checkouts the correct ref of the origin"""
-                # Treat the origin as a folder, if it doesn't exist it's a URL to clone
-                repo_folder = Path(self.origin)
-                if not repo_folder.exists():
-                    repo_folder = cloning_directory / self._sanitised_url()
-                    cloning_directory.mkdir(exist_ok=True, parents=True)
-
-                if not repo_folder.exists():
-                    repo = git.Repo.clone_from(self.origin, to_path=repo_folder)
-                else:
-                    repo = git.Repo(repo_folder)
-                if self.ref:
-                    repo.git.checkout(self.ref)
-                if not repo.head.is_detached and repo.remotes:
-                    repo.git.pull()
-                if self.ref:
-                    repo.git.checkout(self.ref)
-                return repo_folder
-
-            def _sanitised_url(self) -> str:
-                return "".join(
-                    [c if re.match("[a-zA-Z0-9]", c) else "-" for c in str(self.origin)]
-                )
         repo_in = benchmark_dict.get("repository", {})
         repo = Repository(**repo_in)
         benchmark_path =repo.prepare()
