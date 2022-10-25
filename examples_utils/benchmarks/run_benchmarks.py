@@ -156,7 +156,7 @@ def run_and_monitor_progress(cmd: list, listener: TextIOWrapper, timeout: int = 
     return (output, err, exitcode)
 
 
-def install_patched_requirements(requirements_file: Union[str, Path]):
+def install_patched_requirements(requirements_file: Union[str, Path], listener: TextIOWrapper):
     """Removes any 'examples-utils' requirements from a a requirements
     file before installing it. It returns the original unpatched requirements
     in case they are needed later."""
@@ -168,25 +168,32 @@ def install_patched_requirements(requirements_file: Union[str, Path]):
     # Strip examples-utils requirement as it can break the installation
     original_requirements = requirements_file.read_text()
     requirements_file.write_text("\n".join(l for l in original_requirements.splitlines() if "examples-utils" not in l))
-    out = subprocess.check_output([sys.executable, "-m", "pip", "install", "-r", str(requirements_file)])
-    logger.debug(out)
+    cmd = [sys.executable, "-m", "pip", "install", "-r", str(requirements_file)]
+    out, err, exit_code = run_and_monitor_progress(cmd, listener)
+    if exit_code:
+        raise subprocess.CalledProcessError(exit_code, cmd, out, err)
     return original_requirements
 
 
-def install_apt_packages(requirements_file_or_list: Union[str, Path, List[str]]):
+def install_apt_packages(requirements_file_or_list: Union[str, Path, List[str]], listener: TextIOWrapper):
     """Installs system packages with apt."""
+    logger.info(f"Installing apt requirements")
     if not isinstance(requirements_file_or_list, list):
         requirements_file = Path(requirements_file_or_list)
-        logger.info(f"Install apt requirements")
         if not requirements_file.exists():
             raise FileNotFoundError(f"Invalid apt requirements where specified at {requirements_file}")
         requirements_list: List[str] = requirements_file.read_text().splitlines()
     else:
         requirements_list = requirements_file_or_list
-    out = subprocess.check_output(["apt", "update", "-y"])
-    logger.debug(out)
-    out = subprocess.check_output(["apt", "install", "-y", *requirements_list])
-    logger.debug(out)
+    logger.debug(f"  Collected the following requirements: " + " ".join(requirements_list))
+    for cmd in [
+        ["apt", "update", "-y"],
+        ["apt", "install", "-y", *requirements_list],
+    ]:
+        out, err, exit_code = run_and_monitor_progress(cmd, listener)
+        if exit_code:
+            raise subprocess.CalledProcessError(exit_code, cmd, out, err)
+
     return requirements_list
 
 
