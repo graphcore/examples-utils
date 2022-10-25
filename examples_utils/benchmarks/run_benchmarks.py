@@ -282,11 +282,11 @@ def run_benchmark_variant(
 
     required_apt_packages: Optional[str] = benchmark_dict.get("required_apt_packages")
     if required_apt_packages:
-        install_apt_packages(required_apt_packages)
+        install_apt_packages(required_apt_packages, listener)
     requirements_file: Optional[str] = benchmark_dict.get("requirements_file")
     original_requirements = ""
     if requirements_file:
-        original_requirements = install_patched_requirements(requirements_file)
+        original_requirements = install_patched_requirements(requirements_file, listener)
 
     start_time = datetime.now()
     logger.info(f"Start test: {start_time}")
