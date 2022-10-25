@@ -171,7 +171,7 @@ def infer_paths(args: ArgumentParser, benchmark_dict: dict) -> ArgumentParser:
                "environment (use 'source' when enabling/activating).")
         logger.error(err)
         raise EnvironmentError(err)
-    args.sdk_path = str(Path(sdk_path).parents[1].resolve())
+    args.sdk_path = str(Path(sdk_path).parent.resolve())
 
     # Find based on the required environment variable when a venv is activated
     venv_path = os.getenv("VIRTUAL_ENV")
@@ -183,7 +183,7 @@ def infer_paths(args: ArgumentParser, benchmark_dict: dict) -> ArgumentParser:
                "'source' when enabling/activating).")
         logger.error(err)
         raise EnvironmentError(err)
-    args.venv_path = str(Path(venv_path).parents[1].resolve())
+    args.venv_path = str(Path(venv_path).parent.resolve())
 
     return args
 
