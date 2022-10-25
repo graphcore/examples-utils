@@ -159,7 +159,7 @@ def formulate_benchmark_command(
         cmd = cmd.replace(called_file, resolved_file)
 
     if not (args.allow_wandb or benchmark_dict.get("allow_wandb", False)) and "--wandb" in cmd:
-        logger.info("'--allow-wandb' was not passed or set in the benchmark entry,
+        logger.info("'--allow-wandb' was not passed or set in the benchmark entry,"
                     " however '--wandb' is an "
                     "argument provided to the benchmark. The default value of "
                     "'--allow-wandb' (False) is overriding, purging '--wandb' "
