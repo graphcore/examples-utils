@@ -130,6 +130,7 @@ def enter_benchmark_dir(benchmark_dict: dict):
                 repo_folder = Path(self.origin)
                 if not repo_folder.exists():
                     repo_folder = cloning_directory / self._sanitised_url()
+                    cloning_directory.mkdir(exist_ok=True, parents=True)
 
                 if not repo_folder.exists():
                     repo = git.Repo.clone_from(self.origin, to_path=repo_folder)
