@@ -171,6 +171,8 @@ def install_patched_requirements(requirements_file: Union[str, Path], listener: 
     cmd = [sys.executable, "-m", "pip", "install", "-r", str(requirements_file)]
     out, err, exit_code = run_and_monitor_progress(cmd, listener)
     if exit_code:
+        err = (f"Installation of pip packages in file {requirements_file} failed with stderr: {err}.")
+        logger.error(err)
         raise subprocess.CalledProcessError(exit_code, cmd, out, err)
     return original_requirements
 
@@ -192,6 +194,8 @@ def install_apt_packages(requirements_file_or_list: Union[str, Path, List[str]],
     ]:
         out, err, exit_code = run_and_monitor_progress(cmd, listener)
         if exit_code:
+            err = (f"System packages installation failed with stderr: {err}.")
+            logger.error(err)
             raise subprocess.CalledProcessError(exit_code, cmd, out, err)
 
     return requirements_list
