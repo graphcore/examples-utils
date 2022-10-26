@@ -2,7 +2,6 @@
 import os
 import argparse
 
-
 try:
     import nbformat
     from nbconvert.preprocessors import ExecutePreprocessor, CellExecutionError
