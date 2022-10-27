@@ -53,7 +53,6 @@ from examples_utils.benchmarks.profiling_utils import add_profiling_vars
 # Get the module logger
 logger = logging.getLogger()
 
-
 BenchmarkDict = Dict
 # A dictionary which defines a benchmark
 
