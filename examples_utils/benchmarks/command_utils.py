@@ -3,9 +3,9 @@ import logging
 import os
 import re
 import subprocess
-from argparse import Namespace, ArgumentParser
+from argparse import ArgumentParser, Namespace
 from pathlib import Path
-from typing import Tuple, Dict
+from typing import Dict, Tuple
 
 # Get the module logger
 logger = logging.getLogger(__name__)

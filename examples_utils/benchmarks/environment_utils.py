@@ -1,12 +1,11 @@
 # Copyright (c) 2022 Graphcore Ltd. All rights reserved.
+import argparse
 import copy
 import logging
 import os
 import re
-import sys
 import subprocess
-import argparse
-import argparse
+import sys
 from pathlib import Path
 
 # Get the module logger

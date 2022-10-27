@@ -1,18 +1,20 @@
 # Copyright (c) 2022 Graphcore Ltd. All rights reserved.
 
+import argparse
 import atexit
-from datetime import timedelta
-import subprocess
-import os
-import time
 import logging
-from typing import Tuple
-from io import TextIOWrapper
+import os
+import subprocess
 import sys
 import textwrap
-import argparse
+import time
+from datetime import timedelta
+from io import TextIOWrapper
+from typing import Tuple
 
-from examples_utils.benchmarks.command_utils import (get_poprun_config, get_num_ipus, query_option_in_cmd)
+from examples_utils.benchmarks.command_utils import (get_num_ipus,
+                                                     get_poprun_config,
+                                                     query_option_in_cmd)
 
 # Get the module logger
 logger = logging.getLogger()

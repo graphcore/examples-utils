@@ -7,25 +7,19 @@ import shlex
 import subprocess
 import sys
 import threading
-from typing import Union
 from collections import OrderedDict
 from datetime import datetime, timedelta
 from io import TextIOWrapper
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, Union
+
 import yaml
 
-from examples_utils.benchmarks.slurm_utils import (configure_slurm_job, run_and_monitor_progress_on_slurm)
 from examples_utils.benchmarks.command_utils import (
-    formulate_benchmark_command,
-    get_benchmark_variants,
-    get_poprun_config,
-    get_local_poprun_hosts,
-)
+    formulate_benchmark_command, get_benchmark_variants,
+    get_local_poprun_hosts, get_poprun_config)
 from examples_utils.benchmarks.distributed_utils import (
-    remove_distributed_filesystems,
-    setup_distributed_filesystems,
-)
+    remove_distributed_filesystems, setup_distributed_filesystems)
 from examples_utils.benchmarks.environment_utils import (
     check_env,
     enter_benchmark_dir,
@@ -37,21 +31,15 @@ from examples_utils.benchmarks.environment_utils import (
     preprocess_args,
 )
 from examples_utils.benchmarks.logging_utils import (
-    WANDB_AVAILABLE,
-    get_latest_checkpoint_path,
-    get_wandb_link,
-    print_benchmark_summary,
-    save_results,
-    upload_checkpoints,
-    upload_compile_time,
-)
+    WANDB_AVAILABLE, get_latest_checkpoint_path, get_wandb_link,
+    print_benchmark_summary, save_results, upload_checkpoints,
+    upload_compile_time)
 from examples_utils.benchmarks.metrics_utils import (
-    derive_metrics,
-    extract_metrics,
-    get_results_for_compile_time,
-    additional_metrics,
-)
+    additional_metrics, derive_metrics, extract_metrics,
+    get_results_for_compile_time)
 from examples_utils.benchmarks.profiling_utils import add_profiling_vars
+from examples_utils.benchmarks.slurm_utils import (
+    configure_slurm_job, run_and_monitor_progress_on_slurm)
 
 # Get the module logger
 logger = logging.getLogger()
