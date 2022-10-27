@@ -1,3 +1,4 @@
+# Copyright (c) 2022 Graphcore Ltd. All rights reserved.
 import logging
 from typing import NamedTuple, Optional, Union, List, Dict
 import re
@@ -96,7 +97,7 @@ def install_apt_packages(requirements_file_or_list: Union[str, Path, List[str]],
 
 @contextmanager
 def in_benchmark_dir(benchmark_dict):
-    previous_work_dir  = enter_benchmark_dir(benchmark_dict)
+    previous_work_dir = enter_benchmark_dir(benchmark_dict)
     try:
         yield previous_work_dir
     finally:
@@ -123,7 +124,9 @@ def prepare_benchmark_environment(benchmark_dict: BenchmarkDict, listener: TextI
     return changes_to_revert
 
 
-def cleanup_benchmark_environments(benchmark_dict: BenchmarkDict, changes_to_revert: Dict):
+def cleanup_benchmark_environments(benchmark_dict: BenchmarkDict, changes_to_revert: Optional[Dict]):
+    if changes_to_revert is None:
+        return
     # Undo the patch to the requirements files
     with in_benchmark_dir(benchmark_dict):
         requirements_file: Optional[str] = benchmark_dict.get("requirements_file")
@@ -139,14 +142,17 @@ def assess_platform(args: argparse.Namespace):
 
     # extract and modify benchmarks
     with open(Path(args.log_dir) / "environment_setup.log", "w") as log_file:
-        revertible_changes = {}
-        for name, benchmark in benchmarks.items():
-            revertible_changes[name] = prepare_benchmark_environment(benchmark, log_file)
+        revertible_changes: Dict[str, Dict] = {}
+        try:
+            for name, benchmark in benchmarks.items():
+                revertible_changes[name] = prepare_benchmark_environment(benchmark, log_file)
 
-    _ = run_benchmarks_from_spec(benchmarks, args)
+            _ = run_benchmarks_from_spec(benchmarks, args)
+        finally:
+            # Make sure that clean up happens even on failures
+            for name, benchmark in benchmarks.items():
+                cleanup_benchmark_environments(benchmark, revertible_changes.get(name))
 
-    for name, benchmark in benchmarks.items():
-        cleanup_benchmark_environments(benchmark, revertible_changes)
 
 def platform_parser(parser):
     return benchmarks_parser(parser)

@@ -39,7 +39,7 @@ def main(raw_args):
     elif args.subparser == 'benchmark':
         configure_logger(args)
         run_benchmarks(args)
-    elif args.subparser == 'benchmark':
+    elif args.subparser == 'platform_assessment':
         configure_logger(args)
         assess_platform(args)
     elif args.subparser == 'test_copyright':
