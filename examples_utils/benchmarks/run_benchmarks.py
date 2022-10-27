@@ -191,8 +191,6 @@ def run_benchmark_variant(
         benchmark_dict["derived"] = {}
         logger.info("Removed data metrics for compile only benchmark")
 
-    # TODO: Slurm set benchmarking working directory in script
-
     # Change cwd to where the benchmarks file was
     enter_benchmark_dir(benchmark_dict)
     # get the hash of the head commit of the benchmark directory
@@ -233,7 +231,7 @@ def run_benchmark_variant(
     # Infer examples, SDK and venv path for this benchmark
     args = infer_paths(args, benchmark_dict)
 
-    # TODO: DATASETS_DIR in Slurm is probably not correct
+    # TODO: DATASETS_DIR in Slurm may not be correct
     logger.info(f"Datasets directory: '{os.getenv('DATASETS_DIR')}'")
 
     # Detect if benchmark requires instances running (not just compiling) on
@@ -242,12 +240,12 @@ def run_benchmark_variant(
     poprun_hostnames = get_local_poprun_hosts(poprun_config)
     is_distributed = len(poprun_hostnames) > 1 and not args.compile_only
 
-    # TODO: skip this on slurm
     if is_distributed and not args.submit_on_slurm:
         # Setup temporary filesystems on all hosts and modify cmd to use this
         setup_distributed_filesystems(args, poprun_hostnames)
 
-    # TODO: make requirements mandatory if running on slurm?
+    # TODO: make requirements mandatory if running on slurm so that
+    # a new venv/ SDK can be downlaoded and installed?
     start_time = datetime.now()
     reqs = benchmark_dict.get("requirements_file")
     if reqs:

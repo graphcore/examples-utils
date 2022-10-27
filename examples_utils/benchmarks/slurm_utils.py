@@ -10,6 +10,7 @@ from typing import Tuple
 from io import TextIOWrapper
 import sys
 import textwrap
+import argparse
 
 from examples_utils.benchmarks.command_utils import (get_poprun_config, get_num_ipus, query_option_in_cmd)
 
@@ -17,16 +18,35 @@ from examples_utils.benchmarks.command_utils import (get_poprun_config, get_num_
 logger = logging.getLogger()
 
 
-def configure_slurm_job_working_directory(job_wd):
+def configure_slurm_job_working_directory(job_wd: str) -> str:
+    """Add instruction to bash job script to cd to the current job working directory
+    Args:
+        job_wd (str): absolute path to the current benchmark variant working directory
+    Returns:
+        bash instruction (str): cd to job working directory
+    """
     return f"cd {job_wd}\n"
 
 
-def configure_slurm_python_command(cmd):
+def configure_slurm_python_command(cmd: list) -> str:
+    """Add instruction to bash job script to execute the benchmark variant python command
+    Args:
+        cmd (list): benchmark variant command
+    Returns:
+        bash instruction (str): benchmark variant python command
+    """
     python_index = query_option_in_cmd(cmd, ["python", "python3"])
     return " ".join(cmd[python_index:]) + "\n"
 
 
-def configure_slurm_sdk_and_venv(args):
+def configure_slurm_sdk_and_venv(args: argparse.ArgumentParser) -> str:
+    """Add instruction to bash job script to enable the user activated SDK and python venv
+    Args:
+        args (argparse.Namespace): Arguments passed to run the benchmarks
+            with
+    Returns:
+        bash instruction (str): source poplar SDK and python venv
+    """
     # TODO: pull SDK via popsdk?
     # TODO: recreate python venv?
     bash_script = f"source {os.path.join(args.sdk_path, 'enable')}\n"
@@ -34,8 +54,22 @@ def configure_slurm_sdk_and_venv(args):
     return bash_script + "\n"
 
 
-def configure_slurm_ipu_partition(poprun_config, num_ipus):
+def configure_slurm_ipu_partition(poprun_config: dict, num_ipus: str) -> str:
+    """Add instruction to bash job script to create a compatible partition for 
+    the benchmark variant. If the benchmark variant is using poprun, poprun will
+    be used to create the partition. If it is not using poprun, vipu will be used 
+    to create the partition
+
+    Args:
+        poprun_config (Dict): output of command_utils.get_poprun_config
+        num_ipus (str): the number of ipus required for the benchmark variant
+    Returns:
+        bash instruction (str): commands to create a partition
+    """
+
     # TODO: support recreation of clusters for jobs that require more than one ild
+    # this is currently not supported on the neverland SLURM queue but will be in the
+    # the future
 
     bash_script = textwrap.dedent("""
     export IPUOF_VIPU_API_HOST=angelsfall-ctrl
@@ -98,29 +132,56 @@ def configure_slurm_ipu_partition(poprun_config, num_ipus):
             # TODO handling for multi host options
             # synchronise python venv, poplar sdk distribute ssh keys
             # migrate tcp_if_include to --host-subnet parameter instead
-            pass
+            err = "multi host runs are currently not supported"
+            logging.error(err)
+            raise NotImplementedError(err)
 
     return bash_script
 
 
-def configure_slurm_job(args, cmd, variant_name, variant_log_dir, job_wd):
+def configure_slurm_job(args: argparse.ArgumentParse, cmd: list, variant_name: str, variant_log_dir: str, job_wd: str):
+    """Construct a bash script that will be used to submit the given benchmark variant
+    in a slurm queue. The bash script is created in a series of steps:
+
+    1. Configure job working directory
+    2. Configure poplar SDK and python venv to be used
+    3. Configure the IPU partition to be used for the job
+    4. Add the python command to be run on the slurm allocated node 
+
+    The bash script is then output to the logging directory for the given benchmark variant
+
+    Args:
+        args (argparse.Namespace): Arguments passed to run the benchmarks
+            with
+        cmd (list): benchmark variant command
+        variant_name (str): benchmark variant name
+        variant_log_dir (str): absolute path to dir used to store execution logs
+        job_wd (str): absolute path to the current benchmark variant working directory
+    Returns:
+        slurm configuration (dict): slurm job submission information
+    """
+
     poprun_config = get_poprun_config(args, cmd)
     num_ipus = int(get_num_ipus(variant_name))
 
+    # construct job submission bash script
     bash_script = "#!/bin/bash\n"
     bash_script += configure_slurm_job_working_directory(job_wd)
     bash_script += configure_slurm_sdk_and_venv(args)
     bash_script += configure_slurm_ipu_partition(poprun_config, num_ipus)
     bash_script += configure_slurm_python_command(cmd)
 
+    # output job submission script to variant logging dir
     job_script_path = os.path.join(variant_log_dir, "submit.sh")
 
     with open(job_script_path, "w") as script_handle:
         script_handle.write(bash_script)
 
+    # configure stdout and stderr files for the job
     stdout_log_path = os.path.join(variant_log_dir, "slurm-%j.out")
     stderr_log_path = os.path.join(variant_log_dir, "slurm-%j.err")
 
+    # slurm helper scripts to submit jobs depending on the number of IPUs
     if num_ipus <= 16:
         submission_script = "runonpod16.sh"
     elif num_ipus <= 64:
@@ -134,6 +195,7 @@ def configure_slurm_job(args, cmd, variant_name, variant_log_dir, job_wd):
         logging.error(err)
         raise ValueError(err)
 
+    # pass --wait to sbatch so that we can obtain the return code from the submitted job
     slurm_job_command = [
         submission_script, "--wait", "--job-name", variant_name, "-e", stderr_log_path, "-o", stdout_log_path,
         job_script_path
@@ -148,7 +210,14 @@ def configure_slurm_job(args, cmd, variant_name, variant_log_dir, job_wd):
     }
 
 
-def kill_slurm_job(proc, job_name):
+def kill_slurm_job(proc: subprocess.Popen, job_name: str) -> None:
+    """Clean up if the job launching subprocess exits uncleanly 
+    or the user issues an interrupt
+
+    Args: 
+        proc (python subprocess): job submission process
+        job_name (str): name of the job
+    """
     proc.kill()
     logger.error("Slurm job launching process exited abnormally."
                  f" Killing job with job name: {job_name}.")
@@ -169,8 +238,26 @@ def run_and_monitor_progress_on_slurm(cmd: list,
                                       listener: TextIOWrapper,
                                       timeout: int = None,
                                       **kwargs) -> Tuple[str, str, int]:
+    """
+    Run the benchmark in the slurm queue and monitor progress.
 
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=80)
+    Args:
+        cmd (list): The command to be run, as a list for use by subprocess
+        job_name (str): the slurm job name for the given benchmark
+        stdout_log_path (str): Absolute path to stdout from the slurm job
+        stderr_log_path (str): Absolute path to stderr from the slurm job
+        listener (TextIOWrapper): Listener that takes the output from the process
+        timeout (int): Seconds until the process will timeout, forcing termination
+        kwargs: all additional keyword arguments are passed to `subprocess.Popen`.
+
+    Returns:
+        output (str): stdout from the process
+        err (str): stderr from the process
+        exitcode (int): The process exitcode
+
+    """
+
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=80, **kwargs)
 
     # make sure job is killed if the current process is interrupted or exists unexpectedly
     atexit.register(kill_slurm_job, proc, job_name)

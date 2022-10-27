@@ -3,7 +3,7 @@ import logging
 import os
 import re
 import subprocess
-from argparse import Namespace
+from argparse import Namespace, ArgumentParser
 from pathlib import Path
 from typing import Tuple, Dict
 
@@ -215,7 +215,17 @@ def query_option_in_cmd(cmd: list, option: list):
 
 
 def get_poprun_config(args, cmd) -> Dict:
+    """Get a poprun configuration dict storing key,value pairs of poprun options 
+    and supplied arguments. We store only a subset of options that are going 
+    to be needed in order to ensure that the job submission environment is correct:
 
+    Args: 
+       args (argparse.Namespace): Arguments passed to run the benchmarks
+            with        
+        cmd: (list): benchmark variant command
+    Return:
+        poprun configuration (Dict): key value pairs of poprun options and arguments    
+    """
     poprun_config = {}
 
     # Find where in the command list "poprun" and "python" exist
