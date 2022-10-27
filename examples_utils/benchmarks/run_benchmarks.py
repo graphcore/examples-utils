@@ -7,8 +7,7 @@ import shlex
 import subprocess
 import sys
 import threading
-import tempfile
-from typing import Union, Optional, List
+from typing import Union
 from collections import OrderedDict
 from datetime import datetime, timedelta
 from io import TextIOWrapper
@@ -202,7 +201,7 @@ def run_benchmark_variant(
     cmd = shlex.split(os.path.expandvars(variant_command))
 
     # Define where the benchmark should be run (dir containing examples)
-    cwd = str(Path(variant_dict.get("cwd", Path.cwd())).resolve())
+    cwd = str(Path.cwd().resolve())
     logger.info(f"\tcwd = '{cwd}'")
 
     # Create the log directory
