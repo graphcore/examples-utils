@@ -156,51 +156,6 @@ def run_and_monitor_progress(cmd: list, listener: TextIOWrapper, timeout: int = 
     return (output, err, exitcode)
 
 
-def install_patched_requirements(requirements_file: Union[str, Path], listener: TextIOWrapper):
-    """Removes any 'examples-utils' requirements from a a requirements
-    file before installing it. It returns the original unpatched requirements
-    in case they are needed later."""
-
-    requirements_file = Path(requirements_file)
-    logger.info(f"Install python requirements")
-    if not requirements_file.exists():
-        raise FileNotFoundError(f"Invalid python requirements where specified at {requirements_file}")
-    # Strip examples-utils requirement as it can break the installation
-    original_requirements = requirements_file.read_text()
-    requirements_file.write_text("\n".join(l for l in original_requirements.splitlines() if "examples-utils" not in l))
-    cmd = [sys.executable, "-m", "pip", "install", "-r", str(requirements_file)]
-    out, err, exit_code = run_and_monitor_progress(cmd, listener)
-    if exit_code:
-        err = (f"Installation of pip packages in file {requirements_file} failed with stderr: {err}.")
-        logger.error(err)
-        raise subprocess.CalledProcessError(exit_code, cmd, out, err)
-    return original_requirements
-
-
-def install_apt_packages(requirements_file_or_list: Union[str, Path, List[str]], listener: TextIOWrapper):
-    """Installs system packages with apt."""
-    logger.info(f"Installing apt requirements")
-    if not isinstance(requirements_file_or_list, list):
-        requirements_file = Path(requirements_file_or_list)
-        if not requirements_file.exists():
-            raise FileNotFoundError(f"Invalid apt requirements where specified at {requirements_file}")
-        requirements_list: List[str] = requirements_file.read_text().splitlines()
-    else:
-        requirements_list = requirements_file_or_list
-    logger.debug(f"  Collected the following requirements: " + " ".join(requirements_list))
-    for cmd in [
-        ["apt", "update", "-y"],
-        ["apt", "install", "-y", *requirements_list],
-    ]:
-        out, err, exit_code = run_and_monitor_progress(cmd, listener)
-        if exit_code:
-            err = (f"System packages installation failed with stderr: {err}.")
-            logger.error(err)
-            raise subprocess.CalledProcessError(exit_code, cmd, out, err)
-
-    return requirements_list
-
-
 def run_benchmark_variant(
         variant_name: str,
         benchmark_name: str,
@@ -284,14 +239,6 @@ def run_benchmark_variant(
         # Setup temporary filesystems on all hosts and modify cmd to use this
         setup_distributed_filesystems(args, poprun_hostnames)
 
-    required_apt_packages: Optional[str] = benchmark_dict.get("required_apt_packages")
-    if required_apt_packages:
-        install_apt_packages(required_apt_packages, listener)
-    requirements_file: Optional[str] = benchmark_dict.get("requirements_file")
-    original_requirements = ""
-    if requirements_file:
-        original_requirements = install_patched_requirements(requirements_file, listener)
-
     start_time = datetime.now()
     logger.info(f"Start test: {start_time}")
     need_to_run = True
@@ -316,9 +263,6 @@ def run_benchmark_variant(
     # if args.profile:
     #     output += analyse_profile(variant_name, cwd)
 
-    # Undo the patch to the requirements files
-    if requirements_file:
-        Path(requirements_file).write_text(original_requirements)
     # Teardown temporary filesystem on all hosts
     if is_distributed and args.remove_dirs_after:
         remove_distributed_filesystems(args, poprun_hostnames)
