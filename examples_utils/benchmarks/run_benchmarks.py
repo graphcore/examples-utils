@@ -402,11 +402,11 @@ def process_notebook_to_command(variant, name="unknown"):
     return variant
 
 
-def run_benchmarks(args: argparse.ArgumentParser):
+def run_benchmarks(args: argparse.Namespace):
     """Run benchmarks.
 
     Args:
-        args (argparse.ArgumentParser): Arguments passed to run the benchmarks
+        args (argparse.Namespace): Arguments passed to run the benchmarks
             with
 
     """
