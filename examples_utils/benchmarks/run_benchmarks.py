@@ -38,8 +38,7 @@ from examples_utils.benchmarks.metrics_utils import (
     additional_metrics, derive_metrics, extract_metrics,
     get_results_for_compile_time)
 from examples_utils.benchmarks.profiling_utils import add_profiling_vars
-from examples_utils.benchmarks.slurm_utils import (
-    configure_slurm_job, run_and_monitor_progress_on_slurm)
+from examples_utils.benchmarks.slurm_utils import (configure_slurm_job, run_and_monitor_progress_on_slurm)
 
 # Get the module logger
 logger = logging.getLogger()

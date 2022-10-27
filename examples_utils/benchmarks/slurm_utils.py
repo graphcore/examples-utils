@@ -12,9 +12,7 @@ from datetime import timedelta
 from io import TextIOWrapper
 from typing import Tuple
 
-from examples_utils.benchmarks.command_utils import (get_num_ipus,
-                                                     get_poprun_config,
-                                                     query_option_in_cmd)
+from examples_utils.benchmarks.command_utils import (get_num_ipus, get_poprun_config, query_option_in_cmd)
 
 # Get the module logger
 logger = logging.getLogger()
