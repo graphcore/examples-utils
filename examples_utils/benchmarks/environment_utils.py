@@ -39,6 +39,14 @@ AWSCLI_VARS = {
                               "account > security credentials."),
 }
 
+SLURM_ENV_VARS = {
+    "SLURM_HOST_SUBNET_MASK": {
+        "help": "Host subnet mask for all allocations from the SLURM queue.",
+        # "default": "10.5.0.0/16"
+        # "default": "10.3.0.0/16"
+        "default": "10.3.55.179/16"
+    }
+}
 
 def check_env(args: argparse.Namespace, benchmark_name: str, cmd: str):
     """Check if environment has been correctly set up prior to running.
@@ -49,27 +57,36 @@ def check_env(args: argparse.Namespace, benchmark_name: str, cmd: str):
         cmd (str): The command being run
 
     """
-    # TODO: skip sections that are not required by Slurm
 
     # If PARTITION exists in env but IPUOF_VIPU_API_PARTITION_ID isnt, set it
     # to the existing value
     if ("PARTITION" in os.environ) and ("IPUOF_VIPU_API_PARTITION_ID" not in os.environ):
         os.environ["IPUOF_VIPU_API_PARTITION_ID"] = os.environ["PARTITION"]
 
-    # Check if any of the poprun env vars are required but not set
-    missing_poprun_vars = [
-        env_var for env_var in POPRUN_VARS.keys() if f"${env_var}" in cmd and os.getenv(env_var) is None
-    ]
-    if missing_poprun_vars:
-        err = (f"{len(missing_poprun_vars)} environment variables are needed by "
-               f"command {benchmark_name} but are not defined: "
-               f"{missing_poprun_vars}. Hints: \n")
-        err += "".join([f"\n\t{missing} : {POPRUN_VARS[missing]}" for missing in missing_poprun_vars])
+    # if submitting on slurm, these environment variables are ignored
+    if not args.submit_on_slurm:
+        # Check if any of the poprun env vars are required but not set
+        missing_poprun_vars = [
+            env_var for env_var in POPRUN_VARS.keys() if f"${env_var}" in cmd and os.getenv(env_var) is None
+        ]
+        if missing_poprun_vars:
+            err = (f"{len(missing_poprun_vars)} environment variables are needed by "
+                f"command {benchmark_name} but are not defined: "
+                f"{missing_poprun_vars}. Hints: \n")
+            err += "".join([f"\n\t{missing} : {POPRUN_VARS[missing]}" for missing in missing_poprun_vars])
 
-        logger.error(err)
-        raise EnvironmentError(err)
+            logger.error(err)
+            raise EnvironmentError(err)
+        
+    if args.submit_on_slurm:
+        for k, v in SLURM_ENV_VARS.items():
+            if k not in os.environ:
+                warn_msg = F"{k}: {v['help']} has not been set. Falling back to the default value of: {v['default']}."
+                logger.warn(warn_msg)
+                os.environ[k] = v["default"]
+            
 
-    # TODO: wandb porting for slurm
+    # TODO: Investigate working of wandb and awscli on SLURM
 
     missing_env_vars = []
     # Check wandb variables if required

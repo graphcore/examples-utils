@@ -242,7 +242,7 @@ def get_poprun_config(args, cmd) -> Dict:
     configuration_options = [["-H", "--host"], ["--num-instances"], ["--vipu-server-host"], ["--vipu-server-port"],
                              ["--vipu-partition"], ["--num-ilds"], ["--vipu-cluster", "--vipu-allocation"],
                              ["--synchronise-python-venv"], ["--synchronise-poplar-sdk"], ["--distribute-ssh-key"],
-                             ["--mpi-global-args"], ["--mpi-local-args"]]
+                             ["--mpi-global-args"], ["--mpi-local-args"], ["--host-subnet"]]
 
     for opt in configuration_options:
         if "--host" in opt:

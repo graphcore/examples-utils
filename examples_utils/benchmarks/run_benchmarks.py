@@ -11,7 +11,7 @@ from collections import OrderedDict
 from datetime import datetime, timedelta
 from io import TextIOWrapper
 from pathlib import Path
-from typing import Tuple, Union
+from typing import Tuple, Union, Dict, List
 
 import yaml
 
@@ -218,35 +218,41 @@ def run_benchmark_variant(
     # Infer examples, SDK and venv path for this benchmark
     args = infer_paths(args, benchmark_dict)
 
-    # TODO: DATASETS_DIR in Slurm may not be correct
     logger.info(f"Datasets directory: '{os.getenv('DATASETS_DIR')}'")
 
-    # Detect if benchmark requires instances running (not just compiling) on
-    # other hosts, and then prepare hosts
-    poprun_config = get_poprun_config(args, cmd)
-    poprun_hostnames = get_local_poprun_hosts(poprun_config)
-    is_distributed = len(poprun_hostnames) > 1 and not args.compile_only
 
-    if is_distributed and not args.submit_on_slurm:
-        # Setup temporary filesystems on all hosts and modify cmd to use this
-        setup_distributed_filesystems(args, poprun_hostnames)
-
-    # TODO: make requirements mandatory if running on slurm so that
-    # a new venv/ SDK can be downlaoded and installed?
-    start_time = datetime.now()
+    # Detect if a requirements file has been provided
     reqs = benchmark_dict.get("requirements_file")
-    if reqs:
-        logger.info(f"Install python requirements")
-        if not Path(reqs).exists():
-            raise FileNotFoundError(f"Invalid python requirements where specified at {reqs}")
-        subprocess.check_output([sys.executable, "-m", "pip", "install", "-r", str(reqs)])
+    if reqs and not Path(reqs).exists():
+        raise FileNotFoundError(f"Invalid python requirements where specified at {reqs}")
+    
+    # Check if poprun is being used
+    poprun_config = get_poprun_config(args, cmd)
 
+    # only validate user supplied hosts if not submitting on SLURM
+    # Similarly, only install requirements if not submitting on SLURM
+    if not args.submit_on_slurm:
+        # Detect if benchmark requires instances running (not just compiling) on
+        # other hosts, and then prepare hosts
+        poprun_hostnames = get_local_poprun_hosts(poprun_config)
+        is_distributed = len(poprun_hostnames) > 1 and not args.compile_only
+
+        if is_distributed and not args.submit_on_slurm:
+            # Setup temporary filesystems on all hosts and modify cmd to use this
+            setup_distributed_filesystems(args, poprun_hostnames)
+
+        if reqs:
+            logger.info(f"Install python requirements")
+            subprocess.check_output([sys.executable, "-m", "pip", "install", "-r", str(reqs)])
+
+    start_time = datetime.now()
     logger.info(f"Start test: {start_time}")
     need_to_run = True
     while need_to_run:
         if args.submit_on_slurm:
-            slurm_config = configure_slurm_job(args, cmd, variant_name, variant_log_dir, cwd)
+            slurm_config = configure_slurm_job(args, poprun_config, reqs, cmd, variant_name, variant_log_dir, cwd)
             stdout, stderr, exitcode = run_and_monitor_progress_on_slurm(listener=listener, **slurm_config)
+
         else:
             stdout, stderr, exitcode = run_and_monitor_progress(
                 cmd,
@@ -255,9 +261,9 @@ def run_benchmark_variant(
                 cwd=cwd,
                 env=env,
             )
-            need_to_run = should_reattempt_benchmark(benchmark_dict, stdout, stderr, exitcode)
-            if need_to_run:
-                logger.info(f"Re-running benchmark because: {need_to_run}")
+        need_to_run = should_reattempt_benchmark(benchmark_dict, stdout, stderr, exitcode)
+        if need_to_run:
+            logger.info(f"Re-running benchmark because: {need_to_run}")
 
     end_time = datetime.now()
     total_runtime = (end_time - start_time).total_seconds()
@@ -506,7 +512,6 @@ def run_benchmarks_from_spec(spec: Dict[str, BenchmarkDict], args: argparse.Name
         for benchmark_name in variant_dictionary:
             check_env(args, benchmark_name, spec[benchmark_name]["cmd"])
 
-        # Run each variant
         for benchmark_name in variant_dictionary:
             benchmark_spec = spec.get(benchmark_name, {})
             logger.info("Running " + benchmark_name)

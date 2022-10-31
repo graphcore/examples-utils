@@ -10,7 +10,7 @@ import textwrap
 import time
 from datetime import timedelta
 from io import TextIOWrapper
-from typing import Tuple
+from typing import Tuple, Dict
 
 from examples_utils.benchmarks.command_utils import (get_num_ipus, get_poprun_config, query_option_in_cmd)
 
@@ -35,26 +35,119 @@ def configure_slurm_python_command(cmd: list) -> str:
     Returns:
         bash instruction (str): benchmark variant python command
     """
+    print(cmd)
     python_index = query_option_in_cmd(cmd, ["python", "python3"])
     return " ".join(cmd[python_index:]) + "\n"
 
 
-def configure_slurm_sdk_and_venv(args: argparse.ArgumentParser) -> str:
+def configure_slurm_sdk_and_venv(args: argparse.ArgumentParser, requirements: str) -> str:
     """Add instruction to bash job script to enable the user activated SDK and python venv
     Args:
         args (argparse.Namespace): Arguments passed to run the benchmarks
             with
+        requirements (str): path to requirements.txt to be used for installing packages
     Returns:
         bash instruction (str): source poplar SDK and python venv
     """
     # TODO: pull SDK via popsdk?
     # TODO: recreate python venv?
     bash_script = f"source {os.path.join(args.sdk_path, 'enable')}\n"
-    bash_script += f"source {os.path.join(args.venv_path, 'bin', 'activate')}"
+    bash_script += f"source {os.path.join(args.venv_path, 'bin', 'activate')}\n"
+    if requirements:
+        bash_script += f"python3 -m pip install -r {str(requirements)}"
     return bash_script + "\n"
 
+def configure_slurm_hosts(poprun_config: dict, num_ipus: int) -> Tuple[str, int, int]:
+    """Configure the number of instances to use on each host, and also 
+    the number of hosts
 
-def configure_slurm_ipu_partition(poprun_config: dict, num_ipus: str) -> str:
+    Args:
+        poprun_config (dict): 
+        num_ipus (int): 
+    Returns 
+        bash command, number of hosts, number of instances as a tuple
+    """
+    num_instances = 1
+    if poprun_config["num_instances"] is not None:
+        num_instances = int(poprun_config["num_instances"])
+
+    num_hosts = 1
+    if poprun_config["host"] is not None:
+        # users want to use a specific number of hosts
+        # set this depending on the default number of hosts 
+        # available on each POD size
+        if num_ipus <= 16:
+            num_hosts = 1
+        elif num_ipus <= 64:
+            num_hosts = 4
+        elif num_ipus <= 128:
+            num_hosts = 8
+        elif num_ipus <= 256:
+            num_hosts = 16
+
+    # reconfigure number of instances per host before moving to the next host
+    if num_instances < num_hosts:
+        bash_script = "\nexport SLURM_NTASKS_PER_NODE=1\n"
+    else:
+        bash_script = f"\nexport SLURM_NTASKS_PER_NODE={int(num_instances / num_hosts)}\n"
+
+    # reconfigure the host set to be used for the job
+    bash_script += f"NUM_HOSTS={num_hosts}\n"
+    bash_script += textwrap.dedent("""
+    BASE=$(echo $SLURM_JOB_NODELIST  | cut -d '-' -f 1,2)
+    if [ "${SLURM_JOB_NODELIST/[/}" == "${SLURM_JOB_NODELIST}" ]
+    then NODELIST=$SLURM_JOB_NODELIST
+    else
+        #echo base=$BASE
+        NODERANGE=$(echo $SLURM_JOB_NODELIST | cut -d '-' -f 3,4,5,6 | sed -e "s/\[/{/" -e "s/\-/../g" -e "s/\]/}/" -e "s/,/} {/")
+        RAWNODELIST=$(sed "s/{/$BASE-{/g" <<< $NODERANGE )
+        #echo raw $RAWNODELIST
+        NODELIST=$(eval echo $(echo $RAWNODELIST))
+    fi
+    #echo node $NODELIST
+    COUNT=$(echo $NODELIST | wc -w)
+    SKIP=$((COUNT/NUM_HOSTS))
+    I=0
+    read -a NA <<< $NODELIST
+    HOSTS=""
+    while [ $I -lt $((COUNT+1)) ]
+    do
+        HOSTS="$HOSTS,${NA[$I]}"
+        I=$(($I+$SKIP))
+    done
+    HOSTS=$(sed -e 's/^,//g' -e 's/,$//g' <<<$HOSTS)
+    echo $HOSTS
+
+    export SLURM_JOB_NODELIST=$HOSTS
+    """)
+
+    # for multi host runs:
+    # 1. Poprun can deduce the subnet mask by considering the network
+    # address of an RNIC or the default gateway
+    # 
+    # 2. No need to synchronize python venv, poplar sdk, as they are stored 
+    # on a shared drive
+    # 
+    # 3. No need to distribute ssh-keys as the public key and private keys 
+    # are on a shared network drive. Also, cat id_rsa.pub > authorized_keys
+    # has been done so no need to password authenticate. The only user interaction
+    # that may happen if rsync is needed to other hosts, however the other 
+    # hosts are not populated in known_hosts, but that can be done:
+
+    if num_hosts > 1:
+        # update host public IPs
+        bash_script += textwrap.dedent("""
+        OLDIFS=$IFS
+        IFS=','
+        for host in $SLURM_JOB_NODELIST; do
+            ssh-keygen -R $host
+            ssh-keyscan -H $host >> ~/.ssh/known_hosts
+        done
+        IFS=$OLDIFS
+        """)
+    return bash_script + "\n", num_hosts, num_instances
+
+def configure_slurm_ipu_partition(poprun_config: dict, num_ipus: int) -> str:
     """Add instruction to bash job script to create a compatible partition for 
     the benchmark variant. If the benchmark variant is using poprun, poprun will
     be used to create the partition. If it is not using poprun, vipu will be used 
@@ -71,9 +164,9 @@ def configure_slurm_ipu_partition(poprun_config: dict, num_ipus: str) -> str:
     # this is currently not supported on the neverland SLURM queue but will be in the
     # the future
 
+    # IPUOF_VIPU_API_HOST & IPUOF_VIPU_API_PORT will be deduced by poprun
+    # on neverland this is guaranteed to be correct
     bash_script = textwrap.dedent("""
-    export IPUOF_VIPU_API_HOST=angelsfall-ctrl
-    export IPUOF_VIPU_API_PORT=8090
     export IPUOF_VIPU_API_PARTITION_ID=p${SLURM_JOB_ID}
     export ALLOCATION=c${SLURM_JOB_ID}
     """)
@@ -82,64 +175,20 @@ def configure_slurm_ipu_partition(poprun_config: dict, num_ipus: str) -> str:
         bash_script += ("\nvipu create partition $IPUOF_VIPU_API_PARTITION_ID"
                         f" --allocation $ALLOCATION --size {num_ipus} --reconfigurable\n")
     else:
-        num_instances = 1
-        if poprun_config["num_instances"] is not None:
-            num_instances = int(poprun_config["num_instances"])
-        num_hosts = 1
-        if poprun_config["host"] is not None:
-            num_hosts = len(poprun_config["host"])
-
-        # reconfigure number of instances per host before moving to the next host
-        bash_script += f"\nexport SLURM_NTASKS_PER_NODE={int(num_instances / num_hosts)}\n"
-
-        # reconfigure the host set to be used for the job
-        bash_script += f"NUM_HOSTS={num_hosts}\n"
-        bash_script += textwrap.dedent("""
-        BASE=$(echo $SLURM_JOB_NODELIST  | cut -d '-' -f 1,2)
-        if [ "${SLURM_JOB_NODELIST/[/}" == "${SLURM_JOB_NODELIST}" ]
-        then NODELIST=$SLURM_JOB_NODELIST
-        else
-            #echo base=$BASE
-            NODERANGE=$(echo $SLURM_JOB_NODELIST | cut -d '-' -f 3,4,5,6 | sed -e "s/\[/{/" -e "s/\-/../g" -e "s/\]/}/" -e "s/,/} {/")
-            RAWNODELIST=$(sed "s/{/$BASE-{/g" <<< $NODERANGE )
-            #echo raw $RAWNODELIST
-            NODELIST=$(eval echo $(echo $RAWNODELIST))
-        fi
-        #echo node $NODELIST
-        COUNT=$(echo $NODELIST | wc -w)
-        SKIP=$((COUNT/NUM_HOSTS))
-        I=0
-        read -a NA <<< $NODELIST
-        HOSTS=""
-        while [ $I -lt $((COUNT+1)) ]
-        do
-            HOSTS="$HOSTS,${NA[$I]}"
-            I=$(($I+$SKIP))
-        done
-        HOSTS=$(sed -e 's/^,//g' -e 's/,$//g' <<<$HOSTS)
-        echo $HOSTS
-
-        export SLURM_JOB_NODELIST=$HOSTS
-        """)
+        host_commands, num_hosts, num_instances = configure_slurm_hosts(poprun_config, num_ipus)
+        bash_script += host_commands
 
         # add poprun options
         bash_script += "poprun "
         bash_script += f" --host=$SLURM_JOB_NODELIST --num-instances={num_instances}"
-        bash_script += f" --vipu-allocation=$ALLOCATION "
+        bash_script += " --vipu-allocation=$ALLOCATION "
+        bash_script += f" --host-subnet={os.environ['SLURM_HOST_SUBNET_MASK']} "
         bash_script += poprun_config["other_args"] + " "
-
-        if num_hosts > 1:
-            # TODO handling for multi host options
-            # synchronise python venv, poplar sdk distribute ssh keys
-            # migrate tcp_if_include to --host-subnet parameter instead
-            err = "multi host runs are currently not supported"
-            logging.error(err)
-            raise NotImplementedError(err)
 
     return bash_script
 
 
-def configure_slurm_job(args: argparse.ArgumentParse, cmd: list, variant_name: str, variant_log_dir: str, job_wd: str):
+def configure_slurm_job(args: argparse.ArgumentParser, poprun_config: Dict, requirements: str, cmd: list, variant_name: str, variant_log_dir: str, job_wd: str):
     """Construct a bash script that will be used to submit the given benchmark variant
     in a slurm queue. The bash script is created in a series of steps:
 
@@ -153,6 +202,8 @@ def configure_slurm_job(args: argparse.ArgumentParse, cmd: list, variant_name: s
     Args:
         args (argparse.Namespace): Arguments passed to run the benchmarks
             with
+        poprun_config (Dict): output of command_utils.get_poprun_config
+        requirements (str): path to requirements.txt to be used for installing packages
         cmd (list): benchmark variant command
         variant_name (str): benchmark variant name
         variant_log_dir (str): absolute path to dir used to store execution logs
@@ -161,25 +212,7 @@ def configure_slurm_job(args: argparse.ArgumentParse, cmd: list, variant_name: s
         slurm configuration (dict): slurm job submission information
     """
 
-    poprun_config = get_poprun_config(args, cmd)
     num_ipus = int(get_num_ipus(variant_name))
-
-    # construct job submission bash script
-    bash_script = "#!/bin/bash\n"
-    bash_script += configure_slurm_job_working_directory(job_wd)
-    bash_script += configure_slurm_sdk_and_venv(args)
-    bash_script += configure_slurm_ipu_partition(poprun_config, num_ipus)
-    bash_script += configure_slurm_python_command(cmd)
-
-    # output job submission script to variant logging dir
-    job_script_path = os.path.join(variant_log_dir, "submit.sh")
-
-    with open(job_script_path, "w") as script_handle:
-        script_handle.write(bash_script)
-
-    # configure stdout and stderr files for the job
-    stdout_log_path = os.path.join(variant_log_dir, "slurm-%j.out")
-    stderr_log_path = os.path.join(variant_log_dir, "slurm-%j.err")
 
     # slurm helper scripts to submit jobs depending on the number of IPUs
     if num_ipus <= 16:
@@ -194,6 +227,25 @@ def configure_slurm_job(args: argparse.ArgumentParse, cmd: list, variant_name: s
         err = "Benchmark cannot utilise more than 256 IPUs"
         logging.error(err)
         raise ValueError(err)
+
+    # construct job submission bash script
+    bash_script = "#!/bin/bash\n"
+    bash_script += configure_slurm_job_working_directory(job_wd)
+    bash_script += configure_slurm_sdk_and_venv(args, requirements)
+    bash_script += configure_slurm_ipu_partition(poprun_config, num_ipus)
+    bash_script += configure_slurm_python_command(cmd)
+
+    # output job submission script to variant logging dir
+    job_script_path = os.path.join(variant_log_dir, "submit.sh")
+
+    with open(job_script_path, "w") as script_handle:
+        script_handle.write(bash_script)
+
+    # configure stdout and stderr files for the job
+    stdout_log_path = os.path.join(variant_log_dir, "slurm-%j.out")
+    stderr_log_path = os.path.join(variant_log_dir, "slurm-%j.err")
+
+
 
     # pass --wait to sbatch so that we can obtain the return code from the submitted job
     slurm_job_command = [
@@ -230,7 +282,8 @@ def kill_slurm_job(proc: subprocess.Popen, job_name: str) -> None:
                      f"Exit code: {proc.returncode}."
                      f"Reported error: {proc.stderr.decode()}")
 
-
+# TODO: clean this function
+# TODO: clean command passes as new cmd
 def run_and_monitor_progress_on_slurm(cmd: list,
                                       job_name: str,
                                       stdout_log_path: str,
@@ -331,7 +384,9 @@ def run_and_monitor_progress_on_slurm(cmd: list,
     stderr_log = "".join(outs[1])
     exitcode = proc.returncode
 
-    # slurm job must have finished successfully, so no need to cancel job
+    if not timeout_error and exitcode != 0:
+        kill_slurm_job(proc, job_name)
+
     atexit.unregister(kill_slurm_job)
 
     if timeout_error:
