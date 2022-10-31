@@ -641,5 +641,4 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
     )
     parser.add_argument("--submit-on-slurm",
                         action="store_true",
-                        help="Submit the provided tests in a slurm queue. This will only work"
-                        "if the host machine has been configured to support SLURM.")
+                        help=argparse.SUPPRESS)
