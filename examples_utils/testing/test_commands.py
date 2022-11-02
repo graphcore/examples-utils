@@ -2,6 +2,7 @@
 from typing import Union, List
 import subprocess
 import warnings
+import re
 
 DEFAULT_PROCESS_TIMEOUT_SECONDS = 40 * 60
 
@@ -13,6 +14,36 @@ class CalledProcessError(subprocess.CalledProcessError):
         original_message = super().__str__()
         return f"{original_message}\n" f"{self.stdout}\n" f"{self.stderr}"
 
+
+def check_missing_patterns(string: str, expected_patterns: List[str]):
+    """Finds patterns which are not in a string.
+
+    This function is used to search through the output of commands for
+    specific expected patterns.
+
+    Args:
+        string: A string which needs to contain the given patterns.
+        expected_patterns: regular expression patterns that are expected
+            in the string.
+
+    Returns:
+        A list with the expected_patterns which were not matched.
+    """
+    if not expected_patterns:
+        return
+    # If a string is passed as an argument convert it to a list
+    if isinstance(expected_patterns, str):
+        expected_patterns = [expected_patterns]
+
+    missing_matches = [
+        expected for expected in expected_patterns if not re.search(expected, string)
+    ]
+
+    assert not missing_matches, (
+            f"Not all strings were found in the output of the command, the "
+            f"following expected strings were missing: {missing_matches}. "
+            f"The following output was produced: {string}"
+        )
 
 def run_command_fail_explicitly(
     command: Union[str, List[str]],
@@ -31,6 +62,7 @@ def run_command_fail_explicitly(
         suppress_warnings: Do not include warnings in stdout, so it can be
                            parsed more reliably. Will still be captured if
                            command raises an exception.
+        expected_strings: Optional list of regex strings to confirm are contained in the output
         **kwargs: Additional keyword arguments are passed to
             `subprocess.check_output`.
 
@@ -79,4 +111,5 @@ def run_command_fail_explicitly(
         if hasattr(stderr, "decode"):
             stderr = stderr.decode("utf-8", errors="ignore")
         raise CalledProcessError(1, cmd=command, output=stdout, stderr=stderr) from e
+
     return out
