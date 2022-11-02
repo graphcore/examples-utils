@@ -62,6 +62,7 @@ def run_command_fail_explicitly(
         suppress_warnings: Do not include warnings in stdout, so it can be
                            parsed more reliably. Will still be captured if
                            command raises an exception.
+        expected_strings: Optional list of regex strings to confirm are contained in the output
         **kwargs: Additional keyword arguments are passed to
             `subprocess.check_output`.
 
@@ -110,4 +111,5 @@ def run_command_fail_explicitly(
         if hasattr(stderr, "decode"):
             stderr = stderr.decode("utf-8", errors="ignore")
         raise CalledProcessError(1, cmd=command, output=stdout, stderr=stderr) from e
+
     return out
