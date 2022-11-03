@@ -303,10 +303,10 @@ def flatten_results(results: dict, derivation_config: dict) -> dict:
 
 
 def derive_metrics(
-        derivation_config: dict,
-        benchmark_config: dict,
-        results: dict,
-        exitcode: int,
+    derivation_config: dict,
+    benchmark_config: dict,
+    results: dict,
+    exitcode: int,
 ) -> Tuple[dict, bool]:
     """Derive metrics from other metrics using specified expressions.
 

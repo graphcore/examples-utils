@@ -30,6 +30,7 @@ from examples_utils.benchmarks.environment_utils import (
     get_git_commit_hash,
     get_mpinum,
     infer_paths,
+    expand_environment_variables,
     merge_environment_variables,
     preprocess_args,
 )
@@ -156,12 +157,12 @@ def run_and_monitor_progress(cmd: list, listener: TextIOWrapper, timeout: int = 
 
 
 def run_benchmark_variant(
-        variant_name: str,
-        benchmark_name: str,
-        variant_dict: dict,
-        benchmark_dict: dict,
-        listener: TextIOWrapper,
-        args: argparse.ArgumentParser,
+    variant_name: str,
+    benchmark_name: str,
+    variant_dict: dict,
+    benchmark_dict: dict,
+    listener: TextIOWrapper,
+    args: argparse.ArgumentParser,
 ) -> dict:
     """Run a variant and collect results.
 
@@ -196,21 +197,6 @@ def run_benchmark_variant(
     # Create the actual command for the variant
     variant_command = formulate_benchmark_command(benchmark_dict, variant_dict, args)
 
-    # Expand any environment variables in the command and split the command
-    # into a list, respecting things like quotes, like the shell would
-    cmd = shlex.split(os.path.expandvars(variant_command))
-
-    # Define where the benchmark should be run (dir containing examples)
-    cwd = str(Path.cwd().resolve())
-    logger.info(f"\tcwd = '{cwd}'")
-
-    # Create the log directory
-    variant_log_dir = Path(args.log_dir, variant_name)
-    if not variant_log_dir.exists():
-        variant_log_dir.mkdir(parents=True)
-    outlog_path = Path(variant_log_dir, "stdout.log")
-    errlog_path = Path(variant_log_dir, "stderr.log")
-
     # Set the environment variables
     new_env = {}
     new_env["POPLAR_LOG_LEVEL"] = args.logging
@@ -221,9 +207,26 @@ def run_benchmark_variant(
     if args.profile:
         new_env = add_profiling_vars(new_env, variant_name, cwd)
 
+    # Expand any environment variables in the command and split the command
+    # into a list, respecting things like quotes, like the shell would
+    cmd = shlex.split(expand_environment_variables(variant_command, benchmark_dict))
+
     # Merge environment variables from benchmark and here with existing
     # environment variables
     env = merge_environment_variables(new_env, benchmark_dict)
+
+    import pdb
+    pdb.set_trace()
+    # Define where the benchmark should be run (dir containing examples)
+    cwd = str(Path.cwd().resolve())
+    logger.info(f"\tcwd = '{cwd}'")
+
+    # Create the log directory
+    variant_log_dir = Path(args.log_dir, variant_name)
+    if not variant_log_dir.exists():
+        variant_log_dir.mkdir(parents=True)
+    outlog_path = Path(variant_log_dir, "stdout.log")
+    errlog_path = Path(variant_log_dir, "stderr.log")
 
     # Infer examples, SDK and venv path for this benchmark
     args = infer_paths(args, benchmark_dict)
@@ -381,7 +384,8 @@ def process_notebook_to_command(variant, name="unknown"):
     if "notebook" not in variant:
         return variant
     if "notebook" in variant and "cmd" in variant:
-        raise ValueError("Invalid combination of entries 'notebook' and 'cmd' in " f"benchmark: {name}")
+        raise ValueError("Invalid combination of entries 'notebook' and 'cmd' in "
+                         f"benchmark: {name}")
     notebook_def = variant.pop("notebook")
     if not isinstance(notebook_def, dict):
         notebook_def = {"file": str(notebook_def)}
