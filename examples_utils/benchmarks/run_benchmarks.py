@@ -146,12 +146,12 @@ def run_and_monitor_progress(cmd: list, listener: TextIOWrapper, timeout: int = 
 
 
 def run_benchmark_variant(
-    variant_name: str,
-    benchmark_name: str,
-    variant_dict: dict,
-    benchmark_dict: dict,
-    listener: TextIOWrapper,
-    args: argparse.ArgumentParser,
+        variant_name: str,
+        benchmark_name: str,
+        variant_dict: dict,
+        benchmark_dict: dict,
+        listener: TextIOWrapper,
+        args: argparse.ArgumentParser,
 ) -> dict:
     """Run a variant and collect results.
 
@@ -177,7 +177,6 @@ def run_benchmark_variant(
         benchmark_dict["data"] = {}
         benchmark_dict["derived"] = {}
         logger.info("Removed data metrics for compile only benchmark")
-
     # Change cwd to where the benchmarks file was
     enter_benchmark_dir(benchmark_dict)
     # get the hash of the head commit of the benchmark directory
@@ -217,15 +216,13 @@ def run_benchmark_variant(
 
     # Infer examples, SDK and venv path for this benchmark
     args = infer_paths(args, benchmark_dict)
-
     logger.info(f"Datasets directory: '{os.getenv('DATASETS_DIR')}'")
-
 
     # Detect if a requirements file has been provided
     reqs = benchmark_dict.get("requirements_file")
     if reqs and not Path(reqs).exists():
         raise FileNotFoundError(f"Invalid python requirements where specified at {reqs}")
-    
+
     # Check if poprun is being used
     poprun_config = get_poprun_config(args, cmd)
 
@@ -250,7 +247,8 @@ def run_benchmark_variant(
     need_to_run = True
     while need_to_run:
         if args.submit_on_slurm:
-            slurm_config = configure_slurm_job(args, poprun_config, reqs, cmd, variant_name, variant_log_dir, cwd)
+            slurm_config = configure_slurm_job(args, benchmark_dict, poprun_config, cmd, variant_name, variant_log_dir,
+                                               cwd, env)
             stdout, stderr, exitcode = run_and_monitor_progress_on_slurm(listener=listener, **slurm_config)
 
         else:
@@ -388,8 +386,7 @@ def process_notebook_to_command(variant, name="unknown"):
     if "notebook" not in variant:
         return variant
     if "notebook" in variant and "cmd" in variant:
-        raise ValueError("Invalid combination of entries 'notebook' and 'cmd' in "
-                         f"benchmark: {name}")
+        raise ValueError("Invalid combination of entries 'notebook' and 'cmd' in " f"benchmark: {name}")
     notebook_def = variant.pop("notebook")
     if not isinstance(notebook_def, dict):
         notebook_def = {"file": str(notebook_def)}
@@ -639,6 +636,4 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         choices=["wandb", "s3"],
         help="List of locations to upload model checkpoints to",
     )
-    parser.add_argument("--submit-on-slurm",
-                        action="store_true",
-                        help=argparse.SUPPRESS)
+    parser.add_argument("--submit-on-slurm", action="store_true", help=argparse.SUPPRESS)
