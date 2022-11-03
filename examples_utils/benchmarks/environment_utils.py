@@ -214,7 +214,7 @@ def expand_environment_variables(cmd: str, new_env: dict) -> str:
     Returns:
         cmd (str) with environment variables expanded
     """
-    
+
     # temporarily set os.environ to new env vars
     orig_env = os.environ.copy()
     os.environ = new_env
