@@ -207,13 +207,13 @@ def run_benchmark_variant(
     if args.profile:
         new_env = add_profiling_vars(new_env, variant_name, cwd)
 
-    # Expand any environment variables in the command and split the command
-    # into a list, respecting things like quotes, like the shell would
-    cmd = shlex.split(expand_environment_variables(variant_command, benchmark_dict))
-
     # Merge environment variables from benchmark and here with existing
     # environment variables
     env = merge_environment_variables(new_env, benchmark_dict)
+
+    # Expand any environment variables in the command and split the command
+    # into a list, respecting things like quotes, like the shell would
+    cmd = shlex.split(expand_environment_variables(variant_command, env))
 
     # Define where the benchmark should be run (dir containing examples)
     cwd = str(Path.cwd().resolve())
