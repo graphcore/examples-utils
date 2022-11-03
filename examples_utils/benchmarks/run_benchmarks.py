@@ -157,12 +157,12 @@ def run_and_monitor_progress(cmd: list, listener: TextIOWrapper, timeout: int = 
 
 
 def run_benchmark_variant(
-    variant_name: str,
-    benchmark_name: str,
-    variant_dict: dict,
-    benchmark_dict: dict,
-    listener: TextIOWrapper,
-    args: argparse.ArgumentParser,
+        variant_name: str,
+        benchmark_name: str,
+        variant_dict: dict,
+        benchmark_dict: dict,
+        listener: TextIOWrapper,
+        args: argparse.ArgumentParser,
 ) -> dict:
     """Run a variant and collect results.
 
@@ -382,8 +382,7 @@ def process_notebook_to_command(variant, name="unknown"):
     if "notebook" not in variant:
         return variant
     if "notebook" in variant and "cmd" in variant:
-        raise ValueError("Invalid combination of entries 'notebook' and 'cmd' in "
-                         f"benchmark: {name}")
+        raise ValueError("Invalid combination of entries 'notebook' and 'cmd' in " f"benchmark: {name}")
     notebook_def = variant.pop("notebook")
     if not isinstance(notebook_def, dict):
         notebook_def = {"file": str(notebook_def)}

@@ -8,17 +8,18 @@ DEFAULT_PROCESS_TIMEOUT_SECONDS = 40 * 60
 
 class CalledProcessError(subprocess.CalledProcessError):
     """An error for subprocesses which captures stdout and stderr in the error message."""
+
     def __str__(self) -> str:
         original_message = super().__str__()
         return f"{original_message}\n" f"{self.stdout}\n" f"{self.stderr}"
 
 
 def run_command_fail_explicitly(
-    command: Union[str, List[str]],
-    cwd: str = ".",
-    *,
-    suppress_warnings: bool = False,
-    **kwargs,
+        command: Union[str, List[str]],
+        cwd: str = ".",
+        *,
+        suppress_warnings: bool = False,
+        **kwargs,
 ) -> str:
     """Runs a command returning the output or failing with useful information
 
