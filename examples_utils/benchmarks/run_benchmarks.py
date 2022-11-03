@@ -215,8 +215,6 @@ def run_benchmark_variant(
     # environment variables
     env = merge_environment_variables(new_env, benchmark_dict)
 
-    import pdb
-    pdb.set_trace()
     # Define where the benchmark should be run (dir containing examples)
     cwd = str(Path.cwd().resolve())
     logger.info(f"\tcwd = '{cwd}'")
