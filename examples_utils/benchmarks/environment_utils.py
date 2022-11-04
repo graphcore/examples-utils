@@ -123,7 +123,7 @@ def enter_benchmark_dir(benchmark_dict: dict):
     # If a special path is required, find and move to that in addition
     if benchmark_dict.get("location"):
         benchmark_path = benchmark_path.joinpath(benchmark_dict["location"])
-    current_working_dir = os.curdir
+    current_working_dir = str(Path(os.curdir).resolve())
     logger.debug(f"Entering {benchmark_path}")
     os.chdir(benchmark_path)
     return current_working_dir

@@ -62,7 +62,9 @@ def install_patched_requirements(requirements_file: Union[str, Path], listener: 
     requirements_file = Path(requirements_file)
     logger.info(f"Install python requirements")
     if not requirements_file.exists():
-        raise FileNotFoundError(f"Invalid python requirements where specified at {requirements_file}")
+        err = (f"Invalid python requirements where specified at {requirements_file.resolve().absolute()} in folder")
+        logger.error(err)
+        raise FileNotFoundError(err)
     # Strip examples-utils requirement as it can break the installation
     original_requirements = requirements_file.read_text()
     requirements_file.write_text("\n".join(l for l in original_requirements.splitlines() if "examples-utils" not in l))
@@ -81,7 +83,9 @@ def install_apt_packages(requirements_file_or_list: Union[str, Path, List[str]],
     if not isinstance(requirements_file_or_list, list):
         requirements_file = Path(requirements_file_or_list)
         if not requirements_file.exists():
-            raise FileNotFoundError(f"Invalid apt requirements where specified at {requirements_file}")
+            err = (f"Invalid apt requirements where specified at {requirements_file.resolve().absolute()} in folder")
+            logger.error(err)
+            raise FileNotFoundError(err)
         requirements_list: List[str] = requirements_file.read_text().splitlines()
     else:
         requirements_list = requirements_file_or_list
