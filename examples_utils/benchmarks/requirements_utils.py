@@ -35,9 +35,13 @@ class Repository(NamedTuple):
             cloning_directory.mkdir(exist_ok=True, parents=True)
 
         if not repo_folder.exists():
+            logger.info(f"Cloning repository {self.origin} to {repo_folder}")
             repo = git.Repo.clone_from(self.origin, to_path=repo_folder)
         else:
+            logger.info(f"Working in repository: {repo_folder}")
             repo = git.Repo(repo_folder)
+            # TODO: Check that the remotes of that repository match the origin of the object
+
         if self.ref:
             repo.git.checkout(self.ref)
         if not repo.head.is_detached and repo.remotes:
@@ -101,6 +105,7 @@ def in_benchmark_dir(benchmark_dict):
     try:
         yield previous_work_dir
     finally:
+        logger.debug(f"Returning to {previous_work_dir}")
         os.chdir(previous_work_dir)
 
 
@@ -144,13 +149,16 @@ def assess_platform(args: argparse.Namespace):
     with open(Path(args.log_dir) / "environment_setup.log", "w") as log_file:
         revertible_changes: Dict[str, Dict] = {}
         try:
+            logger.info("-" * 40)
             for name, benchmark in benchmarks.items():
+                logger.info(f"Preparing environment for '{name}'")
                 revertible_changes[name] = prepare_benchmark_environment(benchmark, log_file)
 
             _ = run_benchmarks_from_spec(benchmarks, args)
         finally:
             # Make sure that clean up happens even on failures
             for name, benchmark in benchmarks.items():
+                logger.info(f"Cleaning-up environment for '{name}'")
                 cleanup_benchmark_environments(benchmark, revertible_changes.get(name))
 
 
