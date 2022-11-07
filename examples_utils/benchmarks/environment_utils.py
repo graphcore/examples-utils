@@ -75,7 +75,7 @@ SLURM_ENV_VARS = {
 }
 
 
-def _check_cmd_for_missing_poprun_vars(benchmark_name:str, cmd:str):
+def _check_cmd_for_missing_poprun_vars(benchmark_name: str, cmd: str):
     # Check if any of the poprun env vars are required but not set
     missing_poprun_vars: List[str] = []
     for env_var in POPRUN_VARS.keys():
@@ -96,8 +96,8 @@ def _check_cmd_for_missing_poprun_vars(benchmark_name:str, cmd:str):
 
     if missing_poprun_vars:
         err = (f"{len(missing_poprun_vars)} environment variables are needed by "
-            f"command {benchmark_name} but are not defined: "
-            f"{missing_poprun_vars}. Hints: \n")
+               f"command {benchmark_name} but are not defined: "
+               f"{missing_poprun_vars}. Hints: \n")
         err += "".join([f"\n\t{missing} : {POPRUN_VARS[missing]}" for missing in missing_poprun_vars])
 
         logger.error(err)
