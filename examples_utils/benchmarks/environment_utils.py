@@ -1,13 +1,12 @@
 # Copyright (c) 2022 Graphcore Ltd. All rights reserved.
-from typing import Dict, Optional, Union, Callable, Tuple, List
+from typing import Optional, List
+import argparse
 import copy
 import logging
 import os
 import re
-import sys
 import subprocess
-import argparse
-import argparse
+import sys
 from pathlib import Path
 
 # Get the module logger
@@ -68,16 +67,15 @@ AWSCLI_VARS = {
                               "account > security credentials."),
 }
 
+SLURM_ENV_VARS = {
+    "SLURM_HOST_SUBNET_MASK": {
+        "help": "Host subnet mask for all allocations from the SLURM queue.",
+        "default": "ens5"
+    }
+}
 
-def check_env(args: argparse.Namespace, benchmark_name: str, cmd: str):
-    """Check if environment has been correctly set up prior to running.
 
-    Args:
-        args (argparse.Namespace): CLI arguments provided to this benchmarking run
-        benchmark_name (str): The name of the benchmark being run
-        cmd (str): The command being run
-
-    """
+def _check_cmd_for_missing_poprun_vars(benchmark_name:str, cmd:str):
     # Check if any of the poprun env vars are required but not set
     missing_poprun_vars: List[str] = []
     for env_var in POPRUN_VARS.keys():
@@ -98,12 +96,36 @@ def check_env(args: argparse.Namespace, benchmark_name: str, cmd: str):
 
     if missing_poprun_vars:
         err = (f"{len(missing_poprun_vars)} environment variables are needed by "
-               f"command {benchmark_name} but are not defined: "
-               f"{missing_poprun_vars}. Hints: \n")
+            f"command {benchmark_name} but are not defined: "
+            f"{missing_poprun_vars}. Hints: \n")
         err += "".join([f"\n\t{missing} : {POPRUN_VARS[missing]}" for missing in missing_poprun_vars])
 
         logger.error(err)
         raise EnvironmentError(err)
+
+
+def check_env(args: argparse.Namespace, benchmark_name: str, cmd: str):
+    """Check if environment has been correctly set up prior to running.
+
+    Args:
+        args (argparse.Namespace): CLI arguments provided to this benchmarking run
+        benchmark_name (str): The name of the benchmark being run
+        cmd (str): The command being run
+
+    """
+
+    # if submitting on slurm, these environment variables are ignored
+    if not args.submit_on_slurm:
+        _check_cmd_for_missing_poprun_vars(benchmark_name, cmd)
+
+    if args.submit_on_slurm:
+        for k, v in SLURM_ENV_VARS.items():
+            if k not in os.environ:
+                warn_msg = F"{k}: {v['help']} has not been set. Falling back to the default value of: {v['default']}."
+                logger.warn(warn_msg)
+                os.environ[k] = v["default"]
+
+    # TODO: Investigate working of wandb and awscli on SLURM
 
     missing_env_vars = []
     # Check wandb variables if required
@@ -151,13 +173,18 @@ def enter_benchmark_dir(benchmark_dict: dict):
     """
 
     # Find the root dir of the benchmarks.yml file
-    benchmark_path = Path(benchmark_dict["benchmark_path"]).parent
+    if benchmark_dict.get("reference_directory"):
+        benchmark_path = Path(benchmark_dict["reference_directory"])
+    else:
+        benchmark_path = Path(benchmark_dict["benchmark_path"]).parent
 
     # If a special path is required, find and move to that in addition
     if benchmark_dict.get("location"):
         benchmark_path = benchmark_path.joinpath(benchmark_dict["location"])
-
+    current_working_dir = str(Path(os.curdir).resolve())
+    logger.debug(f"Entering {benchmark_path}")
     os.chdir(benchmark_path)
+    return current_working_dir
 
 
 def get_mpinum(command: str) -> int:
@@ -211,7 +238,7 @@ def infer_paths(args: argparse.Namespace, benchmark_dict: dict) -> argparse.Name
                "environment (use 'source' when enabling/activating).")
         logger.error(err)
         raise EnvironmentError(err)
-    args.sdk_path = str(Path(sdk_path).parents[1].resolve())
+    args.sdk_path = str(Path(sdk_path).parent.resolve())
 
     # Find based on the required environment variable when a venv is activated
     venv_path = os.getenv("VIRTUAL_ENV")
@@ -223,7 +250,7 @@ def infer_paths(args: argparse.Namespace, benchmark_dict: dict) -> argparse.Name
                "'source' when enabling/activating).")
         logger.error(err)
         raise EnvironmentError(err)
-    args.venv_path = str(Path(venv_path).parents[1].resolve())
+    args.venv_path = str(Path(venv_path).resolve())
 
     return args
 

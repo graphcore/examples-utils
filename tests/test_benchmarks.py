@@ -22,6 +22,7 @@ def mocked_args():
     """Something which looks like the arguments to the benchmarks"""
     return argparse.Namespace(
         allow_wandb=False,
+        submit_on_slurm=False,
         upload_checkpoints=[],
     )
 
