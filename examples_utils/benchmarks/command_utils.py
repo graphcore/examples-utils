@@ -166,7 +166,6 @@ def formulate_benchmark_command(
                     "and all args containing 'wandb' from command.")
         cmd = " ".join([x for x in cmd.split(" ") if "--wandb" not in x])
 
-    # TODO: handling of compile only on SLURM
     if args.compile_only:
         logger.info("'--compile-only' was passed here. Appending '--compile-only' to the benchmark command.")
         cmd = cmd + " --compile-only"

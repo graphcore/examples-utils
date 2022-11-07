@@ -34,7 +34,8 @@ from examples_utils.benchmarks.logging_utils import (WANDB_AVAILABLE, get_latest
 from examples_utils.benchmarks.metrics_utils import (additional_metrics, derive_metrics, extract_metrics,
                                                      get_results_for_compile_time)
 from examples_utils.benchmarks.profiling_utils import add_profiling_vars
-from examples_utils.benchmarks.slurm_utils import (configure_slurm_job, run_and_monitor_progress_on_slurm)
+from examples_utils.benchmarks.slurm_utils import (check_slurm_configured, configure_slurm_job,
+                                                   run_and_monitor_progress_on_slurm)
 
 # Get the module logger
 logger = logging.getLogger()
@@ -230,7 +231,7 @@ def run_benchmark_variant(
         poprun_hostnames = get_local_poprun_hosts(poprun_config)
         is_distributed = len(poprun_hostnames) > 1 and not args.compile_only
 
-        if is_distributed and not args.submit_on_slurm:
+        if is_distributed:
             # Setup temporary filesystems on all hosts and modify cmd to use this
             setup_distributed_filesystems(args, poprun_hostnames)
 
@@ -238,15 +239,17 @@ def run_benchmark_variant(
             logger.info(f"Install python requirements")
             subprocess.check_output([sys.executable, "-m", "pip", "install", "-r", str(reqs)])
 
+    # configure benchmark to run on slurm
+    if args.submit_on_slurm:
+        slurm_config = configure_slurm_job(args, benchmark_dict, poprun_config, cmd, variant_name, variant_log_dir, cwd,
+                                           env)
+
     start_time = datetime.now()
     logger.info(f"Start test: {start_time}")
     need_to_run = True
     while need_to_run:
         if args.submit_on_slurm:
-            slurm_config = configure_slurm_job(args, benchmark_dict, poprun_config, cmd, variant_name, variant_log_dir,
-                                               cwd, env)
             stdout, stderr, exitcode = run_and_monitor_progress_on_slurm(listener=listener, **slurm_config)
-
         else:
             stdout, stderr, exitcode = run_and_monitor_progress(
                 cmd,
@@ -270,15 +273,15 @@ def run_benchmark_variant(
 
     # Teardown temporary filesystem on all hosts
     if not args.submit_on_slurm:
-        if is_distributed and args.remove_dirs_after:
-            remove_distributed_filesystems(args, poprun_hostnames)
-
-        if not is_distributed and args.remove_dirs_after:
-            logger.info("'--remove-dirs-after has been set but this benchmark has "
-                        "not been specified to use multiple hosts, and so there "
-                        "are no remote temporary filesystems to delete. Local "
-                        "filesystems on this host will not automatically be "
-                        "deleted.")
+        if args.remove_dirs_after:
+            if is_distributed:
+                remove_distributed_filesystems(args, poprun_hostnames)
+            else:
+                logger.info("'--remove-dirs-after has been set but this benchmark has "
+                            "not been specified to use multiple hosts, and so there "
+                            "are no remote temporary filesystems to delete. Local "
+                            "filesystems on this host will not automatically be "
+                            "deleted.")
 
     # If process didnt end as expected
     if exitcode:
@@ -413,6 +416,11 @@ def run_benchmarks(args: argparse.Namespace):
     # Preprocess args to resolve any inconsistencies or cover up any gaps
     args = preprocess_args(args)
     args.spec = [str(Path(file).resolve()) for file in args.spec]
+
+    # check if dispatching jobs to a SLURM queue
+    if args.submit_on_slurm and check_slurm_configured():
+        logger.info("Benchmarks to be submitted via SLURM")
+
     spec = parse_benchmark_specs(args.spec)
     run_benchmarks_from_spec(spec, args)
 

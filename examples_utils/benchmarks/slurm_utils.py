@@ -16,10 +16,30 @@ from typing import Tuple, Dict
 from pathlib import Path
 import shutil
 
-from examples_utils.benchmarks.command_utils import (get_num_ipus, get_poprun_config, query_option_in_cmd)
+from examples_utils.benchmarks.command_utils import (get_num_ipus, query_option_in_cmd)
+
+
+class SlurmBenchmarkError(Exception):
+    pass
+
 
 # Get the module logger
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
+
+
+def check_slurm_configured() -> bool:
+    proc = subprocess.run("sinfo; sinfo | grep neverland",
+                          stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE,
+                          env=os.environ,
+                          shell=True)
+    if proc.returncode != 0:
+        err_msg = ("You provided --submit-on-slurm however the use of SLURM is either "
+                   "not configured on this host, or, the configured SLURM queue is not "
+                   "compatible. Please contact the maintainers of this package for more information. ")
+        raise SlurmBenchmarkError(err_msg)
+
+    return True
 
 
 def configure_slurm_environment_variables(env: dict):
@@ -40,7 +60,9 @@ def configure_slurm_job_working_directory(job_wd: str) -> str:
     Returns:
         bash instruction (str): cd to job working directory
     """
-    return f"cd {job_wd}\n"
+    return textwrap.dedent(f"""
+        cd {job_wd}
+    """)
 
 
 def configure_slurm_python_command(cmd: list) -> str:
@@ -51,7 +73,9 @@ def configure_slurm_python_command(cmd: list) -> str:
         bash instruction (str): benchmark variant python command
     """
     python_index = query_option_in_cmd(cmd, ["python", "python3"])
-    return " ".join(cmd[python_index:]) + "\n"
+    return textwrap.dedent(f"""
+        {" ".join(cmd[python_index:])}
+    """)
 
 
 def configure_slurm_job_environment(args: argparse.ArgumentParser, variant_dict: Dict, variant_name: str,
@@ -84,19 +108,17 @@ def configure_slurm_job_environment(args: argparse.ArgumentParser, variant_dict:
             "To run on SLURM, benchmark must have a field with key `requirements_path` "
             "that details the path from the root of the application to requirements.txt (inclusive) "
             "eg requirements_path=APPLICATION_ROOT/path/to/requirements.txt where APPLICATION_ROOT is not included.")
-        logger.error(err_msg)
-        raise KeyError(err_msg)
+        raise SlurmBenchmarkError(err_msg)
 
     requirements_path = application_root / Path(variant_dict.get("requirements_path"))
     if not requirements_path.exists():
-        err_msg = f"benchmark key: requirements_path with value {str(requirements_path)} does not exist"
-        logger.error(err_msg)
+        err_msg = f"benchmark key: requirements_path with value {str(requirements_path)} does not exist."
         raise FileNotFoundError(err_msg)
 
     venv_path = variant_log_dir / ("venv" + str(os.getpid()))
     if venv_path.exists():
         warn_msg = f"variant venv dir already exists. Rebuilding path {venv_path}"
-        logger.warn(warn_msg)
+        logger.warning(warn_msg)
         shutil.rmtree(venv_path)
 
     pre_run_commands = variant_dict.get("pre_run_commands", None)
@@ -142,7 +164,9 @@ def configure_slurm_job_environment(args: argparse.ArgumentParser, variant_dict:
     # Determine framework used and install packages needed
     framework = variant_name[0:3]
     if framework == "pyt":
-        bash_script += "\npython3 -m pip install poptorch*.whl\n"
+        bash_script += textwrap.dedent("""
+            python3 -m pip install poptorch*.whl
+        """)
     elif framework == "tf1":
         bash_script += textwrap.dedent("""
             python3 -m pip install tensorflow-1*${CPU_ARCH}*.whl
@@ -155,8 +179,7 @@ def configure_slurm_job_environment(args: argparse.ArgumentParser, variant_dict:
             python3 -m pip install keras-2*.whl
         """)
     else:
-        err_msg = "Benchmark name should begin with pytorch, popart, tf1 or tf2"
-        logger.error(err_msg)
+        err_msg = "Benchmark name should begin with pytorch, popart, tf1 or tf2."
         raise ValueError(err_msg)
 
     # application requirements
@@ -165,21 +188,27 @@ def configure_slurm_job_environment(args: argparse.ArgumentParser, variant_dict:
         cd {application_root}
         python3 -m pip install -r {requirements_path} --no-cache-dir
 
-        echo "[INFO] Installed application requirements" \n
+        echo "[INFO] Installed application requirements"
     """)
 
     # run build commands
     if pre_run_commands:
         for cmd in pre_run_commands:
-            bash_script += f"eval {cmd} \n"
+            bash_script += textwrap.dedent(f"""
+                eval {cmd}
+            """)
 
-    bash_script += '\n echo "[INFO] Finished running pre run commands" \n'
+    bash_script += textwrap.dedent(f'''
+        echo "[INFO] Finished running pre run commands"
+    ''')
 
     # go back to original dir
-    bash_script += "\n# go back to original directory\n"
-    bash_script += "cd $ORIG_DIR"
+    bash_script += textwrap.dedent("""
+        # go back to original directory"
+        cd $ORIG_DIR
+    """)
 
-    return bash_script + "\n"
+    return bash_script
 
 
 def configure_slurm_hosts(poprun_config: dict, num_ipus: int) -> Tuple[str, int, int]:
@@ -212,18 +241,24 @@ def configure_slurm_hosts(poprun_config: dict, num_ipus: int) -> Tuple[str, int,
 
     # reconfigure number of instances per host before moving to the next host
     if num_instances < num_hosts:
-        bash_script = "\nexport SLURM_NTASKS_PER_NODE=1\n"
+        bash_script = textwrap.dedent("""
+            export SLURM_NTASKS_PER_NODE=1
+        """)
     else:
         if (num_instances % num_hosts) != 0:
             err_msg = ("Number of poprun instances must divide number of hosts. "
                        f"Provided num_instances: {num_instances}. num_hosts: {num_hosts}.")
-            logger.error(err_msg)
             raise ValueError(err_msg)
         else:
-            bash_script = f"\nexport SLURM_NTASKS_PER_NODE={int(num_instances / num_hosts)}\n"
+            bash_script = textwrap.dedent(f"""
+                export SLURM_NTASKS_PER_NODE={int(num_instances / num_hosts)}
+            """)
 
     # reconfigure the host set to be used for the job
-    bash_script += f"NUM_HOSTS={num_hosts}\n"
+    bash_script += textwrap.dedent(f"""
+        NUM_HOSTS={num_hosts}
+    """)
+
     bash_script += textwrap.dedent("""
         BASE=$(echo $SLURM_JOB_NODELIST  | cut -d '-' -f 1,2)
         if [ "${SLURM_JOB_NODELIST/[/}" == "${SLURM_JOB_NODELIST}" ]
@@ -276,7 +311,7 @@ def configure_slurm_hosts(poprun_config: dict, num_ipus: int) -> Tuple[str, int,
             done
             IFS=$OLDIFS
         """)
-    return bash_script + "\n", num_hosts, num_instances
+    return bash_script, num_hosts, num_instances
 
 
 def configure_slurm_ipu_partition(poprun_config: dict, num_ipus: int) -> str:
@@ -304,18 +339,19 @@ def configure_slurm_ipu_partition(poprun_config: dict, num_ipus: int) -> str:
     """)
 
     if poprun_config == {}:
-        bash_script += ("\nvipu create partition $IPUOF_VIPU_API_PARTITION_ID"
-                        f" --allocation $ALLOCATION --size {num_ipus} --reconfigurable\n")
+        bash_script += textwrap.dedent(f"""
+            vipu create partition $IPUOF_VIPU_API_PARTITION_ID --allocation $ALLOCATION --size {num_ipus} --reconfigurable
+        """)
     else:
         host_commands, num_hosts, num_instances = configure_slurm_hosts(poprun_config, num_ipus)
         bash_script += host_commands
 
         # add poprun options
-        bash_script += "poprun "
-        bash_script += f" --host=$SLURM_JOB_NODELIST --num-instances={num_instances}"
-        bash_script += " --vipu-allocation=$ALLOCATION "
-        bash_script += f" --host-subnet={os.environ['SLURM_HOST_SUBNET_MASK']} "
-        bash_script += poprun_config["other_args"] + " "
+        # make sure no whitespace is trailing after \\, otherwise multline commands will fail
+        bash_script += textwrap.dedent(f"""
+            poprun --host=$SLURM_JOB_NODELIST --num-instances={num_instances} \\
+                --vipu-allocation=$ALLOCATION  --host-subnet={os.environ['SLURM_HOST_SUBNET_MASK']} \\
+                {"" + poprun_config["other_args"]} \\""")
 
     return bash_script
 
@@ -323,12 +359,12 @@ def configure_slurm_ipu_partition(poprun_config: dict, num_ipus: int) -> str:
 def configure_slurm_job(args: argparse.ArgumentParser, benchmark_dict: Dict, poprun_config: Dict, cmd: list,
                         variant_name: str, variant_log_dir: str, job_wd: str, env: dict):
     """Construct a bash script that will be used to submit the given benchmark variant
-    in a slurm queue. The bash script is created in a series of steps:
+    in a SLURM queue. The bash script is created in a series of steps:
 
     1. Configure job working directory
     2. Configure poplar SDK and python venv to be used
     3. Configure the IPU partition to be used for the job
-    4. Add the python command to be run on the slurm allocated node 
+    4. Add the python command to be run on the SLURM allocated node 
 
     The bash script is then output to the logging directory for the given benchmark variant
 
@@ -343,12 +379,14 @@ def configure_slurm_job(args: argparse.ArgumentParser, benchmark_dict: Dict, pop
         variant_log_dir (str): absolute path to dir used to store execution logs
         job_wd (str): absolute path to the current benchmark variant working directory
     Returns:
-        slurm configuration (dict): slurm job submission information
+        SLURM configuration (dict): SLURM job submission information
     """
+
+    logger.info("Configuring benchmark to run as a SLURM job")
 
     num_ipus = int(get_num_ipus(variant_name))
 
-    # slurm helper scripts to submit jobs depending on the number of IPUs
+    # SLURM helper scripts to submit jobs depending on the number of IPUs
     if num_ipus <= 16:
         submission_script = "runonpod16.sh"
     elif num_ipus <= 64:
@@ -358,12 +396,11 @@ def configure_slurm_job(args: argparse.ArgumentParser, benchmark_dict: Dict, pop
     elif num_ipus <= 256:
         submission_script = "runonpod256.sh"
     else:
-        err_msg = "Benchmark cannot utilise more than 256 IPUs"
-        logging.error(err_msg)
+        err_msg = "Benchmark cannot utilise more than 256 IPUs."
         raise ValueError(err_msg)
 
     # construct job submission bash script
-    bash_script = "#!/bin/bash\n"
+    bash_script = "#!/bin/bash"
     bash_script += configure_slurm_job_working_directory(job_wd)
     bash_script += configure_slurm_job_environment(args, benchmark_dict, variant_name, variant_log_dir)
     bash_script += configure_slurm_ipu_partition(poprun_config, num_ipus)
@@ -375,12 +412,13 @@ def configure_slurm_job(args: argparse.ArgumentParser, benchmark_dict: Dict, pop
     with open(job_script_path, "w") as script_handle:
         script_handle.write(bash_script)
 
+    logger.info(f"SLURM job submission script created. Please view: {job_script_path}.")
+
     # configure stdout and stderr files for the job
-    stdout_log_path = str(variant_log_dir / "slurm-%j.out")
-    stderr_log_path = str(variant_log_dir / "slurm-%j.err")
+    stdout_log_path = str(variant_log_dir / "stdout")
+    stderr_log_path = str(variant_log_dir / "stderr")
 
     # pass --wait to sbatch so that we can obtain the return code from the submitted job
-
     slurm_job_command = [
         submission_script, "--wait", "--job-name", variant_name, "-e", stderr_log_path, "-o", stdout_log_path,
         job_script_path
@@ -407,19 +445,17 @@ def kill_slurm_job(proc: subprocess.Popen, job_name: str) -> None:
         job_name (str): name of the job
     """
     proc.kill()
-    logger.error("Slurm job launching process exited abnormally." f" Killing job with job name: {job_name}.")
+    logger.warning("SLURM job launching process exited abnormally." f" Killing job with job name: {job_name}")
     proc = subprocess.run(["scancel", "--jobname", job_name],
                           stdout=subprocess.PIPE,
                           stderr=subprocess.PIPE,
                           env=os.environ)
     if proc.returncode != 0:
-        logger.error(f"Unable to kill slurm job: {job_name}."
-                     f"Exit code: {proc.returncode}."
-                     f"Reported error: {proc.stderr.decode()}")
+        raise SlurmBenchmarkError(f"Unable to kill SLURM job: {job_name}"
+                                  f"Exit code: {proc.returncode}."
+                                  f"Reported error: {proc.stderr.decode()}.")
 
 
-# TODO: clean this function
-# TODO: clean command passed as new cmd
 def run_and_monitor_progress_on_slurm(cmd: list,
                                       job_name: str,
                                       stdout_log_path: str,
@@ -429,15 +465,15 @@ def run_and_monitor_progress_on_slurm(cmd: list,
                                       timeout: int = None,
                                       **kwargs) -> Tuple[str, str, int]:
     """
-    Run the benchmark in the slurm queue and monitor progress.
+    Run the benchmark in the SLURM queue and monitor progress.
 
     Args:
         cmd (list): The command to be run, as a list for use by subprocess
-        job_name (str): the slurm job name for the given benchmark
-        stdout_log_path (str): Absolute path to stdout from the slurm job
-        stderr_log_path (str): Absolute path to stderr from the slurm job
+        job_name (str): the SLURM job name for the given benchmark
+        stdout_log_path (str): Absolute path to stdout from the SLURM job
+        stderr_log_path (str): Absolute path to stderr from the SLURM job
         listener (TextIOWrapper): Listener that takes the output from the process
-        env (dict): dictionary of environment variables to propagate to slurm allocated nodes
+        env (dict): dictionary of environment variables to propagate to SLURM allocated nodes
         timeout (int): Seconds until the process will timeout, forcing termination
         kwargs: all additional keyword arguments are passed to `subprocess.Popen`.
 
@@ -448,40 +484,55 @@ def run_and_monitor_progress_on_slurm(cmd: list,
 
     """
 
-    # proc = subprocess.Popen("/bin/bash", stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=80, **kwargs)
+    logger.info("Submitting SLURM job")
 
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=80, env=env, **kwargs)
 
-    # make sure job is killed if the current process is interrupted or exists unexpectedly
+    # make sure job is killed if the current thread is interrupted or exists unexpectedly
     atexit.register(kill_slurm_job, proc, job_name)
 
     job_submitted = False
     stdout_path = None
     stderr_path = None
+    stdout_log = None
+    stderr_log = None
 
-    # make sure job is submitted, and stdout and stderr files are available
     while proc.poll() is None and (stdout_path is None or stderr_path is None):
         if not job_submitted:
             o = proc.stdout.readline().decode()
             if "Submitted" in o:
                 job_id = o.split()[-1]
                 job_submitted = True
-                stdout_log_path = stdout_log_path.replace("%j", job_id)
-                stderr_log_path = stderr_log_path.replace("%j", job_id)
-                logger.info(f"Slurm Job submitted. Job id: {job_id}. Job name: {job_name}")
-        # TODO: error handling when there is a failure to submit the job
+                logger.info(f"SLURM Job submitted. Job id: {job_id}. Job name: {job_name}")
         else:
             if Path(stdout_log_path).exists():
                 stdout_path = stdout_log_path
             if Path(stderr_log_path).exists():
                 stderr_path = stderr_log_path
 
-    # TODO: check if the process is still fine here. Process may complete and stdout_path/ stderr_path are None
-    outs = [[], []]
+    # something bad may have happened
+    if proc.poll() is not None:
+        exitcode = proc.returncode
+        stdout_log = proc.stdout.read().decode()
+        stderr_log = proc.stderr.read().decode()
 
-    # now read stdout and stderr every 1s while the process is still active
+        # cleanup just in case
+        if exitcode != 0:
+            kill_slurm_job(proc, job_name)
+            atexit.unregister(kill_slurm_job)
+
+        # cannot pick up additional information from log outputs
+        # if the files don't exist, otherwise go ahead
+        if stdout_log_path is None or stderr_log_path is None:
+            return exitcode, stdout_log, stderr_log
+
+    logger.info("Monitoring SLURM job")
+
+    outs = [[], []]
     total_time = 0
     timeout_error = False
+
+    # read stdout and stderr every 1s while the process is still active
     with open(stdout_path, "rb", 80) as stdout, open(stderr_path, "rb", 80) as stderr:
         while proc.poll() is None:
 
@@ -520,16 +571,24 @@ def run_and_monitor_progress_on_slurm(cmd: list,
 
     sys.stderr.write("\r")
     sys.stderr.write("\n")
-    stdout_log = "".join(outs[0])
-    stderr_log = "".join(outs[1])
-    exitcode = proc.returncode
 
-    if not timeout_error and exitcode != 0:
-        kill_slurm_job(proc, job_name)
+    # construct stdout/stderr log for output
+    if stdout_log is None:
+        stdout_log = "".join(outs[0])
+    else:
+        stdout_log += "\n" + "".join(outs[0])
 
-    atexit.unregister(kill_slurm_job)
+    if stderr_log is None:
+        stderr_log = "".join(outs[1])
+    else:
+        stderr_log += "\n" + "".join(outs[1])
 
     if timeout_error:
         stderr_log += f"\nTimeout ({timeout})\n"
+
+    exitcode = proc.returncode
+
+    # does nothing if kill_slurm_job has been previously removed
+    atexit.unregister(kill_slurm_job)
 
     return stdout_log, stderr_log, exitcode
