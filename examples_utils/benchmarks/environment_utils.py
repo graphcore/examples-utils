@@ -43,9 +43,6 @@ SLURM_ENV_VARS = {
     "SLURM_HOST_SUBNET_MASK": {
         "help": "Host subnet mask for all allocations from the SLURM queue.",
         "default": "ens5"
-        # "default": "10.5.0.0/16"
-        # "default": "10.3.0.0/16"
-        # "default": "10.3.55.179/16"
     }
 }
 

@@ -12,8 +12,8 @@ from datetime import datetime, timedelta
 from io import TextIOWrapper
 from pathlib import Path
 from typing import Tuple, Union, Dict, List
-
 import yaml
+
 
 from examples_utils.benchmarks.command_utils import (formulate_benchmark_command, get_benchmark_variants,
                                                      get_local_poprun_hosts, get_poprun_config)
@@ -40,8 +40,8 @@ from examples_utils.benchmarks.slurm_utils import (check_slurm_configured, confi
 # Get the module logger
 logger = logging.getLogger()
 
-BenchmarkDict = Dict
 # A dictionary which defines a benchmark
+BenchmarkDict = Dict
 
 
 def should_reattempt_benchmark(variant, output, err, exitcode) -> Union[bool, str]:
