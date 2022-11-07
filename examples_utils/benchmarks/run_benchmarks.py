@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import Tuple, Union, Dict, List
 import yaml
 
-
 from examples_utils.benchmarks.command_utils import (formulate_benchmark_command, get_benchmark_variants,
                                                      get_local_poprun_hosts, get_poprun_config)
 from examples_utils.benchmarks.distributed_utils import (remove_distributed_filesystems, setup_distributed_filesystems)

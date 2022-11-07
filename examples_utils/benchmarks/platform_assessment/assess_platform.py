@@ -7,7 +7,6 @@ import sys
 from pathlib import Path
 import yaml
 
-
 HEADER_METRICS = ["benchmark name", "variant_name", "throughput", "latency", "total_compiling_time"]
 
 if __name__ == "__main__":
