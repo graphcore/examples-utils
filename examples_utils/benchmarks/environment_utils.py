@@ -1,4 +1,5 @@
 # Copyright (c) 2022 Graphcore Ltd. All rights reserved.
+from typing import Dict, Optional, Union, Callable, Tuple, List
 import copy
 import logging
 import os
@@ -12,6 +13,24 @@ from pathlib import Path
 # Get the module logger
 logger = logging.getLogger(__name__)
 
+
+def parse_vipu_server() -> Optional[str]:
+    out = subprocess.check_output(["vipu", "--server-version"])
+    # Sample output
+    # version: 1.18.0
+    # host: localhost:8090
+    out = out.decode()
+    m = re.search("host: (.*):", out)
+    if not m:
+        err = ("vipu --server-version output could not be parsed. Could not identify the"
+               " host of the V-IPU server, please set the IPUOF_VIPU_API_HOST environment"
+               " variable according to the V-IPU documentation. "
+               f"vipu --server-version returned:\n{out}")
+        logger.error(err)
+        return None
+    return m.groups()[0]
+
+
 POPRUN_VARS = {
     "HOSTS": ("Comma seperated list of IP addresses/names of the machines you want "
               "to run on. Try to copy across ssh-keys before attempting if "
@@ -24,6 +43,14 @@ POPRUN_VARS = {
                        "communicate between hosts."),
     "VIPU_CLI_API_HOST": ("The IP address/name of the HOST where the virtual IPU server is "
                           "running."),
+}
+
+FALLBACK_VAR_FUNCTIONS: Dict[str, Tuple[Optional[Union[Callable[[], Optional[str]], str]], ...]] = {
+    "VIPU_CLI_API_HOST": (
+        os.getenv("IPUOF_VIPU_API_HOST"),
+        parse_vipu_server,
+    ),
+    "IPUOF_VIPU_API_PARTITION_ID": ("PARTITION", )
 }
 
 WANDB_VARS = {
@@ -50,16 +77,24 @@ def check_env(args: argparse.Namespace, benchmark_name: str, cmd: str):
         cmd (str): The command being run
 
     """
-
-    # If PARTITION exists in env but IPUOF_VIPU_API_PARTITION_ID isnt, set it
-    # to the existing value
-    if ("PARTITION" in os.environ) and ("IPUOF_VIPU_API_PARTITION_ID" not in os.environ):
-        os.environ["IPUOF_VIPU_API_PARTITION_ID"] = os.environ["PARTITION"]
-
     # Check if any of the poprun env vars are required but not set
-    missing_poprun_vars = [
-        env_var for env_var in POPRUN_VARS.keys() if f"${env_var}" in cmd and os.getenv(env_var) is None
-    ]
+    missing_poprun_vars: List[str] = []
+    for env_var in POPRUN_VARS.keys():
+        not_in_cmd = not (f"${env_var}" in cmd or f"${{{env_var}}}" in cmd)
+        is_set = os.getenv(env_var) is not None
+        if not_in_cmd or is_set:
+            continue
+        # Try to find a fallback variable or function
+        if env_var in FALLBACK_VAR_FUNCTIONS:
+            for fallback in FALLBACK_VAR_FUNCTIONS[env_var]:
+                fallback_val = fallback() if callable(fallback) else fallback
+                if fallback_val is not None:
+                    # Fallbacks set the environment variable
+                    os.environ[env_var] = fallback_val
+                    break
+        if os.getenv(env_var) is None:
+            missing_poprun_vars.append(env_var)
+
     if missing_poprun_vars:
         err = (f"{len(missing_poprun_vars)} environment variables are needed by "
                f"command {benchmark_name} but are not defined: "
@@ -204,8 +239,8 @@ def get_git_commit_hash() -> str:
 
 def expand_environment_variables(cmd: str, new_env: dict) -> str:
     """Expand environment variables present in the benchmark cmd
-    with the existing environment. Additionally, if the benchmark has 
-    additional environment variables to be used, expand the command 
+    with the existing environment. Additionally, if the benchmark has
+    additional environment variables to be used, expand the command
     with those variables as well
 
     Args:
