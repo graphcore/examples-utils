@@ -45,12 +45,13 @@ POPRUN_VARS = {
                           "running."),
 }
 
-FALLBACK_VAR_FUNCTIONS: Dict[str, Tuple[Optional[Union[Callable[[], Optional[str]], str]], ...]] = {
+# Values must be a tuple of strings or None, or a function to generate them
+FALLBACK_VAR_FUNCTIONS = {
     "VIPU_CLI_API_HOST": (
         os.getenv("IPUOF_VIPU_API_HOST"),
         parse_vipu_server,
     ),
-    "IPUOF_VIPU_API_PARTITION_ID": ("PARTITION", )
+    "IPUOF_VIPU_API_PARTITION_ID": (os.getenv("PARTITION"), )
 }
 
 WANDB_VARS = {
