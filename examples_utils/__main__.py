@@ -4,14 +4,14 @@ _MISSING_REQUIREMENTS = {}
 import argparse
 import sys
 
-from examples_utils.benchmarks.run_benchmarks import benchmarks_parser, run_benchmarks
-from examples_utils.benchmarks.logging_utils import configure_logger
-from examples_utils.load_lib_utils.cli import load_lib_build_parser, load_lib_builder_run
-from examples_utils.testing.test_copyright import copyright_argparser, test_copyrights
+from .benchmarks.run_benchmarks import benchmarks_parser, run_benchmarks
+from .benchmarks.logging_utils import configure_logger
+from .load_lib_utils.cli import load_lib_build_parser, load_lib_builder_run
+from .testing.test_copyright import copyright_argparser, test_copyrights
 try:
-    from examples_utils.benchmarks.requirements_utils import platform_parser, assess_platform
+    from .benchmarks.requirements_utils import platform_parser, assess_platform
 except ModuleNotFoundError as error:
-    from benchmarks import _incorrect_requirement_variant_error
+    from .benchmarks import _incorrect_requirement_variant_error
     _MISSING_REQUIREMENTS["jupyter"] = (_incorrect_requirement_variant_error, error)
 
 
