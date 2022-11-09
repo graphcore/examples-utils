@@ -15,17 +15,15 @@ from io import TextIOWrapper
 from typing import Tuple, Dict
 from pathlib import Path
 import shutil
+import shlex
 
 from examples_utils.benchmarks.command_utils import (get_num_ipus, query_option_in_cmd)
-
-
-class SlurmBenchmarkError(Exception):
-    pass
-
 
 # Get the module logger
 logger = logging.getLogger(__name__)
 
+class SlurmBenchmarkError(Exception):
+    pass
 
 def check_slurm_configured() -> bool:
     proc = subprocess.run("sinfo; sinfo | grep neverland",
@@ -34,9 +32,11 @@ def check_slurm_configured() -> bool:
                           env=os.environ,
                           shell=True)
     if proc.returncode != 0:
-        err_msg = ("You provided --submit-on-slurm however the use of SLURM is either "
-                   "not configured on this host, or, the configured SLURM queue is not "
-                   "compatible. Please contact the maintainers of this package for more information. ")
+        err_msg = (
+            "You provided --submit-on-slurm however the use of SLURM is either "
+            "not configured on this host, or, the configured SLURM queue is not "
+            "compatible. Please contact the maintainers of this package for more information. "
+        )
         raise SlurmBenchmarkError(err_msg)
 
     return True
@@ -74,7 +74,7 @@ def configure_slurm_python_command(cmd: list) -> str:
     """
     python_index = query_option_in_cmd(cmd, ["python", "python3"])
     return textwrap.dedent(f"""
-        {" ".join(cmd[python_index:])}
+        {shlex.join(cmd[python_index:])}
     """)
 
 
@@ -381,7 +381,6 @@ def configure_slurm_job(args: argparse.ArgumentParser, benchmark_dict: Dict, pop
     Returns:
         SLURM configuration (dict): SLURM job submission information
     """
-
     logger.info("Configuring benchmark to run as a SLURM job")
 
     num_ipus = int(get_num_ipus(variant_name))
@@ -447,13 +446,13 @@ def kill_slurm_job(proc: subprocess.Popen, job_name: str) -> None:
     proc.kill()
     logger.warning("SLURM job launching process exited abnormally." f" Killing job with job name: {job_name}")
     proc = subprocess.run(["scancel", "--jobname", job_name],
-                          stdout=subprocess.PIPE,
-                          stderr=subprocess.PIPE,
-                          env=os.environ)
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            env=os.environ)
     if proc.returncode != 0:
         raise SlurmBenchmarkError(f"Unable to kill SLURM job: {job_name}"
-                                  f"Exit code: {proc.returncode}."
-                                  f"Reported error: {proc.stderr.decode()}.")
+                     f"Exit code: {proc.returncode}."
+                     f"Reported error: {proc.stderr.decode()}.")
 
 
 def run_and_monitor_progress_on_slurm(cmd: list,
@@ -494,7 +493,7 @@ def run_and_monitor_progress_on_slurm(cmd: list,
     job_submitted = False
     stdout_path = None
     stderr_path = None
-    stdout_log = None
+    stdout_log = None 
     stderr_log = None
 
     while proc.poll() is None and (stdout_path is None or stderr_path is None):
@@ -520,11 +519,12 @@ def run_and_monitor_progress_on_slurm(cmd: list,
         if exitcode != 0:
             kill_slurm_job(proc, job_name)
             atexit.unregister(kill_slurm_job)
-
-        # cannot pick up additional information from log outputs
+        
+        # cannot pick up additional information from log outputs 
         # if the files don't exist, otherwise go ahead
         if stdout_log_path is None or stderr_log_path is None:
             return exitcode, stdout_log, stderr_log
+
 
     logger.info("Monitoring SLURM job")
 
@@ -577,7 +577,7 @@ def run_and_monitor_progress_on_slurm(cmd: list,
         stdout_log = "".join(outs[0])
     else:
         stdout_log += "\n" + "".join(outs[0])
-
+    
     if stderr_log is None:
         stderr_log = "".join(outs[1])
     else:
