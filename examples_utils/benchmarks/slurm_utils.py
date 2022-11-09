@@ -46,7 +46,6 @@ def configure_slurm_environment_variables(env: dict):
     # if the user has an activated virtualenv, remove it from the path
     # otherwise the path to the venv will persist on the allocated node
     # and will affect package resolution
-    # import pdb; pdb.set_trace()
     if "VIRTUAL_ENV" in env:
         env["PATH"] = ":".join([p for p in env["PATH"].split(":") if p != str(Path(env["VIRTUAL_ENV"]) / "bin")])
 
