@@ -45,17 +45,14 @@ class Repository(NamedTuple):
                     f"{repo_folder} is not a git repository. If this folder"
                     "was cloned make sure the clone was successful, or if it is meant to be"
                     "a local repository make sure to run `git init` in the folder before "
-                    "calling `prepare` on that path."
-                ) from error
+                    "calling `prepare` on that path.") from error
         # if a ref is specified, try to fetch it then try to check it out
         if repo.remotes and self.ref:
             try:
                 repo.git.fetch()
             except git.GitCommandError as error:
-                logger.warn(
-                    f"Failed to fetch the repository {self.origin} in folder"
-                    f" {repo_folder}. Trying to fetch raised: {error}"
-                )
+                logger.warn(f"Failed to fetch the repository {self.origin} in folder"
+                            f" {repo_folder}. Trying to fetch raised: {error}")
         if self.ref:
             repo.git.checkout(self.ref)
             if not repo.head.is_detached:
