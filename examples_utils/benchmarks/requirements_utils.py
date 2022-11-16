@@ -69,7 +69,7 @@ def install_patched_requirements(requirements_file: Union[str, Path], listener: 
     original_requirements = requirements_file.read_text()
     requirements_file.write_text("\n".join(l for l in original_requirements.splitlines() if "examples-utils" not in l))
     cmd = [sys.executable, "-m", "pip", "install", "-r", str(requirements_file)]
-    out, err, exit_code = run_and_monitor_progress(cmd, listener)
+    out, err, exit_code, _ = run_and_monitor_progress(cmd, listener, monitor_ipus=False)
     if exit_code:
         err = (f"Installation of pip packages in file {requirements_file} failed with stderr: {err}.")
         logger.error(err)
@@ -94,7 +94,7 @@ def install_apt_packages(requirements_file_or_list: Union[str, Path, List[str]],
         ["apt", "update", "-y"],
         ["apt", "install", "-y", *requirements_list],
     ]:
-        out, err, exit_code = run_and_monitor_progress(cmd, listener)
+        out, err, exit_code, _ = run_and_monitor_progress(cmd, listener, monitor_ipus=False)
         if exit_code:
             err = (f"System packages installation failed with stderr: {err}.")
             logger.error(err)

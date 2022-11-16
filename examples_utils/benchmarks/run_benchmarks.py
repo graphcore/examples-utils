@@ -13,7 +13,8 @@ from io import TextIOWrapper
 from pathlib import Path
 from typing import Tuple, Union, Dict, List
 import yaml
-
+import json
+import time
 from examples_utils.benchmarks.command_utils import (formulate_benchmark_command, get_benchmark_variants,
                                                      get_local_poprun_hosts, get_poprun_config)
 from examples_utils.benchmarks.distributed_utils import (remove_distributed_filesystems, setup_distributed_filesystems)
@@ -54,7 +55,7 @@ def should_reattempt_benchmark(variant, output, err, exitcode) -> Union[bool, st
     return False
 
 
-def run_and_monitor_progress(cmd: list, listener: TextIOWrapper, timeout: int = None, **kwargs) -> Tuple[str, str, int]:
+def run_and_monitor_progress(cmd: list, v: TextIOWrapper, timeout: int = None, monitor_ipus: bool=True, **kwargs) -> Tuple[str, str, int, List[str]]:
     """Run the benchmark monitor progress.
 
     Args:
@@ -75,6 +76,7 @@ def run_and_monitor_progress(cmd: list, listener: TextIOWrapper, timeout: int = 
 
     # All this appears to be for reading process output ------------------------
     outs = [[], []]
+    ipu_monitoring: List[str] = []
 
     def proc_thread():
         sel = selectors.DefaultSelector()
@@ -106,8 +108,22 @@ def run_and_monitor_progress(cmd: list, listener: TextIOWrapper, timeout: int = 
         listener.write(b.decode())
         listener.flush()
 
+
+    def monitor_thread():
+        while proc.is_alive():
+            try:
+                ipu_log_line = json.dumps(json.loads(subprocess.check_output(["gc-monitor", "--json"])))
+                ipu_monitoring.append(ipu_log_line)
+                time.sleep(5)
+            except:
+                pass
+
+
     t = threading.Thread(target=proc_thread, name="proc_thread")
     t.start()
+    if monitor_ipus:
+        t_monitor = threading.Thread(target=monitor_thread, name="monitor_thread")
+        t_monitor.start()
 
     total_time = 0
     timeout_error = False
@@ -115,6 +131,8 @@ def run_and_monitor_progress(cmd: list, listener: TextIOWrapper, timeout: int = 
         # Check if benchmarking process thread has terminated every second
         t.join(1)
         if not t.is_alive():
+            if monitor_ipus:
+                t_monitor.join()
             break
         total_time += 1
 
@@ -138,7 +156,7 @@ def run_and_monitor_progress(cmd: list, listener: TextIOWrapper, timeout: int = 
     if timeout_error:
         err += f"\nTimeout ({timeout})\n"
 
-    return (output, err, exitcode)
+    return (output, err, exitcode, ipu_monitoring)
 
 
 def run_benchmark_variant(
@@ -250,10 +268,11 @@ def run_benchmark_variant(
         if args.submit_on_slurm:
             stdout, stderr, exitcode = run_and_monitor_progress_on_slurm(listener=listener, **slurm_config)
         else:
-            stdout, stderr, exitcode = run_and_monitor_progress(
+            stdout, stderr, exitcode, monitor_log = run_and_monitor_progress(
                 cmd,
                 listener,
                 args.timeout,
+                monitor_ipus=args.monitor_ipu_usage,
                 cwd=cwd,
                 env=env,
             )
@@ -351,6 +370,8 @@ def run_benchmark_variant(
     if not args.submit_on_slurm:
         with open(outlog_path, "w") as f:
             f.write(stdout)
+        with open(outlog_path.parent / "ipu-monitor.jsonl", "w") as f:
+            f.writelines(monitor_log)
         with open(errlog_path, "w") as f:
             f.write(stderr)
 
@@ -609,6 +630,12 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         action="store_true",
         help=("Enable profiling for the benchmarks, setting the appropriate "
               "environment variables and storing profiling reports in the cwd"),
+    )
+    parser.add_argument(
+        "--monitor-ipu-usage",
+        action="store_true",
+        help=("Enable usage monitoring during benchmarks. when set, runs gc-monitor "
+              "every 5 seconds"),
     )
     parser.add_argument(
         "--remove-dirs-after",
