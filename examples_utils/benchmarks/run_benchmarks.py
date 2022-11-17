@@ -55,7 +55,11 @@ def should_reattempt_benchmark(variant, output, err, exitcode) -> Union[bool, st
     return False
 
 
-def run_and_monitor_progress(cmd: list, v: TextIOWrapper, timeout: int = None, monitor_ipus: bool=True, **kwargs) -> Tuple[str, str, int, List[str]]:
+def run_and_monitor_progress(cmd: list,
+                             listener: TextIOWrapper,
+                             timeout: int = None,
+                             monitor_ipus: bool = True,
+                             **kwargs) -> Tuple[str, str, int, List[str]]:
     """Run the benchmark monitor progress.
 
     Args:
@@ -108,16 +112,15 @@ def run_and_monitor_progress(cmd: list, v: TextIOWrapper, timeout: int = None, m
         listener.write(b.decode())
         listener.flush()
 
-
     def monitor_thread():
         while proc.is_alive():
             try:
-                ipu_log_line = json.dumps(json.loads(subprocess.check_output(["gc-monitor", "--json"])))
+                timestamp = datetime.now().strftime("%Y-%m-%d-%H.%M.%S.%f")
+                ipu_log_line = json.dumps({"timestamp": timestamp, **json.loads(subprocess.check_output(["gc-monitor", "--json"]))})
                 ipu_monitoring.append(ipu_log_line)
                 time.sleep(5)
             except:
                 pass
-
 
     t = threading.Thread(target=proc_thread, name="proc_thread")
     t.start()
