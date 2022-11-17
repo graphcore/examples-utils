@@ -78,7 +78,7 @@ def configure_python_command(cmd: list) -> str:
 
 
 def configure_job_environment(args: argparse.ArgumentParser, variant_dict: Dict, variant_name: str,
-                                    variant_log_dir: str) -> str:
+                              variant_log_dir: str) -> str:
     """Add instruction to bash job script to:
     1. Activate poplar SDK
     2. Create and activate a python venv
@@ -378,9 +378,10 @@ def configure_ipu_partition(poprun_config: dict, num_ipus: int) -> str:
 
     return bash_script
 
+
 def configure_datasets(cmd, poprun_config) -> str:
     # identify if cmd has any entries relying on $DATASETS_DIR
-    datasets_dir = os.environ.get("DATASETS_DIR") 
+    datasets_dir = os.environ.get("DATASETS_DIR")
     local_datasets_dir = Path("/localdata", "examples-datasets")
     rsync_dirs = []
     for i, src in enumerate(cmd):
@@ -388,7 +389,7 @@ def configure_datasets(cmd, poprun_config) -> str:
             example_dataset = Path(src).relative_to(datasets_dir)
             dest = local_datasets_dir / example_dataset
             cmd[i] = str(dest)
-            # the destination for rsync is the parent dir of dest, 
+            # the destination for rsync is the parent dir of dest,
             # rsync will create the required dir from src
             rsync_dirs.append((src, Path(dest).parent))
 
@@ -404,13 +405,11 @@ def configure_datasets(cmd, poprun_config) -> str:
         # not using poprun
         if poprun_config == {}:
             rsync_cmds = "\n".join(
-                    [f"mkdir -p {dest}; rsync --copy-links -au {src} {dest} " for src, dest in rsync_dirs ]
-                )
+                [f"mkdir -p {dest}; rsync --copy-links -au {src} {dest} " for src, dest in rsync_dirs])
             bash_script += "\n" + rsync_cmds + "\n"
         else:
             rsync_cmds = "\n".join(
-                    [f"mkdir -p $host:{dest}; rsync --copy-links -au {src} $host:{dest} &" for src, dest in rsync_dirs]
-            )
+                [f"mkdir -p $host:{dest}; rsync --copy-links -au {src} $host:{dest} &" for src, dest in rsync_dirs])
             bash_script += textwrap.dedent(f"""
                 OLDIFS=$IFS
                 IFS=','
@@ -421,12 +420,18 @@ def configure_datasets(cmd, poprun_config) -> str:
                 IFS=$OLDIF
             """)
 
-    return bash_script, cmd                                                                                                                                     
+    return bash_script, cmd
 
 
-
-def configure_slurm_job(args: argparse.ArgumentParser, benchmark_dict: Dict, poprun_config: Dict, cmd: list,
-                        variant_name: str, variant_log_dir: str, job_wd: str, env: dict, rsync_datasets: bool = False):
+def configure_slurm_job(args: argparse.ArgumentParser,
+                        benchmark_dict: Dict,
+                        poprun_config: Dict,
+                        cmd: list,
+                        variant_name: str,
+                        variant_log_dir: str,
+                        job_wd: str,
+                        env: dict,
+                        rsync_datasets: bool = False):
     """Construct a bash script that will be used to submit the given benchmark variant
     in a SLURM queue. The bash script is created in a series of steps:
 
