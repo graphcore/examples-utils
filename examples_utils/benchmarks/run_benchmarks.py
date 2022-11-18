@@ -120,7 +120,7 @@ def run_and_monitor_progress(cmd: list,
                 try:
                     timestamp = datetime.now().strftime("%Y-%m-%d-%H.%M.%S.%f")
                     ipu_log_line = json.dumps({"timestamp": timestamp, **json.loads(subprocess.check_output(["gc-monitor", "--json"]))})
-                    ipu_monitoring.append(ipu_log_line)
+                    ipu_monitoring.append(f"{ipu_log_line}\n")
                     time.sleep(5)
                 except:
                     pass
