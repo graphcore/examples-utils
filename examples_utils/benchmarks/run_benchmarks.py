@@ -115,15 +115,20 @@ def run_and_monitor_progress(cmd: list,
     t = threading.Thread(target=proc_thread, name="proc_thread")
     t.start()
     if monitor_ipus:
+
         def monitor_thread():
             while t.is_alive():
                 try:
                     timestamp = datetime.now().strftime("%Y-%m-%d-%H.%M.%S.%f")
-                    ipu_log_line = json.dumps({"timestamp": timestamp, **json.loads(subprocess.check_output(["gc-monitor", "--json"]))})
+                    ipu_log_line = json.dumps({
+                        "timestamp": timestamp,
+                        **json.loads(subprocess.check_output(["gc-monitor", "--json"]))
+                    })
                     ipu_monitoring.append(f"{ipu_log_line}\n")
                     time.sleep(5)
                 except:
                     pass
+
         t_monitor = threading.Thread(target=monitor_thread, name="monitor_thread")
         t_monitor.start()
 
