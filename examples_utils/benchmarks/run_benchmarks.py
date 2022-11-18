@@ -37,6 +37,14 @@ from examples_utils.benchmarks.profiling_utils import add_profiling_vars
 from examples_utils.benchmarks.slurm_utils import (check_slurm_configured, configure_slurm_job,
                                                    run_and_monitor_progress_on_slurm)
 
+try:
+    from .monitoring_utils import plot_ipu_usage
+except (ImportError, ModuleNotFoundError) as error:
+
+    def plot_ipu_usage(*args, **kwargs):
+        return None
+
+
 # Get the module logger
 logger = logging.getLogger()
 
@@ -271,6 +279,7 @@ def run_benchmark_variant(
     start_time = datetime.now()
     logger.info(f"Start test: {start_time}")
     need_to_run = True
+    monitor_log = []
     while need_to_run:
         if args.submit_on_slurm:
             stdout, stderr, exitcode = run_and_monitor_progress_on_slurm(listener=listener, **slurm_config)
@@ -279,7 +288,7 @@ def run_benchmark_variant(
                 cmd,
                 listener,
                 args.timeout,
-                monitor_ipus=args.monitor_ipu_usage,
+                monitor_ipus=args.gc_monitor,
                 cwd=cwd,
                 env=env,
             )
@@ -379,6 +388,8 @@ def run_benchmark_variant(
             f.write(stdout)
         with open(outlog_path.parent / "ipu-monitor.jsonl", "w") as f:
             f.writelines(monitor_log)
+        if monitor_log:
+            plot_ipu_usage(outlog_path.parent)
         with open(errlog_path, "w") as f:
             f.write(stderr)
 
@@ -568,6 +579,8 @@ def run_benchmarks_from_spec(spec: Dict[str, BenchmarkDict], args: argparse.Name
     print_benchmark_summary(results)
 
     save_results(args.log_dir, args.additional_metrics, results)
+    if args.gc_monitor:
+        plot_ipu_usage(args.log_dir)
     return results
 
 
@@ -639,7 +652,7 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
               "environment variables and storing profiling reports in the cwd"),
     )
     parser.add_argument(
-        "--monitor-ipu-usage",
+        "--gc-monitor",
         action="store_true",
         help=("Enable usage monitoring during benchmarks. when set, runs gc-monitor "
               "every 5 seconds"),
