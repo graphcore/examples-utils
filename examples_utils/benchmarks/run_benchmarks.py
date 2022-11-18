@@ -180,7 +180,7 @@ def run_benchmark_variant(
         variant_dict: dict,
         benchmark_dict: dict,
         listener: TextIOWrapper,
-        args: argparse.ArgumentParser,
+        args: argparse.Namespace,
 ) -> dict:
     """Run a variant and collect results.
 
@@ -192,7 +192,7 @@ def run_benchmark_variant(
         benchmark_dict (dict): The benchmark definition from the yaml file
         listener (TextIOWrapper): Open file to collect stdout/stderr from the
             process running the variant
-        args (argparse.ArgumentParser): Arguments passed to this script
+        args (argparse.Namespace): Arguments passed to this script
 
     Returns:
         variant_result (dict): The results from this variants run
@@ -280,6 +280,7 @@ def run_benchmark_variant(
     logger.info(f"Start test: {start_time}")
     need_to_run = True
     monitor_log = []
+    exitcode = 0
     while need_to_run:
         if args.submit_on_slurm:
             stdout, stderr, exitcode = run_and_monitor_progress_on_slurm(listener=listener, **slurm_config)
@@ -386,9 +387,9 @@ def run_benchmark_variant(
     if not args.submit_on_slurm:
         with open(outlog_path, "w") as f:
             f.write(stdout)
-        with open(outlog_path.parent / "ipu-monitor.jsonl", "w") as f:
-            f.writelines(monitor_log)
         if monitor_log:
+            with open(outlog_path.parent / "ipu-monitor.jsonl", "w") as f:
+                f.writelines(monitor_log)
             plot_ipu_usage(outlog_path.parent)
         with open(errlog_path, "w") as f:
             f.write(stderr)
