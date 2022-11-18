@@ -26,8 +26,10 @@ class Repository(NamedTuple):
     origin: str
     ref: Optional[str] = None
 
-    def prepare(self, cloning_directory: Path = Path(".").resolve() / "clones") -> Path:
+    def prepare(self, cloning_directory: Optional[Path] = None) -> Path:
         """Clones and checkouts the correct ref of the origin"""
+        if cloning_directory is None:
+            cloning_directory = Path(".").resolve() / "clones"
         # Treat the origin as a folder, if it doesn't exist it's a URL to clone
         repo_folder = Path(self.origin)
         if not repo_folder.exists():
@@ -113,12 +115,12 @@ def in_benchmark_dir(benchmark_dict):
         os.chdir(previous_work_dir)
 
 
-def prepare_benchmark_environment(benchmark_dict: BenchmarkDict, listener: TextIOWrapper):
+def prepare_benchmark_environment(benchmark_dict: BenchmarkDict, listener: TextIOWrapper, cloning_directory=None):
     changes_to_revert = {}
     if benchmark_dict.get("repository"):
         repo_in = benchmark_dict.get("repository", {})
         repo = Repository(**repo_in)
-        benchmark_dict["reference_directory"] = repo.prepare()
+        benchmark_dict["reference_directory"] = repo.prepare(cloning_directory)
 
     with in_benchmark_dir(benchmark_dict):
         required_apt_packages: Optional[str] = benchmark_dict.get("required_apt_packages")
@@ -156,7 +158,11 @@ def assess_platform(args: argparse.Namespace):
             logger.info("-" * 40)
             for name, benchmark in benchmarks.items():
                 logger.info(f"Preparing environment for '{name}'")
-                revertible_changes[name] = prepare_benchmark_environment(benchmark, log_file)
+                revertible_changes[name] = prepare_benchmark_environment(
+                    benchmark,
+                    log_file,
+                    cloning_directory=args.cloning_directory,
+                )
 
             _ = run_benchmarks_from_spec(benchmarks, args)
         finally:
@@ -166,5 +172,9 @@ def assess_platform(args: argparse.Namespace):
                 cleanup_benchmark_environments(benchmark, revertible_changes.get(name))
 
 
-def platform_parser(parser):
-    return benchmarks_parser(parser)
+def platform_parser(parser: argparse.ArgumentParser):
+    benchmarks_parser(parser)
+    parser.add_argument("--cloning-directory",
+                        type=str,
+                        default=None,
+                        help="Directory in which repositories get cloned")
