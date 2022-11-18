@@ -30,6 +30,8 @@ class Repository(NamedTuple):
         """Clones and checkouts the correct ref of the origin"""
         if cloning_directory is None:
             cloning_directory = Path(".").resolve() / "clones"
+        else:
+           cloning_directory = Path(cloning_directory).resolve()
         # Treat the origin as a folder, if it doesn't exist it's a URL to clone
         repo_folder = Path(self.origin)
         if not repo_folder.exists():
