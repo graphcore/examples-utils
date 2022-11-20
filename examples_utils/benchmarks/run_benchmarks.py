@@ -384,11 +384,12 @@ def run_benchmark_variant(
             stderr=stderr,
         )
 
+    variant_logdir = outlog_path.parent
     if not args.submit_on_slurm:
         with open(outlog_path, "w") as f:
             f.write(stdout)
         if monitor_log:
-            with open(outlog_path.parent / "ipu-monitor.jsonl", "w") as f:
+            with open(variant_logdir / "ipu-monitor.jsonl", "w") as f:
                 f.writelines(monitor_log)
             plot_ipu_usage(outlog_path.parent)
         with open(errlog_path, "w") as f:
@@ -407,6 +408,10 @@ def run_benchmark_variant(
         "compilation_end_time": str(results["total_compiling_time"]["mean"]),
         "test_duration": str(total_runtime),
         "exitcode": exitcode,
+        "log_paths": {
+            "out": str(outlog_path),
+            "err": str(errlog_path)
+        },
     }
 
     # These failure points are not caught normally, check here
@@ -416,6 +421,10 @@ def run_benchmark_variant(
     ]
     if any(possible_failure_points) and exitcode == 0:
         variant_result["exitcode"] = 1
+
+    if not args.submit_on_slurm:
+        with open(variant_logdir / "variant_result.json", "r") as f:
+            json.dump(variant_result, f)
 
     return variant_result
 
