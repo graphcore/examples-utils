@@ -38,10 +38,14 @@ from examples_utils.benchmarks.slurm_utils import (check_slurm_configured, confi
                                                    run_and_monitor_progress_on_slurm)
 
 try:
+    # Plotting of IPU usage is only supported with [jupyter] requirements
+    # but the function will be called whenever `--gc-monitor` argument is set
+    # so we define a dummy function when the dependencies are not available.
     from .monitoring_utils import plot_ipu_usage
 except (ImportError, ModuleNotFoundError) as error:
-
     def plot_ipu_usage(*args, **kwargs):
+        """Does nothing install the package with examples-utils[jupyter] to
+        plot IPU usage during benchmarks"""
         return None
 
 
@@ -122,21 +126,21 @@ def run_and_monitor_progress(cmd: list,
 
     t = threading.Thread(target=proc_thread, name="proc_thread")
     t.start()
+
+    def monitor_thread():
+        while t.is_alive():
+            try:
+                timestamp = datetime.now().strftime("%Y-%m-%d-%H.%M.%S.%f")
+                ipu_log_line = json.dumps({
+                    "timestamp": timestamp,
+                    **json.loads(subprocess.check_output(["gc-monitor", "--json"]))
+                })
+                ipu_monitoring.append(f"{ipu_log_line}\n")
+                time.sleep(5)
+            except:
+                pass
+
     if monitor_ipus:
-
-        def monitor_thread():
-            while t.is_alive():
-                try:
-                    timestamp = datetime.now().strftime("%Y-%m-%d-%H.%M.%S.%f")
-                    ipu_log_line = json.dumps({
-                        "timestamp": timestamp,
-                        **json.loads(subprocess.check_output(["gc-monitor", "--json"]))
-                    })
-                    ipu_monitoring.append(f"{ipu_log_line}\n")
-                    time.sleep(5)
-                except:
-                    pass
-
         t_monitor = threading.Thread(target=monitor_thread, name="monitor_thread")
         t_monitor.start()
 
