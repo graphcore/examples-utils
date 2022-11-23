@@ -43,6 +43,7 @@ try:
     # so we define a dummy function when the dependencies are not available.
     from .monitoring_utils import plot_ipu_usage
 except (ImportError, ModuleNotFoundError) as error:
+
     def plot_ipu_usage(*args, **kwargs):
         """Does nothing install the package with examples-utils[jupyter] to
         plot IPU usage during benchmarks"""
