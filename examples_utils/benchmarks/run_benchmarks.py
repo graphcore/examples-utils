@@ -718,3 +718,4 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         help="List of locations to upload model checkpoints to",
     )
     parser.add_argument("--submit-on-slurm", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--slurm-machine-type", choices=["any", "mk2", "mk2w"], default="any", help=argparse.SUPPRESS)
