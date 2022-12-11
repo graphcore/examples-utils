@@ -476,7 +476,7 @@ def run_benchmarks(args: argparse.Namespace):
         logger.info("Benchmarks to be submitted via SLURM")
 
     spec = parse_benchmark_specs(args.spec)
-    run_benchmarks_from_spec(spec, args)
+    return run_benchmarks_from_spec(spec, args)
 
 
 def parse_benchmark_specs(spec_files: List[str]):
