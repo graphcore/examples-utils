@@ -188,7 +188,7 @@ def configure_job_environment(args: argparse.ArgumentParser, variant_dict: Dict,
     bash_script += textwrap.dedent(f"""
         echo "[INFO] Installing application requirements"
         cd {application_root}
-        python3 -m pip install -r {requirements_path} --no-cache-dir
+        python3 -m pip install -r {requirements_path} --no-cache-dir --force-reinstall
 
         echo "[INFO] Installed application requirements"
     """)
