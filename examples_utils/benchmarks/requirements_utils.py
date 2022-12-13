@@ -88,6 +88,8 @@ def install_patched_requirements(requirements_file: Union[str, Path], listener: 
         err = (f"Installation of pip packages in file {requirements_file} failed with stderr: {err}.")
         logger.error(err)
         raise subprocess.CalledProcessError(exit_code, cmd, out, err)
+    cmd = [sys.executable, "-m", "pip", "freeze"]
+    run_and_monitor_progress(cmd, listener, monitor_ipus=False)
     return original_requirements
 
 
