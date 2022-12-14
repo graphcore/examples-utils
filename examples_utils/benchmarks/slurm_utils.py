@@ -121,7 +121,7 @@ def configure_job_environment(args: argparse.ArgumentParser, variant_dict: Dict,
         shutil.rmtree(venv_path)
 
     pre_run_commands = variant_dict.get("pre_run_commands", None)
-    pip_install_str = "python3 -m pip install -U --force-reinstall --no-cache-dir"
+    pip_install_str = "python3 -m pip install --no-cache-dir"
     
     bash_script = textwrap.dedent(f"""
         ORIG_DIR=$(pwd)
@@ -138,18 +138,9 @@ def configure_job_environment(args: argparse.ArgumentParser, variant_dict: Dict,
         source {venv_path}/bin/activate
         
         echo "[INFO] Upgrading pip, setuptools and wheel"
-        {pip_install_str} setuptools wheel pip 
+        {pip_install_str} --upgrade setuptools wheel pip 
     """)
     
-    # application requirements
-    bash_script += textwrap.dedent(f"""
-        echo "[INFO] Installing application requirements"
-        cd {application_root}
-        {pip_install_str} -r {requirements_path}
-
-        echo "[INFO] Installed application requirements"
-    """)
-
     # determine cpu arch for tf1 & tf2 wheels
     bash_script += textwrap.dedent("""
         echo "[INFO] determining CPU arch"
@@ -188,11 +179,21 @@ def configure_job_environment(args: argparse.ArgumentParser, variant_dict: Dict,
     bash_script += textwrap.dedent(f"""
         {pip_install_str} {packages}
     """)
+    
+    # application requirements
+    bash_script += textwrap.dedent(f"""
+        echo "[INFO] Installing application requirements"
+        cd {application_root}
+        {pip_install_str} -r {requirements_path}
+        echo "[INFO] Installed application requirements"
+    """)
+
 
     # run build commands
     bash_script += textwrap.dedent(f"""
         echo "[INFO] Running pre run commands"
     """)
+    
     if pre_run_commands:
         for cmd in pre_run_commands:
             bash_script += textwrap.dedent(f"""
