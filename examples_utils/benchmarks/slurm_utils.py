@@ -122,7 +122,7 @@ def configure_job_environment(args: argparse.ArgumentParser, variant_dict: Dict,
 
     pre_run_commands = variant_dict.get("pre_run_commands", None)
     pip_install_str = "python3 -m pip install --no-cache-dir"
-    
+
     bash_script = textwrap.dedent(f"""
         ORIG_DIR=$(pwd)
         echo "[INFO] Enabling Poplar SDK at {args.sdk_path}"
@@ -140,7 +140,7 @@ def configure_job_environment(args: argparse.ArgumentParser, variant_dict: Dict,
         echo "[INFO] Upgrading pip, setuptools and wheel"
         {pip_install_str} --upgrade setuptools wheel pip 
     """)
-    
+
     # determine cpu arch for tf1 & tf2 wheels
     bash_script += textwrap.dedent("""
         echo "[INFO] determining CPU arch"
@@ -164,7 +164,7 @@ def configure_job_environment(args: argparse.ArgumentParser, variant_dict: Dict,
     bash_script += textwrap.dedent("""
         echo "[INFO] Installing framework wheel files"
     """)
-    
+
     framework = variant_name[0:3]
     if framework == "pyt":
         packages = "poptorch*.whl"
@@ -179,7 +179,7 @@ def configure_job_environment(args: argparse.ArgumentParser, variant_dict: Dict,
     bash_script += textwrap.dedent(f"""
         {pip_install_str} {packages}
     """)
-    
+
     # application requirements
     bash_script += textwrap.dedent(f"""
         echo "[INFO] Installing application requirements"
@@ -188,12 +188,11 @@ def configure_job_environment(args: argparse.ArgumentParser, variant_dict: Dict,
         echo "[INFO] Installed application requirements"
     """)
 
-
     # run build commands
     bash_script += textwrap.dedent(f"""
         echo "[INFO] Running pre run commands"
     """)
-    
+
     if pre_run_commands:
         for cmd in pre_run_commands:
             bash_script += textwrap.dedent(f"""
