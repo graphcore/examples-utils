@@ -57,13 +57,16 @@ logger = logging.getLogger()
 BenchmarkDict = Dict
 
 
-def should_reattempt_benchmark(variant, output, err, exitcode) -> Union[bool, str]:
+def should_reattempt_benchmark(variant, output, err, exitcode, pip_freeze_before, pip_freeze_after) -> Union[bool, str]:
     if "Timeout" in err:
         return False
     is_a_notebook = "examples_utils.benchmarks.notebook_utils" in variant["cmd"]
     if is_a_notebook and "ModuleNotFoundError" in err and exitcode != 0:
         if "Successfully installed" in output:
             return "Notebook has installed some packages, need to restart kernel"
+    if is_a_notebook and exitcode != 0:
+        if pip_freeze_after != pip_freeze_before:
+            return "Output of pip-freeze changed need to restart kernel"
 
     return False
 
@@ -287,10 +290,18 @@ def run_benchmark_variant(
     monitor_log = []
     exitcode = 0
     stdout = stderr = ""
+    pip_freeze_before = ""
+    pip_freeze_after = ""
     while need_to_run:
         if args.submit_on_slurm:
             stdout, stderr, exitcode = run_and_monitor_progress_on_slurm(listener=listener, **slurm_config)
         else:
+            pip_freeze_before, *_ = run_and_monitor_progress(
+                [sys.executable, "-m", "pip", "freeze"],
+                listener,
+                cwd=cwd,
+                env=env,
+            )
             stdout, stderr, exitcode, monitor_log = run_and_monitor_progress(
                 cmd,
                 listener,
@@ -299,7 +310,13 @@ def run_benchmark_variant(
                 cwd=cwd,
                 env=env,
             )
-        need_to_run = should_reattempt_benchmark(benchmark_dict, stdout, stderr, exitcode)
+            pip_freeze_after, *_ = run_and_monitor_progress(
+                [sys.executable, "-m", "pip", "freeze"],
+                listener,
+                cwd=cwd,
+                env=env,
+            )
+        need_to_run = should_reattempt_benchmark(benchmark_dict, stdout, stderr, exitcode, pip_freeze_before, pip_freeze_after)
         if need_to_run:
             logger.info(f"Re-running benchmark because: {need_to_run}")
 
