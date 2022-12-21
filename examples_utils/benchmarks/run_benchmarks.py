@@ -269,8 +269,15 @@ def run_benchmark_variant(
         is_distributed = len(poprun_hostnames) > 1 and not args.compile_only
 
         if is_distributed:
-            # Setup temporary filesystems on all hosts and modify cmd to use this
-            setup_distributed_filesystems(args, poprun_hostnames)
+            if args.no_code_sync:
+                logger.info("Filesystem (venv/code) syncing has been disabled "
+                            "with the '--no-code-sync' arg. Skipping copying "
+                            f"the files at {args.venv_path} and "
+                            f"{args.examples_path} automatically to all hosts.")
+            else:
+                # Setup temporary filesystems on all hosts and modify cmd to use this
+                setup_distributed_filesystems(args, poprun_hostnames)
+            
 
         if reqs:
             logger.info(f"Install python requirements")
@@ -314,15 +321,21 @@ def run_benchmark_variant(
 
     # Teardown temporary filesystem on all hosts
     if not args.submit_on_slurm:
-        if args.remove_dirs_after:
-            if is_distributed:
-                remove_distributed_filesystems(args, poprun_hostnames)
+        if is_distributed and args.remove_dirs_after:
+            if args.no_fileysystem_sync:
+                logger.info("Filesystem (venv/code) syncing has been disabled "
+                            "with the '--no-code-sync' arg. Skipping removing "
+                            f"the files at {args.venv_path} and "
+                            f"{args.examples_path} automatically on all hosts.")
             else:
-                logger.info("'--remove-dirs-after has been set but this benchmark has "
-                            "not been specified to use multiple hosts, and so there "
-                            "are no remote temporary filesystems to delete. Local "
-                            "filesystems on this host will not automatically be "
-                            "deleted.")
+                remove_distributed_filesystems(args, poprun_hostnames)
+
+        else:
+            logger.info("'--remove-dirs-after' has been set but this "
+                        "benchmark has not been specified to use multiple "
+                        "hosts, and so there are no remote temporary "
+                        "filesystems to delete. Local filesystems on this "
+                        "host will not automatically be deleted.")
 
     # If process didnt end as expected
     if exitcode:
@@ -677,6 +690,12 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         help="Specify the logging level",
     )
     parser.add_argument(
+        "--no-code-sync",
+        action="store_true",
+        help=("Disable automatic syncing of venv/code files across all hosts "
+              "in multi-host benchmarks."),
+    )
+    parser.add_argument(
         "--profile",
         action="store_true",
         help=("Enable profiling for the benchmarks, setting the appropriate "
@@ -704,6 +723,14 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
               "Defaults to the parent dir of the benchmarks.yml file."),
     )
     parser.add_argument(
+        "--sdk-path",
+        default=str(Path(os.getenv("POPLAR_SDK_ENABLED")).parent.resolve()),
+        type=str,
+        help=("Path to the required Poplar SDK. Should be the root directory "
+              "of the SDK. Defaults to the dir specified in the "
+              "POPLAR_SDK_ENABLED environment variable."),
+    )
+    parser.add_argument(
         "--timeout",
         default=None,
         type=int,
@@ -716,6 +743,14 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         nargs="+",
         choices=["wandb", "s3"],
         help="List of locations to upload model checkpoints to",
+    )
+    parser.add_argument(
+        "--venv-path",
+        default=str(Path(os.getenv("VIRTUAL_ENV")).parent.resolve()),
+        type=str,
+        help=("Path to the required Python virtual environment. Should be the "
+              "root directory of the venv. Defaults to the dir specified in "
+              "the VIRTUAL_ENV environment variable."),
     )
     parser.add_argument("--submit-on-slurm", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--slurm-machine-type", choices=["any", "mk2", "mk2w"], default="any", help=argparse.SUPPRESS)
