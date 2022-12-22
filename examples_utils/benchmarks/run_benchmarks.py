@@ -277,7 +277,6 @@ def run_benchmark_variant(
             else:
                 # Setup temporary filesystems on all hosts and modify cmd to use this
                 setup_distributed_filesystems(args, poprun_hostnames)
-            
 
         if reqs:
             logger.info(f"Install python requirements")
