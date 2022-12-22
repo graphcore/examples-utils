@@ -319,7 +319,7 @@ def run_benchmark_variant(
     #     output += analyse_profile(variant_name, cwd)
 
     # Teardown temporary filesystem on all hosts
-    if args.no_fileysystem_sync:
+    if args.no_code_sync:
         logger.info("Filesystem (venv/code) syncing has been disabled "
                     "with the '--no-code-sync' arg. Skipping removing "
                     f"the files at {args.venv_path} and "
