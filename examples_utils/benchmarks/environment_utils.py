@@ -229,6 +229,7 @@ def infer_paths(args: argparse.Namespace, benchmark_dict: dict) -> argparse.Name
     # is called, and add it back together
     args.examples_path = str(Path("/".join(spec_path.split("/")[:-offset])).resolve())
 
+    args.sdk_path = os.getenv("POPLAR_SDK_ENABLED")
     if args.sdk_path is None:
         err = ("It appears that a poplar SDK has not been enabled, determined "
                "by 'POPLAR_SDK_ENABLED' environment variable not detected in "
@@ -236,9 +237,10 @@ def infer_paths(args: argparse.Namespace, benchmark_dict: dict) -> argparse.Name
                "environment (use 'source' when enabling/activating).")
         logger.error(err)
         raise EnvironmentError(err)
-    # Resolve and cast in case it was provided by the user
-    args.sdk_path = str(Path(args.sdk_path).parent.resolve())
+    else:
+        args.sdk_path = str(Path(args.sdk_path).parent.resolve())
 
+    args.venv_path = os.getenv("VIRTUAL_ENV")
     if args.venv_path is None:
         err = ("It appears that a python virtual environment has not been "
                "activated, determined by 'VIRTUAL_ENV' environment variable "
@@ -247,8 +249,8 @@ def infer_paths(args: argparse.Namespace, benchmark_dict: dict) -> argparse.Name
                "'source' when enabling/activating).")
         logger.error(err)
         raise EnvironmentError(err)
-    # Resolve and cast in case it was provided by the user
-    args.venv_path = str(Path(args.venv_path).resolve())
+    else:
+        args.venv_path = str(Path(args.venv_path).resolve())
 
     return args
 

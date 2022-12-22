@@ -319,16 +319,16 @@ def run_benchmark_variant(
     #     output += analyse_profile(variant_name, cwd)
 
     # Teardown temporary filesystem on all hosts
-    if not args.submit_on_slurm:
-        if is_distributed and args.remove_dirs_after:
-            if args.no_fileysystem_sync:
-                logger.info("Filesystem (venv/code) syncing has been disabled "
-                            "with the '--no-code-sync' arg. Skipping removing "
-                            f"the files at {args.venv_path} and "
-                            f"{args.examples_path} automatically on all hosts.")
-            else:
-                remove_distributed_filesystems(args, poprun_hostnames)
+    if args.no_fileysystem_sync:
+        logger.info("Filesystem (venv/code) syncing has been disabled "
+                    "with the '--no-code-sync' arg. Skipping removing "
+                    f"the files at {args.venv_path} and "
+                    f"{args.examples_path} automatically on all hosts.")
+        args.remove_dirs_after = False
 
+    if not args.submit_on_slurm and args.remove_dirs_after:
+        if is_distributed:
+            remove_distributed_filesystems(args, poprun_hostnames)
         else:
             logger.info("'--remove-dirs-after' has been set but this "
                         "benchmark has not been specified to use multiple "
@@ -722,14 +722,6 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
               "Defaults to the parent dir of the benchmarks.yml file."),
     )
     parser.add_argument(
-        "--sdk-path",
-        default=str(Path(os.getenv("POPLAR_SDK_ENABLED")).parent.resolve()),
-        type=str,
-        help=("Path to the required Poplar SDK. Should be the root directory "
-              "of the SDK. Defaults to the dir specified in the "
-              "POPLAR_SDK_ENABLED environment variable."),
-    )
-    parser.add_argument(
         "--timeout",
         default=None,
         type=int,
@@ -742,14 +734,6 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         nargs="+",
         choices=["wandb", "s3"],
         help="List of locations to upload model checkpoints to",
-    )
-    parser.add_argument(
-        "--venv-path",
-        default=str(Path(os.getenv("VIRTUAL_ENV")).parent.resolve()),
-        type=str,
-        help=("Path to the required Python virtual environment. Should be the "
-              "root directory of the venv. Defaults to the dir specified in "
-              "the VIRTUAL_ENV environment variable."),
     )
     parser.add_argument("--submit-on-slurm", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--slurm-machine-type", choices=["any", "mk2", "mk2w"], default="any", help=argparse.SUPPRESS)
