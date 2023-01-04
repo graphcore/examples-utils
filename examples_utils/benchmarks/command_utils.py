@@ -140,10 +140,10 @@ def remove_wandb_args(cmd: str) -> str:
             continue
         
         if skip:
+            skip = False
             continue
 
         new_arg_list.append(arg_list[i])
-        skip = False
     
     new_cmd = shlex.join(new_arg_list)
 
