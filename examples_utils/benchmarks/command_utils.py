@@ -131,11 +131,11 @@ def remove_wandb_args(cmd: str) -> str:
     
     skip = False
     arg_pattern = re.compile("^[-]+")
-    for i in range(len(arg_list)):
+    for i in range(len(arg_list) - 1):
         if arg_pattern.match(arg_list[i]) and "wandb" in arg_list[i]:
             # Also remove the values given to wandb args using a skip bool for
             # next iteration
-            if not arg_pattern.match("^[-]+", arg_list[i+1]):
+            if not arg_pattern.match(arg_list[i+1]):
                 skip = True
             continue
         
