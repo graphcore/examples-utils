@@ -128,23 +128,23 @@ def remove_wandb_args(cmd: str) -> str:
     arg_list = shlex.split(cmd)
     # Avoid out of bounds access attempt
     arg_list.append("")
-    
+
     skip = False
     arg_pattern = re.compile("^[-]+")
     for i in range(len(arg_list) - 1):
         if arg_pattern.match(arg_list[i]) and "wandb" in arg_list[i]:
             # Also remove the values given to wandb args using a skip bool for
             # next iteration
-            if not arg_pattern.match(arg_list[i+1]):
+            if not arg_pattern.match(arg_list[i + 1]):
                 skip = True
             continue
-        
+
         if skip:
             skip = False
             continue
 
         new_arg_list.append(arg_list[i])
-    
+
     new_cmd = shlex.join(new_arg_list)
 
     return new_cmd
@@ -196,7 +196,7 @@ def formulate_benchmark_command(
                     "argument provided to the benchmark. The default value of "
                     "'--allow-wandb' (False) is overriding, purging '--wandb' "
                     "and all args containing 'wandb' from command.")
-        
+
         cmd = remove_wandb_args(cmd)
 
     if args.compile_only:
