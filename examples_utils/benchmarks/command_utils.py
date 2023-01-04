@@ -125,15 +125,15 @@ def remove_wandb_args(cmd: str) -> str:
     """
 
     new_arg_list = []
-    arg_list = cmd.split(" ")
+    arg_list = shlex.split(cmd)
     
     skip = False
     for i in len(arg_list):
         if "--" in arg_list[i] and "wandb" in arg_list[i]:
             # Also remove the values given to wandb args using a skip bool for
             # next iteration
-            if not "--" in arg_list[i+1]:
-                skip = True 
+            if not "-" in arg_list[i+1][:2]:
+                skip = True
             continue
         
         if skip:
@@ -142,7 +142,7 @@ def remove_wandb_args(cmd: str) -> str:
         new_arg_list.append(arg_list[i])
         skip = False
     
-    new_cmd = " ".join(new_arg_list)
+    new_cmd = shlex.join(new_arg_list)
 
     return new_cmd
 

@@ -674,7 +674,8 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--stop-on-error",
         action="store_true",
-        help="Do not stop on an error",
+        help=("Stop on the first error and terminate all runs, instead of "
+              "proceeding to the next benchmark"),
     )
     parser.add_argument(
         "--log-dir",
