@@ -1,4 +1,5 @@
 # Copyright (c) 2022 Graphcore Ltd. All rights reserved.
+from typing import Sequence
 import argparse
 import csv
 import json
@@ -14,6 +15,8 @@ from time import time
 WANDB_AVAILABLE = True
 try:
     import wandb
+    # avoid namespace packages ref: https://peps.python.org/pep-0420/#specification
+    getattr(wandb, "init")
 except:
     WANDB_AVAILABLE = False
 
@@ -21,12 +24,12 @@ except:
 logger = logging.getLogger()
 
 
-def configure_logger(args: argparse.ArgumentParser):
+def configure_logger(args: argparse.Namespace):
     """Setup the benchmarks runner logger
 
     Args:
         args (argparse.ArgumentParser): Argument parser used for benchmarking
-    
+
     """
 
     # Setup dir
@@ -58,7 +61,7 @@ def print_benchmark_summary(results: dict):
 
     Args:
         results (dict): Benchmark results dict to create summary from
-    
+
     """
 
     # Print PASS/FAIL statements
@@ -85,7 +88,7 @@ def get_latest_checkpoint_path(checkpoint_root_dir: Path, variant_cmd: str) -> P
     Args:
         checkpoint_root_dir (Path): The path to the benchmarking dir
         variant_cmd (str): The command used for this model run (benchmark)
-    
+
     Returns:
         latest_checkpoint_path (Path): The directory containing all checkpoints
             as specified in the benchmarks.yml (or 'None' if this is not found.)
@@ -142,7 +145,7 @@ def get_wandb_link(stderr: str) -> str:
     return wandb_link
 
 
-def save_results(log_dir: str, results: dict):
+def save_results(log_dir: str, additional_metrics: bool, results: dict, extra_csv_metrics: Sequence[str] = tuple()):
     """Save benchmark results into files.
 
     Args:
@@ -158,6 +161,10 @@ def save_results(log_dir: str, results: dict):
 
     # Parse summary into CSV and save in logs directory
     csv_metrics = ["throughput", "latency", "total_compiling_time"]
+    if additional_metrics:
+        csv_metrics.extend(["test_duration", "loss", "result", "cmd", "env", "git_commit_hash"])
+    csv_metrics.extend(extra_csv_metrics)
+
     csv_filepath = Path(log_dir, "benchmark_results.csv")
     with open(csv_filepath, "w") as csv_file:
         writer = csv.writer(csv_file, quoting=csv.QUOTE_ALL)
@@ -172,8 +179,6 @@ def save_results(log_dir: str, results: dict):
                 # Find all the metrics we have available from the list defined
                 for metric in csv_metrics:
                     value = list(r["results"].get(metric, {0: None}).values())[0]
-                    if value is not None:
-                        value = float(value)
                     csv_row.append(value)
 
                 writer.writerow(csv_row)
@@ -182,7 +187,7 @@ def save_results(log_dir: str, results: dict):
 
 def upload_checkpoints(upload_targets: list, checkpoint_path: Path, benchmark_path: str, checkpoint_dir_depth: int,
                        run_name: str, stderr: str):
-    """Upload checkpoints from model run to 
+    """Upload checkpoints from model run to
 
     Args:
         upload_targets (list): Which targets/locations to upload checkpoints to
@@ -192,6 +197,16 @@ def upload_checkpoints(upload_targets: list, checkpoint_path: Path, benchmark_pa
         stderr (str): Stderr output from this benchmarking run
 
     """
+
+    # Get confirmation user wants to upload checkpoint (post results), else exit
+    upload_confirmed = input("Upload checkpoints? (y/n): ")
+    while upload_confirmed not in {"y", "n"}:
+        upload_confirmed = input("Please enter either y (yes) or n (no): ")
+
+    if upload_confirmed != "y":
+        logger.warn(f"Checkpoint uploading was refused by user input, skipping "
+                    f"uploading checkpoints at {checkpoint_path}")
+        return
 
     checkpoint_path = str(checkpoint_path)
 
