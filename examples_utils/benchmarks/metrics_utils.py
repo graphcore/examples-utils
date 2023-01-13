@@ -8,7 +8,7 @@ from typing import Tuple
 from examples_utils.benchmarks.custom_metrics import register_custom_metric
 
 # Get the module logger
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 # Regexes below for both TF and popart/poptorch
 date_regex = r"(\d{4}\-\d{2}\-\d{2}[T ?]\d{2}:\d{2}:\d{2}.\d{6})"

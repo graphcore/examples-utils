@@ -21,7 +21,7 @@ except:
     WANDB_AVAILABLE = False
 
 # Get the module logger
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 def configure_logger(args: argparse.Namespace):
@@ -50,7 +50,6 @@ def configure_logger(args: argparse.Namespace):
     logger.addHandler(handler)
     logger.setLevel(args.logging)
 
-    # No INFO level logs if not verbose
     logger.info = logger.info if args.verbose else lambda args: None
 
     logger.info(f"Logging directory: '{args.log_dir}'")
@@ -119,7 +118,7 @@ def get_latest_checkpoint_path(checkpoint_root_dir: Path, variant_cmd: str) -> P
         try:
             latest_checkpoint_path = time_sorted_dirs[0]
         except:
-            logger.warn("Checkpoint file(s) in {checkpoint_dir} could not be found. Skipping uploading")
+            logger.warn(f"Checkpoint file(s) in {checkpoint_dir} could not be found. Skipping uploading")
 
     logger.info(f"Checkpoints to be uploaded: {latest_checkpoint_path}")
 

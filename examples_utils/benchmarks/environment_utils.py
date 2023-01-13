@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 # Get the module logger
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 def parse_vipu_server() -> Optional[str]:

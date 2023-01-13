@@ -51,7 +51,7 @@ except (ImportError, ModuleNotFoundError) as error:
 
 
 # Get the module logger
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 # Progress spinner frames to iterate through
@@ -82,7 +82,6 @@ def should_reattempt_benchmark(variant, output, err, exitcode) -> Union[bool, st
     if is_a_notebook and "ModuleNotFoundError" in err and exitcode != 0:
         if "Successfully installed" in output:
             return "Notebook has installed some packages, need to restart kernel"
-
 
     return False
 
@@ -511,7 +510,6 @@ def run_benchmarks(args: argparse.Namespace):
         logger.info(f"Examining: '{spec_file}'")
     # Preprocess args to resolve any inconsistencies or cover up any gaps
     args = preprocess_args(args)
-    args.spec = [str(Path(file).resolve()) for file in args.spec]
 
     # check if dispatching jobs to a SLURM queue
     if args.submit_on_slurm and check_slurm_configured():
@@ -548,7 +546,7 @@ def run_benchmarks_from_spec(spec: Dict[str, BenchmarkDict], args: argparse.Name
         import_metrics_hooks_files(args.custom_metrics_files)
     with open(output_log_path, "w", buffering=1) as listener:
         print("#" * 80)
-        print(f"Logs at: {output_log_path}")
+        logger.info(f"Logs at: {output_log_path}")
         print("#" * 80 + "\n")
 
         # Only check explicitily listed benchmarks if provided
@@ -613,10 +611,10 @@ def run_benchmarks_from_spec(spec: Dict[str, BenchmarkDict], args: argparse.Name
 
         for benchmark_name in variant_dictionary:
             benchmark_spec = spec.get(benchmark_name, {})
-            print("Running " + benchmark_name)
+            logger.info("Running " + benchmark_name)
 
             if len(variant_dictionary) > 1:
-                print(f"Running {str(len(variant_dictionary[benchmark_name]))} variants:")
+                logger.info(f"Running {str(len(variant_dictionary[benchmark_name]))} variants:")
 
                 for variant_name in variant_dictionary[benchmark_name]:
                     name = variant_name.get("name")
@@ -719,7 +717,7 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         "--logging",
         choices=["DEBUG", "INFO", "ERROR", "CRITICAL", "WARNING"],
         default="INFO",
-        help="Specify the logging level set for poplar/popart (the example's code)",
+        help="Specify the logging level set for poplar/popart (the example itself, not the)",
     )
     parser.add_argument(
         "--no-code-sync",
@@ -767,13 +765,6 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         nargs="+",
         choices=["wandb", "s3"],
         help="List of locations to upload model checkpoints to",
-    )
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        default=False,
-        help="Increase the amount of information and outputs logged to stdout",
     )
 
     parser.add_argument("--submit-on-slurm", action="store_true", help=argparse.SUPPRESS)

@@ -44,7 +44,6 @@ def main(raw_args):
     if args.subparser == 'load_lib_build':
         load_lib_builder_run(args)
     elif args.subparser == 'benchmark':
-        args = preprocess_args(args)
         configure_logger(args)
         run_benchmarks(args)
     elif args.subparser == 'platform_assessment':
