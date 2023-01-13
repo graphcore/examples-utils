@@ -53,7 +53,6 @@ except (ImportError, ModuleNotFoundError) as error:
 # Get the module logger
 logger = logging.getLogger(__name__)
 
-
 # Progress spinner frames to iterate through
 progress_frames = [
     "      ",
@@ -69,7 +68,6 @@ progress_frames = [
     "    <=",
     "     <",
 ]
-
 
 # A dictionary which defines a benchmark
 BenchmarkDict = Dict
@@ -770,4 +768,3 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
 
     parser.add_argument("--submit-on-slurm", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--slurm-machine-type", choices=["any", "mk2", "mk2w"], default="any", help=argparse.SUPPRESS)
-
