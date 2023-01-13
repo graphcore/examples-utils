@@ -337,11 +337,4 @@ def preprocess_args(args: argparse.Namespace) -> argparse.Namespace:
     if "wandb" in args.upload_checkpoints:
         args.allow_wandb = True
 
-    # Set developer options if requested
-    if args.developer_mode:
-        args.allow_wandb = True
-        args.include_convergence = True
-        args.ignore_error = True
-        args.verbose = True
-
     return args

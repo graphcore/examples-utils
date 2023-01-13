@@ -717,7 +717,8 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         "--logging",
         choices=["DEBUG", "INFO", "ERROR", "CRITICAL", "WARNING"],
         default="INFO",
-        help="Specify the logging level set for poplar/popart (the example itself, not the)",
+        help=("Specify the logging level set for poplar/popart (the example "
+              "itself, not this benchmarking module"),
     )
     parser.add_argument(
         "--no-code-sync",
@@ -734,8 +735,8 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
     parser.add_argument(
         "--gc-monitor",
         action="store_true",
-        help=("Enable usage monitoring during benchmarks. when set, runs gc-monitor "
-              "every 5 seconds"),
+        help=("Enable usage monitoring during benchmarks. when set, runs "
+              "gc-monitor every 5 seconds"),
     )
     parser.add_argument(
         "--remove-dirs-after",

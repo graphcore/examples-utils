@@ -50,8 +50,6 @@ def configure_logger(args: argparse.Namespace):
     logger.addHandler(handler)
     logger.setLevel(args.logging)
 
-    logger.info = logger.info if args.verbose else lambda args: None
-
     logger.info(f"Logging directory: '{args.log_dir}'")
 
 
