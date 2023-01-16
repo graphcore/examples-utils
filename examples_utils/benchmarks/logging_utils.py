@@ -137,7 +137,8 @@ def get_wandb_link(stderr: str) -> str:
             wandb_link = "https:/" + line.split("https:/")[1]
             wandb_link = wandb_link.replace("\n", "")
 
-    logger.info(f"Wandb link found from stdout/stderr: {wandb_link}")
+    if wandb_link:
+        logger.info(f"Wandb link found from stdout/stderr: {wandb_link}")
 
     return wandb_link
 
