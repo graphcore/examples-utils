@@ -53,7 +53,7 @@ def main(raw_args):
     elif args.subparser == 'test_copyright':
         test_copyrights(args.path, args.amend, args.exclude_json)
     else:
-        err = ("Please select form one of:\n\t`load_lib_build`\n\t`benchmark`\n\t`test_copyright`")
+        err = ("Please select from one of:\n\t`load_lib_build`\n\t`benchmark`\n\t`platform_assessment`\n\t`test_copyright`")
         raise Exception(err)
 
 
