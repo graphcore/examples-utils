@@ -331,7 +331,7 @@ def run_benchmark_variant(
     end_time = datetime.now()
     total_runtime = (end_time - start_time).total_seconds()
     logger.info(f"End test: {end_time}")
-    print(f"Total runtime: {total_runtime} seconds")
+    logger.info(f"Total runtime: {total_runtime} seconds")
 
     # TODO: Analyse profile data and output to logs with REPTIL
     # if args.profile:

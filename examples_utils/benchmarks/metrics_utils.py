@@ -181,7 +181,7 @@ def get_results_for_compile_time(_: str, stderr: str, exitcode: int) -> dict:
     else:
         compile_time_output = f"   Total compile time: ERROR"
 
-    print(compile_time_output)
+    logger.info(compile_time_output)
 
     return total_compiling_time
 
@@ -272,7 +272,7 @@ def extract_metrics(extraction_config: dict, log: str, exitcode: int, num_replic
                 result *= num_replicas
 
         extracted_metrics[name] = {metric_spec["reduction_type"]: result}
-        print(f"   {name} = '{str(result) if result is not None else 'VALUE_NOT_FOUND'}'")
+        logger.info(f"   {name} = '{str(result) if result is not None else 'VALUE_NOT_FOUND'}'")
 
         if result is None:
             did_extraction_fail = True
