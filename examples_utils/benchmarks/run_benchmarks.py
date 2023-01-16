@@ -500,7 +500,6 @@ def run_benchmarks(args: argparse.Namespace):
     """
 
     spec_files = ",".join([str(sf) for sf in args.spec if ".yml" in str(sf)])
-    logger.info(f"Running benchmark suite: '{spec_files}'")
 
     # Load all benchmark configs from all files given
     spec = {}
