@@ -579,6 +579,7 @@ def run_and_monitor_progress_on_slurm(cmd: list,
     stdout_log = None
     stderr_log = None
 
+    #  poll until job has been submited every 1s
     while proc.poll() is None and (stdout_path is None or stderr_path is None):
         if not job_submitted:
             o = proc.stdout.readline().decode()
@@ -586,6 +587,8 @@ def run_and_monitor_progress_on_slurm(cmd: list,
                 job_id = o.split()[-1]
                 job_submitted = True
                 logger.info(f"SLURM Job submitted. Job id: {job_id}. Job name: {job_name}")
+            else:
+                time.sleep(1)
         else:
             if Path(stdout_log_path).exists():
                 stdout_path = stdout_log_path
