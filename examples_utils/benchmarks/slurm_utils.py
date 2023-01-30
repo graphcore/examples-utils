@@ -179,7 +179,7 @@ def configure_job_environment(
 
     framework = variant_name[0:3]
     if framework == "pyt":
-        packages = "poptorch*.whl"
+        packages = "poptorch-*.whl"
     elif framework == "tf1":
         packages = "tensorflow-1*${CPU_ARCH}*.whl ipu_tensorflow_addons-1*.whl"
     elif framework == "tf2":
@@ -674,7 +674,6 @@ def run_and_monitor_progress_on_slurm(
 
     logger.info("Monitoring SLURM job")
 
-    outs = [[], []]
     total_time = 0
     timeout_error = False
 
@@ -684,12 +683,10 @@ def run_and_monitor_progress_on_slurm(
 
             stdout_data = stdout.read().decode()
             if stdout_data != "":
-                outs[0].append(stdout_data)
                 listener.write(stdout_data)
 
             stderr_data = stderr.read().decode()
             if stderr_data != "":
-                outs[1].append(stderr_data)
                 listener.write(stderr_data)
 
             listener.flush()
@@ -709,25 +706,19 @@ def run_and_monitor_progress_on_slurm(
             sys.stderr.flush()
 
         # read the rest
-        outs[0].extend(stdout.readlines())
-        listener.write(outs[0][-1])
-        outs[1].extend(stderr.readlines())
-        listener.write(outs[1][-1])
+        listener.write(stdout.readlines())
+        listener.write(stderr.readlines())
         listener.flush()
 
     sys.stderr.write("\r")
     sys.stderr.write("\n")
 
     # construct stdout/stderr log for output
-    if stdout_log is None:
-        stdout_log = "".join(outs[0])
-    else:
-        stdout_log += "\n" + "".join(outs[0])
-
-    if stderr_log is None:
-        stderr_log = "".join(outs[1])
-    else:
-        stderr_log += "\n" + "".join(outs[1])
+    with open(stdout_log_path, "r") as f:
+        stdout_log = f.read()
+    
+    with open(stderr_log_path, "r") as f:
+        stderr_log = f.read()
 
     if timeout_error:
         stderr_log += f"\nTimeout ({timeout})\n"
