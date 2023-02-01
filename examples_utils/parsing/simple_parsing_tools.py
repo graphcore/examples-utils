@@ -1,18 +1,24 @@
-# Copyright (c) 2023 Graphcore Ltd. All rights reserved.
-import argparse
+# Copyright (c) 2022 Graphcore Ltd. All rights reserved.
 import json
-from dataclasses import dataclass, fields
+import yaml
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Tuple, Union
+from dataclasses import dataclass, fields
 
-import yaml
-from simple_parsing import ArgumentParser
-from simple_parsing.helpers import Serializable, field
-from simple_parsing.helpers.serialization.decoding import register_decoding_fn
-from simple_parsing.helpers.serialization.encoding import encode
-from simple_parsing.utils import Dataclass, DataclassType
-
+import argparse
+try:
+    from simple_parsing import ArgumentParser
+    from simple_parsing.helpers import Serializable, field
+    from simple_parsing.helpers.serialization.decoding import register_decoding_fn
+    from simple_parsing.helpers.serialization.encoding import encode
+    from simple_parsing.utils import Dataclass, DataclassType
+except (ImportError, ModuleNotFoundError) as error:
+    raise  ModuleNotFoundError(
+        "To use simple parsing utilities `examples_utils` needs to have been installed with "
+        "the [common] set of requirements, reinstall the package with"
+        " `pip install examples_utils[common]`"
+    ) from error
 
 @dataclass
 class Config(Serializable):
@@ -93,17 +99,11 @@ def parse_args_with_presets(
 
     # This is here only for the help message
     parser.add_argument(
-        "--config",
-        choices=presets,
-        type=str,
-        default=default,
-        help=f"Preset Configs from {config_file}",
     )
 
     if custom_args:
         custom_args(parser)
 
-    args = parser.parse_args(remaining_argv)
     if cargs.config is not None:
         set_dataclass_defaults(dclass, defaults)
         args.config = cargs.config
