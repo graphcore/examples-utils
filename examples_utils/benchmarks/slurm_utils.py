@@ -32,15 +32,15 @@ class StringFileEmulator:
         self.file_path = file_path
         self._open_for_reading()
 
-    def _open_for_reading(self):
+    def _open_for_reading(self) -> None:
         self.file = open(self.file_path, "r")
 
-    def splitlines(self) -> Generator:
+    def splitlines(self):
         self.file.seek(0)
         for line in self.file:
             yield line
 
-    def split(self, str_pattern: str) -> Generator:
+    def split(self, str_pattern: str):
         self.file.seek(0)
         if str_pattern == "\n":
             for line in self.file:
@@ -51,10 +51,16 @@ class StringFileEmulator:
                     yield elem
 
     def __add__(self, rh_str: str) -> StringFileEmulator:
-        self.file.close()
-        with open(self.file_path, "a") as f:
-            f.write(rh_str)
-        self._open_for_reading()
+        if isinstance(rh_str, str):
+            self.file.close()
+            with open(self.file_path, "a") as f:
+                f.write(rh_str)
+            self._open_for_reading()
+            return self
+        else:
+            raise ValueError(
+                "binary operator `+` with `StringFileEmulator` objects only supported with `str` right hand side operands"
+            )
 
     def __contains__(self, value: Any) -> bool:
         self.file.seek(0)
