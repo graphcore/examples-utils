@@ -61,6 +61,14 @@ def parse_args_with_config_file(dclass: DataclassType[Dataclass], *args) -> Data
     return getattr(args, dclass_dest)
 
 
+def in_jupyter() -> bool:
+    try:
+        get_ipython()
+        return True
+    except:
+        return False
+
+
 def parse_args_with_presets(
     dclass: DataclassType[Dataclass],
     config_file: Union[str, Path],
@@ -99,11 +107,16 @@ def parse_args_with_presets(
 
     # This is here only for the help message
     parser.add_argument(
+        "--config", choices=presets, type=str, default=default, help=f"Preset Configs from {config_file}"
     )
 
     if custom_args:
         custom_args(parser)
 
+    if not in_jupyter():
+        args = parser.parse_args(remaining_argv)
+    else:
+        args, _ = parser.parse_known_args(remaining_argv)
     if cargs.config is not None:
         set_dataclass_defaults(dclass, defaults)
         args.config = cargs.config
