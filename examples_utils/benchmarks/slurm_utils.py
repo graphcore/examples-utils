@@ -1,8 +1,8 @@
 # Copyright (c) 2022 Graphcore Ltd. All rights reserved.
 
+from __future__ import annotations
 import argparse
 import atexit
-from genericpath import exists
 import logging
 from multiprocessing.sharedctypes import Value
 import os
@@ -12,7 +12,7 @@ import textwrap
 import time
 from datetime import timedelta
 from io import TextIOWrapper
-from typing import Tuple, Dict
+from typing import Tuple, Dict, Generator, Any
 from pathlib import Path
 import shutil
 import shlex
@@ -25,6 +25,46 @@ logger = logging.getLogger(__name__)
 
 class SlurmBenchmarkError(Exception):
     pass
+
+
+class StringFileEmulator:
+    def __init__(self, file_path):
+        self.file_path = file_path
+        self._open_for_reading()
+
+    def _open_for_reading(self):
+        self.file = open(self.file_path, "r")
+
+    def splitlines(self) -> Generator:
+        self.file.seek(0)
+        for line in self.file:
+            yield line
+
+    def split(self, str_pattern: str) -> Generator:
+        self.file.seek(0)
+        if str_pattern == "\n":
+            for line in self.file:
+                yield line
+        else:
+            for line in self.file:
+                for elem in line.split(str_pattern):
+                    yield elem
+
+    def __add__(self, rh_str: str) -> StringFileEmulator:
+        self.file.close()
+        with open(self.file_path, "a") as f:
+            f.write(rh_str)
+        self._open_for_reading()
+
+    def __contains__(self, value: Any) -> bool:
+        self.file.seek(0)
+        for line in self.file:
+            if value in line:
+                return True
+        return False
+
+    def close(self) -> None:
+        self.file.close()
 
 
 def check_slurm_configured() -> bool:
@@ -143,9 +183,9 @@ def configure_job_environment(
 
         # activate venv
         source {venv_path}/bin/activate
-        
+
         echo "[INFO] Upgrading pip, setuptools and wheel"
-        {pip_install_str} --upgrade setuptools wheel pip 
+        {pip_install_str} --upgrade setuptools wheel pip
     """
     )
 
@@ -153,13 +193,13 @@ def configure_job_environment(
     bash_script += textwrap.dedent(
         """
         echo "[INFO] determining CPU arch"
-        amd_arch=$(cpuinfo | grep -i amd)  
+        amd_arch=$(cpuinfo | grep -i amd)
         intel_arch=$(cpuinfo | grep -i intel)
-        if ! [[ -z amd_arch ]] 
-        then 
+        if ! [[ -z amd_arch ]]
+        then
             CPU_ARCH="amd"
         elif ! [[ -z intel_arch ]]
-        then 
+        then
             CPU_ARCH="intel"
         else
             echo "[ERROR] Only amd and intel arch are supported for now.." 1>&2
@@ -637,8 +677,6 @@ def run_and_monitor_progress_on_slurm(
     job_submitted = False
     stdout_path = None
     stderr_path = None
-    stdout_log = None
-    stderr_log = None
 
     #  poll until job has been submited every 1s
     while proc.poll() is None and (stdout_path is None or stderr_path is None):
@@ -648,13 +686,12 @@ def run_and_monitor_progress_on_slurm(
                 job_id = o.split()[-1]
                 job_submitted = True
                 logger.info(f"SLURM Job submitted. Job id: {job_id}. Job name: {job_name}")
-            else:
-                time.sleep(1)
         else:
             if Path(stdout_log_path).exists():
                 stdout_path = stdout_log_path
             if Path(stderr_log_path).exists():
                 stderr_path = stderr_log_path
+        time.sleep(1)
 
     # something bad may have happened
     if proc.poll() is not None:
@@ -706,19 +743,18 @@ def run_and_monitor_progress_on_slurm(
             sys.stderr.flush()
 
         # read the rest
-        listener.write(stdout.readlines())
-        listener.write(stderr.readlines())
+        listener.write("".join(stdout.readlines()))
+        listener.write("".join(stderr.readlines()))
         listener.flush()
 
     sys.stderr.write("\r")
     sys.stderr.write("\n")
 
-    # construct stdout/stderr log for output
-    with open(stdout_log_path, "r") as f:
-        stdout_log = f.read()
-    
-    with open(stderr_log_path, "r") as f:
-        stderr_log = f.read()
+    # open stdout and stderr log files which will be processed for metrics
+    stdout_log = StringFileEmulator(stdout_path)
+    stderr_log = StringFileEmulator(stderr_path)
+    atexit.register(lambda x: x.close(), stdout_log)
+    atexit.register(lambda x: x.close(), stderr_log)
 
     if timeout_error:
         stderr_log += f"\nTimeout ({timeout})\n"
