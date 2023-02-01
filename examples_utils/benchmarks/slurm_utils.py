@@ -226,14 +226,12 @@ def configure_job_environment(
     framework = variant_name[0:3]
     if framework == "pyt":
         packages = "poptorch-*.whl"
-    elif framework == "tf1":
-        packages = "tensorflow-1*${CPU_ARCH}*.whl ipu_tensorflow_addons-1*.whl"
     elif framework == "tf2":
         packages = "tensorflow-2*${CPU_ARCH}*.whl ipu_tensorflow_addons-2*.whl keras-2*.whl"
     elif framework == "pop":
         pass
     else:
-        err_msg = "Benchmark name should begin with pytorch, popart, tf1 or tf2."
+        err_msg = "Benchmark name should begin with pytorch, popart or tf2. Other frameworks are not supported."
         raise ValueError(err_msg)
 
     if framework != "pop":
