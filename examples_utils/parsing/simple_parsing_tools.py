@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, Optional, Tuple, Union
 from dataclasses import dataclass, fields
 
 import argparse
+
 try:
     from simple_parsing import ArgumentParser
     from simple_parsing.helpers import Serializable, field
@@ -14,11 +15,12 @@ try:
     from simple_parsing.helpers.serialization.encoding import encode
     from simple_parsing.utils import Dataclass, DataclassType
 except (ImportError, ModuleNotFoundError) as error:
-    raise  ModuleNotFoundError(
+    raise ModuleNotFoundError(
         "To use simple parsing utilities `examples_utils` needs to have been installed with "
         "the [common] set of requirements, reinstall the package with"
         " `pip install examples_utils[common]`"
     ) from error
+
 
 @dataclass
 class Config(Serializable):
