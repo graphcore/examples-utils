@@ -249,6 +249,7 @@ def infer_paths(args: argparse.Namespace, benchmark_dict: dict) -> argparse.Name
         raise EnvironmentError(err)
     else:
         args.sdk_path = str(Path(args.sdk_path).parent.resolve())
+        args.sdk_version = Path(args.sdk_path).name
 
     args.venv_path = os.getenv("VIRTUAL_ENV")
     if args.venv_path is None:
