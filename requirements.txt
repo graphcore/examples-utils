@@ -3,3 +3,4 @@ cppimport>=22.07.17
 filelock
 psutil>=5.7.0
 pyyaml>=5.4.1
+simple-parsing==0.0.19.post1
