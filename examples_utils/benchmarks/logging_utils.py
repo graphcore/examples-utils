@@ -147,6 +147,52 @@ def get_wandb_link(stderr: str) -> str:
     return wandb_link
 
 
+def load_from_logs(log_dir: str):
+    """Load benchmark results/output from existing logs.
+
+    Args:
+        log_dir (str): Path to log dirs
+
+    Returns:
+        stdout (str): The stdout from the benchmark running process
+        stderr (str): The stderr from the benchmark running process
+        exitcode (str): The exitcode from the benchmark running process
+        monitor_log (str): The log from gc-monitor outputs during benchmarking
+    """
+
+    if not Path(log_dir).exists():
+        logger.error(
+            f"'--reuse-logs' has been passed, but the provided path "
+            "(argument) {log_dir} does not exist."
+        )
+
+    # Specific order for outputs
+    files = {
+        Path(log_dir, "stdout.log").resolve(): "",
+        Path(log_dir, "stderr.log").resolve(): "",
+        Path(log_dir, "exitcode.log").resolve(): "",
+        Path(log_dir, "ipu-monitor.jsonl").resolve(): None,
+    }
+
+    # Read the files or store a placeholder None
+    missing_list = []
+    for path in list(files.keys()):
+        if not path.exists():
+            missing_list.append(path.name)
+            files[path] = None
+        else:
+            files[path] = path.read_text()
+    
+    if missing_list:
+        missing_files = [str(x) + '\n' for x in missing_list]
+        logger.error(
+            "'--reuse-logs'  has been passed, but the provided path does "
+            f"not contain the following necessary files:\n{missing_files}"
+        )
+
+    return list(files.values())
+
+
 def save_results(log_dir: str, additional_metrics: bool, results: dict, extra_csv_metrics: Sequence[str] = tuple()):
     """Save benchmark results into files.
 
