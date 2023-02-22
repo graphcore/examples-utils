@@ -65,22 +65,12 @@ class ConfigLogger(object):
                     message = ("\n\n====================================================================================================================================================\n\n"
                                "Graphcore would like to collect information about which examples and configurations have been run to improve usability and support for future users.\n\n"
                                "The information will be anonymised and logged locally to a file in `~/.graphcore` to be collected by your cloud provider.\n\n"
-                               "You can update this permission in future by setting the GC_EXAMPLE_LOG_STATE to ENABLE or DISABLE in a config file at `~/.graphcore/command_logging_config.json`.\n\n"
+                               "You can disable this in the future by setting the environment variable GC_EXAMPLE_LOG_STATE to 'DISABLE' in a config file at `~/.graphcore/command_logging/config.json`.\n\n"
                                "====================================================================================================================================================\n\n")
 
                     print(message)
 
-                    while cls.GC_EXAMPLE_LOG_STATE is None:
-                        response = input(
-                            "Please respond with 'yes'/'no' whether you accept this request:"
-                        )
-
-                        if response.lower() in ["yes", "y", "enable"]:
-                            cls.GC_EXAMPLE_LOG_STATE = LoggingState.ENABLED
-                        elif response.lower() in ["no", "n", "disable"]:
-                            cls.GC_EXAMPLE_LOG_STATE = LoggingState.DISABLED
-
-                    config_dict = {"GC_EXAMPLE_LOG_STATE": str(cls.GC_EXAMPLE_LOG_STATE)}
+                    config_dict = {"GC_EXAMPLE_LOG_STATE": str(LoggingState.ENABLED)}
                     try:
                         cls.GC_EXAMPLE_LOG_CFG_PATH.mkdir(
                             parents=True, exist_ok=True
