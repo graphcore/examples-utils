@@ -10,6 +10,7 @@ from tomlkit import item
 from examples_utils.command_logger.config_logger import LoggingState, LoggingTarget, ConfigLogger
 from examples_utils.testing import test_commands
 
+
 def setLoggingTarget(logging_target, target_err=False):
     if target_err:
         os.environ["GC_EXAMPLE_LOG_TARGET"] = "err"
@@ -18,6 +19,7 @@ def setLoggingTarget(logging_target, target_err=False):
             del os.environ["GC_EXAMPLE_LOG_TARGET"]
     else:
         os.environ["GC_EXAMPLE_LOG_TARGET"] = str(LoggingTarget.LOCAL)
+
 
 def createConfigFile(enabledState, config_err=False):
     config_path = ConfigLogger.GC_EXAMPLE_LOG_CFG_PATH
@@ -35,9 +37,7 @@ def createConfigFile(enabledState, config_err=False):
         else:
             return
 
-    config_path.mkdir(
-        parents=True, exist_ok=True
-    )
+    config_path.mkdir(parents=True, exist_ok=True)
     with open(config_file, "w") as f:
         json.dump(config_dict, f)
 
@@ -46,11 +46,13 @@ def deleteConfigFile():
     if ConfigLogger.GC_EXAMPLE_LOG_CFG_FILE.is_file():
         ConfigLogger.GC_EXAMPLE_LOG_CFG_FILE.unlink()
 
+
 def createLogFile(log_dict):
     if log_dict:
         ConfigLogger.GC_EXAMPLE_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
         with open(ConfigLogger.GC_EXAMPLE_LOG_FILE, "w") as f:
             json.dump(log_dict, f)
+
 
 def deleteLogFiles():
     if ConfigLogger.GC_EXAMPLE_LOG_FILE.parent.is_dir():
@@ -58,21 +60,25 @@ def deleteLogFiles():
             child.unlink()
         ConfigLogger.GC_EXAMPLE_LOG_FILE.parent.rmdir()
 
+
 def deleteLogDir():
     deleteConfigFile()
     deleteLogFiles()
     if ConfigLogger.GC_EXAMPLE_LOG_CFG_PATH.is_dir():
         ConfigLogger.GC_EXAMPLE_LOG_CFG_PATH.rmdir()
 
+
 def clearAll():
     setLoggingTarget(None)
     deleteLogDir()
+
 
 def setState(target=None, target_err=False, config_state=None, config_err=False, log_dict=None):
     clearAll()
     setLoggingTarget(target, target_err)
     createConfigFile(config_state, config_err)
     createLogFile(log_dict)
+
 
 def checkConfig(config=None):
     if config:
@@ -82,27 +88,29 @@ def checkConfig(config=None):
     else:
         assert not ConfigLogger.GC_EXAMPLE_LOG_CFG_FILE.is_file()
 
+
 def checkLog(log=None):
     if log:
         with open(ConfigLogger.GC_EXAMPLE_LOG_FILE, "r") as f:
             saved_log = json.load(f)
             assert "log" in saved_log
             assert len(saved_log["log"]) == len(log["log"])
-            for expected, saved in zip(log["log"],saved_log["log"]):
+            for expected, saved in zip(log["log"], saved_log["log"]):
                 assert "timestamp" in saved
                 assert saved["userhash"] == expected["userhash"]
                 assert saved["repository"] == expected["repository"]
                 assert saved["example"] == expected["example"]
                 assert saved["script_name"] == expected["script_name"]
-                assert saved["command_args"] == expected["command_args"] 
+                assert saved["command_args"] == expected["command_args"]
     else:
-        assert not ConfigLogger.GC_EXAMPLE_LOG_FILE.is_file()           
+        assert not ConfigLogger.GC_EXAMPLE_LOG_FILE.is_file()
+
 
 def getExpectedLogDict(list_of_args_lists):
-    log_dict = {"log":[]}
+    log_dict = {"log": []}
 
     for args in list_of_args_lists:
-        log_line={}
+        log_line = {}
 
         # to anonymise the username, hash the mac address concatenated with the username
         # (because a mac address is not as easily knowable) TODO: this doesn't make that much sense.. could use something like a public key instead maybe?
@@ -118,7 +126,7 @@ def getExpectedLogDict(list_of_args_lists):
         log_line["repository"] = "examples-utils"
         log_line["example"] = "tests/test_files"
         log_line["script_name"] = "mock_run.py"
-        
+
         log_line["command_args"] = args
 
         log_dict["log"].append(log_line)
@@ -131,7 +139,7 @@ class TestLoggingConfigurations:
     cwd = os.path.dirname(os.path.abspath(__file__))
 
     # called automatically for each test to set and creates the configuration environment specified
-    @pytest.fixture(scope='function', autouse=True)
+    @pytest.fixture(scope="function", autouse=True)
     def setup_and_teardown_env(self, target=None, target_err=False, config_state=None, config_err=False, log_dict=None):
         # import pdb; pdb.set_trace()
         # setState(target, target_err, config_state, config_err, log_dict)
@@ -148,7 +156,7 @@ class TestLoggingConfigurations:
         return out
 
     # setup with target false (which is the default)
-    @pytest.mark.parametrize("config_state", [(None),(LoggingState.DISABLED),(LoggingState.ENABLED)])
+    @pytest.mark.parametrize("config_state", [(None), (LoggingState.DISABLED), (LoggingState.ENABLED)])
     def test_no_logging_target(self, config_state):
         # import pdb; pdb.set_trace()
         setState(config_state=config_state)
@@ -163,7 +171,9 @@ class TestLoggingConfigurations:
         checkLog()
 
     # setup with target error
-    @pytest.mark.parametrize("target_err,config_state", [(True,None),(True,LoggingState.DISABLED),(True,LoggingState.ENABLED)])
+    @pytest.mark.parametrize(
+        "target_err,config_state", [(True, None), (True, LoggingState.DISABLED), (True, LoggingState.ENABLED)]
+    )
     def test_logging_target_error(self, target_err, config_state):
         setState(target_err=target_err, config_state=config_state)
 
@@ -174,7 +184,7 @@ class TestLoggingConfigurations:
         # check that no log exists regardless of the config state
         checkConfig(config=config_state)
         checkLog()
-    
+
     # parameterised on, off, error
     @pytest.mark.parametrize("logging_target,config_state", [(LoggingTarget.LOCAL, LoggingState.DISABLED)])
     def test_local_target_config_off(self, logging_target, config_state):
@@ -231,15 +241,19 @@ class TestLoggingConfigurations:
         # check that no log exists
         checkLog()
 
-
     # parameterised y, n, (needs an input)
-    @pytest.mark.parametrize("logging_target,std_in", [(LoggingTarget.LOCAL,'no\n'),(LoggingTarget.LOCAL,'n\n'),(LoggingTarget.LOCAL, 'disable\n')])
+    @pytest.mark.parametrize(
+        "logging_target,std_in",
+        [(LoggingTarget.LOCAL, "no\n"), (LoggingTarget.LOCAL, "n\n"), (LoggingTarget.LOCAL, "disable\n")],
+    )
     def test_local_target_no_config_set_disabled(self, logging_target, std_in):
         setState(target=logging_target)
 
         # run the script, check for privacy notice and script returns
         expected_patterns = []
-        expected_patterns.append("Graphcore would like to collect information about which examples and configurations have been run to improve usability and support for future users")
+        expected_patterns.append(
+            "Graphcore would like to collect information about which examples and configurations have been run to improve usability and support for future users"
+        )
         expected_patterns.append("Please respond with 'yes'/'no' whether you accept this request")
         expected_patterns.append("success")
         out = self.run_command(std_in=std_in)
@@ -261,13 +275,18 @@ class TestLoggingConfigurations:
         checkLog()
 
     # parameterised y, n, (needs an input)
-    @pytest.mark.parametrize("logging_target,std_in", [(LoggingTarget.LOCAL,'yes\n'),(LoggingTarget.LOCAL,'y\n'),(LoggingTarget.LOCAL,'enable\n')])
+    @pytest.mark.parametrize(
+        "logging_target,std_in",
+        [(LoggingTarget.LOCAL, "yes\n"), (LoggingTarget.LOCAL, "y\n"), (LoggingTarget.LOCAL, "enable\n")],
+    )
     def test_local_target_no_config_set_enabled(self, logging_target, std_in):
         setState(target=logging_target)
 
         # run the script, check for privacy notice and script returns
         expected_patterns = []
-        expected_patterns.append("Graphcore would like to collect information about which examples and configurations have been run to improve usability and support for future users")
+        expected_patterns.append(
+            "Graphcore would like to collect information about which examples and configurations have been run to improve usability and support for future users"
+        )
         expected_patterns.append("Please respond with 'yes'/'no' whether you accept this request")
         expected_patterns.append("success")
         out = self.run_command(std_in=std_in)

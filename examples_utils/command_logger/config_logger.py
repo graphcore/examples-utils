@@ -9,6 +9,7 @@ import time
 from uuid import getnode as get_mac
 import git
 
+
 class LoggingState(Enum):
     ENABLED = "ENABLED"
     DISABLED = "DISABLED"
@@ -26,9 +27,9 @@ class LoggingTarget(Enum):
 
 class ConfigLogger(object):
     _instance = None
-    GC_EXAMPLE_LOG_CFG_PATH = pathlib.Path.home().joinpath(".graphcore","command_logging")
+    GC_EXAMPLE_LOG_CFG_PATH = pathlib.Path.home().joinpath(".graphcore", "command_logging")
     GC_EXAMPLE_LOG_CFG_FILE = GC_EXAMPLE_LOG_CFG_PATH.joinpath("config.json")
-    GC_EXAMPLE_LOG_FILE = GC_EXAMPLE_LOG_CFG_PATH.joinpath("logs",f"{time.strftime('%Y_%m_%d')}.json")
+    GC_EXAMPLE_LOG_FILE = GC_EXAMPLE_LOG_CFG_PATH.joinpath("logs", f"{time.strftime('%Y_%m_%d')}.json")
     GC_EXAMPLE_LOG_STATE = None
     GC_EXAMPLE_LOG_TARGET = None
 
@@ -39,22 +40,16 @@ class ConfigLogger(object):
             if "GC_EXAMPLE_LOG_TARGET" in os.environ:
                 # TODO: later set collection interface based on this value
                 try:
-                    cls.GC_EXAMPLE_LOG_TARGET = LoggingTarget(
-                        os.environ["GC_EXAMPLE_LOG_TARGET"].upper()
-                    )
+                    cls.GC_EXAMPLE_LOG_TARGET = LoggingTarget(os.environ["GC_EXAMPLE_LOG_TARGET"].upper())
                 except Exception as e:
-                    sys.stderr.write(
-                        f"Error: no known logging target type {os.environ['GC_EXAMPLE_LOG_TARGET']}"
-                    )
+                    sys.stderr.write(f"Error: no known logging target type {os.environ['GC_EXAMPLE_LOG_TARGET']}")
                     cls.GC_EXAMPLE_LOG_STATE = LoggingState.DISABLED
                     return cls._instance
                 if cls.GC_EXAMPLE_LOG_CFG_FILE.is_file():
                     try:
                         with open(cls.GC_EXAMPLE_LOG_CFG_FILE, "r") as f:
                             config = json.load(f)
-                        cls.GC_EXAMPLE_LOG_STATE = LoggingState[
-                            config["GC_EXAMPLE_LOG_STATE"].upper()
-                        ]
+                        cls.GC_EXAMPLE_LOG_STATE = LoggingState[config["GC_EXAMPLE_LOG_STATE"].upper()]
                     except Exception as e:
                         sys.stderr.write(
                             f"Error reading logging config file at {cls.GC_EXAMPLE_LOG_CFG_FILE.absolute()}. Error: {e}"
@@ -62,25 +57,30 @@ class ConfigLogger(object):
                         cls.GC_EXAMPLE_LOG_STATE = LoggingState.DISABLED
                 else:
                     # request user and save their preferred choice
-                    message = ("\n\n====================================================================================================================================================\n\n"
-                               "Graphcore would like to collect information about which examples and configurations have been run to improve usability and support for future users.\n\n"
-                               "The information will be anonymised and logged locally to a file in `~/.graphcore` to be collected by your cloud provider.\n\n"
-                               "You can disable this in the future by setting the environment variable GC_EXAMPLE_LOG_STATE to 'DISABLE' in a config file at `~/.graphcore/command_logging/config.json`.\n\n"
-                               "====================================================================================================================================================\n\n")
+                    message = (
+                        "\n\n====================================================================================================================================================\n\n"
+                        "Graphcore would like to collect information about which examples and configurations have been run to improve usability and support for future users.\n\n"
+                        "The information will be anonymised and logged locally to a file in `~/.graphcore` to be collected by your cloud provider.\n\n"
+                        "You can disable this in the future by setting the environment variable GC_EXAMPLE_LOG_STATE to 'DISABLE' in a config file at `~/.graphcore/command_logging/config.json`.\n\n"
+                        "Unless logging is disabled, the following information will be collected about the commands you run ONLY in Graphcore repositories:\n"
+                        "\t- Timestamp of when the command was run\n"
+                        "\t- Username of the user that ran the command (hashed for anonymity)\n"
+                        "\t- The names of the Graphcore files run in the command\n"
+                        "\t- The names of the Graphcore respositories contatining above files\n"
+                        "\t- The Graphcore example application that was run\n"
+                        "\t- The arguments passed in the command\n"
+                        "====================================================================================================================================================\n\n"
+                    )
 
                     print(message)
 
                     config_dict = {"GC_EXAMPLE_LOG_STATE": str(LoggingState.ENABLED)}
                     try:
-                        cls.GC_EXAMPLE_LOG_CFG_PATH.mkdir(
-                            parents=True, exist_ok=True
-                        )
+                        cls.GC_EXAMPLE_LOG_CFG_PATH.mkdir(parents=True, exist_ok=True)
                         with open(cls.GC_EXAMPLE_LOG_CFG_FILE, "w") as f:
                             json.dump(config_dict, f)
                     except Exception as e:
-                        sys.stderr.write(
-                            f"Error creating cloud logging config file. Error: {e}"
-                        )
+                        sys.stderr.write(f"Error creating cloud logging config file. Error: {e}")
 
         return cls._instance
 
@@ -104,9 +104,7 @@ class ConfigLogger(object):
             except Exception as e:
                 sys.stderr.write(f"Config logging error logging to file: {e}")
         else:
-            sys.stderr.write(
-                f"Config logging target not supported {cls.GC_EXAMPLE_LOG_TARGET}"
-            )
+            sys.stderr.write(f"Config logging target not supported {cls.GC_EXAMPLE_LOG_TARGET}")
 
     @classmethod
     def log_example_config_run(cls):
@@ -135,16 +133,17 @@ class ConfigLogger(object):
         # get path of repo from absolute script path
         git_repo = git.Repo(script_path, search_parent_directories=True)
         repo_path = pathlib.Path(git_repo.git.rev_parse("--show-toplevel"))
-        
+
         repo_name = repo_path.name
         log_dict["repository"] = repo_name
 
         example_path = script_path.parent.relative_to(repo_path)
         log_dict["example"] = str(example_path)
-        
+
         command_args = sys.argv[1:]
         log_dict["command_args"] = command_args
 
         cls.log_example_config_dict(log_dict=log_dict)
+
 
 ConfigLogger()
