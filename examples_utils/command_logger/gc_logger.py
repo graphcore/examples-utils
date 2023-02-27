@@ -132,10 +132,19 @@ class GCLogger(object):
         if cls.GC_LOG_STATE == "DISABLED":
             return
 
+        search_dir = pathlib.Path("/")
+
         # Overwrite old info - likely datasets persist throughout and probably
         # will only increase in size
         while True:
-            # How to find out which datasets are being used?
+            # Look for everything that looks like a dataset
+            data_dirs = search_dir.glob("*/*/*dataset*")
+
+            popef_dict = {}
+            for file in popef_files:
+                popef_dict.update({str(file): file.stat().st_size})
+
+            cls.__write_json(cls, popef_dict, "popef_files")
 
             # Find location/path
 
