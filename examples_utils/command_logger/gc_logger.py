@@ -154,7 +154,7 @@ class GCLogger(object):
             iteration_dict = {}
 
             # CPU utilisation
-            iteration_dict["timestamp"] = time.time()
+            iteration_dict["timestamp"] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
             iteration_dict["cpu_percent"] = psutil.cpu_percent()
 
             # virtual/swap memory usage
