@@ -12,6 +12,8 @@ import subprocess
 import sys
 import time
 
+from datetime import datetime
+
 
 class GCLogger(object):
     _instance = None
@@ -152,6 +154,7 @@ class GCLogger(object):
             iteration_dict = {}
 
             # CPU utilisation
+            iteration_dict["timestamp"] = time.time()
             iteration_dict["cpu_percent"] = psutil.cpu_percent()
 
             # virtual/swap memory usage
@@ -161,7 +164,7 @@ class GCLogger(object):
             # Disk usage
             iteration_dict["disk_used"] = psutil.disk_usage("/").used
 
-            cls.metrics_dict[time.time()] = iteration_dict
+            cls.__write_json(cls, iteration_dict, "sys_perf.json", "a")
 
             time.sleep(cls.FAST_POLLING_SECONDS)
 
@@ -199,36 +202,62 @@ class GCLogger(object):
             time.sleep(cls.SLOW_POLLING_SECONDS)
 
     @classmethod
-    def __log_notebook_usage(cls):
+    def __log_notebook_progression(cls):
         if cls.GC_LOG_STATE == "DISABLED":
             return
 
+        check_timestamp = datetime.now()
         while True:
-            relevant_outputs = {}
-
-            with open(pathlib.Path(cls.notebook_dict["notebook_path"])) as notebook:
+            with open(pathlib.Path(cls.notebook_dict["notebook_path"]), "r") as notebook:
                 raw_notebook = nbformat.read(notebook, nbformat.NO_CONVERT)
 
-            # Get all code cells, search for compile time
-            code_cell_outputs = [cell["outputs"] for cell in raw_notebook["cells"] if cell["cell_type"] == "code"]
-            for output in code_cell_outputs:
-                # Some cells have a seperate 'data' outputs. We need 'text' output
-                if len(output) > 1:
-                    output = output[1]
+            # Index the cells in the notebook
+            cell_indexes = [i for i in range(len(raw_notebook["cells"]))]
+            indexed_cells = [(i, j) for i, j in zip(cell_indexes, raw_notebook["cells"])]
 
-                text = output.get("text")
-                if text is not None and "compil" in text:  # "compil" here is purposeful
-                    relevant_outputs[""]
+            # Find out which code cells were executed since last check
+            code_cell_metadata = [
+                [cell[0], cell[1]["metadata"].get("execution")]
+                for cell in indexed_cells
+                if cell[1]["cell_type"] == "code"
+            ]
+            execution_times = [(x[0], x[1]["iopub.execute_input"]) for x in code_cell_metadata if x[1]]
 
-            time.sleep(cls.SLOW_POLLING_SECONDS)
+            # Exclude cells that were executed before last check timestamp
+            execution_times = [
+                x
+                for x in execution_times
+                if (datetime.strptime(x[1], "%Y-%m-%dT%H:%M:%S.%fZ") - check_timestamp).total_seconds() > 0
+            ]
+
+            # Sort and update our logs
+            execution_times.sort(key=lambda x: x[1])
+            execution_times = {execution_times[1]: execution_times[0]}
+
+            cls.__write_json(cls, execution_times, "cell_execution_log")
+
+            # Update just before sleeping
+            check_timestamp = datetime.now()
+
+            time.sleep(cls.FAST_POLLING_SECONDS)
 
     @classmethod
     def __log_compile_times(cls):
+        """Capture compile time from noteboook.py
+
+        Note: Because of how general this task is, it seems the best we can do
+        for now is capture all output that mentions 'compilation' etc. and sift
+        through the outputs later.
+
+        If we can get more specificity on how compilation happens, what we can
+        expect etc. (HF only, model.compile() explicit calls etc.) then we can
+        clean this up a lot and be more particular about what we collect.
+        """
         if cls.GC_LOG_STATE == "DISABLED":
             return
 
         while True:
-            relevant_outputs = {}
+            compilation_statements = {}
 
             with open(pathlib.Path(cls.notebook_dict["notebook_path"])) as notebook:
                 raw_notebook = nbformat.read(notebook, nbformat.NO_CONVERT)
@@ -242,7 +271,9 @@ class GCLogger(object):
 
                 text = output.get("text")
                 if text is not None and "compil" in text:  # "compil" here is purposeful
-                    relevant_outputs[""]
+                    compilation_statements["timestamp"] = text[-100:]
+
+            cls.__write_json(cls, compilation_statements, "compile_statments", "a")
 
             time.sleep(cls.SLOW_POLLING_SECONDS)
 
@@ -261,11 +292,11 @@ class GCLogger(object):
         # Frequent polling every cls.FAST_POLLING_SECONDS
         # (changing values, metrics, measurements on system/env)
         cls.__log_sysperf_metrics(cls)
+        cls.__log_notebook_progression(cls)
 
         # Infrequent polling every cls.SLOW_POLLING_SECONDS
         # (names, file sizes, packages etc.)
         cls.__log_file_metrics(cls)
-        cls.__log_notebook_usage(cls)
         cls.__log_compile_times(cls)
 
 
