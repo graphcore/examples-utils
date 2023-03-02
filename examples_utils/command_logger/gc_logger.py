@@ -17,80 +17,56 @@ from datetime import datetime
 
 class GCLogger(object):
     _instance = None
-    GC_LOG_CFG_PATH = pathlib.Path.home().joinpath(".graphcore", "logs", f"{time.strftime('%Y_%m_%d')}")
-    GC_LOG_CFG_FILE = GC_LOG_CFG_PATH.joinpath("config.json")
-    GC_LOG_STATE = None
+    _GC_LOG_STATE = None
+    _GC_LOG_CFG_PATH = pathlib.Path.home().joinpath(".graphcore", "logs", f"{datetime.strftime('%Y_%m_%d')}")
 
-    FAST_POLLING_SECONDS = 10
-    SLOW_POLLING_SECONDS = 60
+    _FAST_POLLING_SECONDS = 10
+    _SLOW_POLLING_SECONDS = 60
 
-    metrics_dict = {}
+    _notebook_metadata = {}
 
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(GCLogger, cls).__new__(cls)
 
-            if cls.GC_LOG_STATE is None:
-                if cls.GC_LOG_CFG_FILE.is_file():
-                    try:
-                        with open(cls.GC_LOG_CFG_FILE, "r") as f:
-                            config = json.load(f)
-                        cls.GC_LOG_STATE = config["GC_LOG_STATE"].upper()
-                    except Exception as e:
-                        sys.stderr.write(
-                            f"Error reading logging config file at {cls.GC_LOG_CFG_FILE.absolute()}. Error: {e}"
-                        )
-                        cls.GC_LOG_STATE = "DISABLED"
-                else:
-                    # request user and save their preferred choice
-                    message = (
-                        "\n\n====================================================================================================================================================\n\n"
-                        "Graphcore would like to collect information about the applications and code being run in this notebook, as well as the system it's being run on to improve \n"
-                        "usability and support for future users. The information will be anonymised and sent to Graphcore \n\n"
-                        "You can disable this at any time by running `GCLogger.LOG_STATE='DISABLED'`.\n\n"
-                        "Unless logging is disabled, the following information will be collected:\n"
-                        "\t- User progression through the notebook\n"
-                        "\t- Notebook details: number of cells, code being run and the output of the cells\n"
-                        "\t- ML application details: Model information, performance, hyperparameters, and compilation time\n"
-                        "\t- Environment details: Framework/packages/libraries used, container details\n"
-                        "\t- System performance: IO, memory and host compute performance\n"
-                        "====================================================================================================================================================\n\n"
-                    )
-                    print(message)
-
-                    config_dict = {"GC_LOG_STATE": "ENABLED"}
-                    try:
-                        cls.GC_LOG_CFG_PATH.mkdir(parents=True, exist_ok=True)
-                        with open(cls.GC_LOG_CFG_FILE, "w") as f:
-                            json.dump(config_dict, f)
-                    except Exception as e:
-                        sys.stderr.write(f"Error creating cloud logging config file. Error: {e}")
+            if cls._GC_LOG_STATE is None:
+                # request user and save their preferred choice
+                print(
+                    "\n\n====================================================================================================================================================\n\n"
+                    "Graphcore would like to collect information about the applications and code being run in this notebook, as well as the system it's being run on to improve \n"
+                    "usability and support for future users. The information will be anonymised and sent to Graphcore \n\n"
+                    "You can disable this at any time by running `GCLogger.stop_logging()'`.\n\n"
+                    "Unless logging is disabled, the following information will be collected:\n"
+                    "\t- User progression through the notebook\n"
+                    "\t- Notebook details: number of cells, code being run and the output of the cells\n"
+                    "\t- ML application details: Model information, performance, hyperparameters, and compilation time\n"
+                    "\t- Environment details: Framework/packages/libraries used, container details\n"
+                    "\t- System performance: IO, memory and host compute performance\n\n"
+                    "====================================================================================================================================================\n\n"
+                )
 
         return cls._instance
 
     @classmethod
-    def __write_json(cls, dict, filename, style="w"):
+    def __write_json(cls, dict_to_write, filename, style="w"):
         try:
-            with open(cls.GC_LOG_CFG_PATH.joinpath(f"{filename}.json"), style) as outfile:
-                json.dump(dict, outfile)
+            with open(cls._GC_LOG_CFG_PATH.joinpath(f"{filename}.json"), style) as outfile:
+                json.dump(dict_to_write, outfile)
         except Exception as e:
             sys.stderr.write(f"Config logging error logging to file: {e}")
 
     @classmethod
     def __log_sysperf_info(cls):
-        if cls.GC_LOG_STATE == "DISABLED":
-            return
-
         log_dict = {}
 
         # Record some constants (CPU count, freq, disk setup)
         log_dict["CPU_count"] = psutil.cpu_count()
         log_dict["CPU_stats"] = str(psutil.cpu_stats())
         log_dict["CPU_freq"] = str(psutil.cpu_freq())
-        cls.__write_log_file(log_dict, cls.GC_LOG_CFG_PATH.joinpath("cpu_info.log"))
+        cls.__write_json(log_dict, cls._GC_LOG_CFG_PATH.joinpath("cpu_info.json"))
 
         # Collect quick disk performance stats (Disk <-> Host) in background
-        with open(cls.GC_LOG_CFG_PATH.joinpath("fio_results.log"), "a") as outfile:
+        with open(cls._GC_LOG_CFG_PATH.joinpath("fio_results.log"), "a") as outfile:
             command = shlex.split(
                 "fio --name=random-write --ioengine=posixaio --rw=randwrite "
                 "--bs=4k --size=1g --numjobs=1 --iodepth=1 --runtime=5 "
@@ -100,11 +76,8 @@ class GCLogger(object):
 
     @classmethod
     def __log_ipuperf_info(cls):
-        if cls.GC_LOG_STATE == "DISABLED":
-            return
-
         # Get information for each IPU available
-        with open(cls.GC_LOG_CFG_PATH.joinpath("ipu_perf.json"), "a") as outfile:
+        with open(cls._GC_LOG_CFG_PATH.joinpath("ipu_perf.json"), "a") as outfile:
             num_ipus = os.getenv("NUM_AVAILABLE_IPU")
 
             # Host <-> IPU sync latency
@@ -119,22 +92,16 @@ class GCLogger(object):
             subprocess.run(shlex.split("gc-iputraffictest --all-links -j"), stdout=outfile, stderr=outfile)
 
     @classmethod
-    def __log_file_info(cls):
-        if cls.GC_LOG_STATE == "DISABLED":
-            return
-
+    def __log_notebook_info(cls):
         # Notebook path
-        cls.notebook_dict = {
+        cls._notebook_metadata = {
             "notebook_path": ipynbname.path(),
         }
 
-        cls.__write_json(cls, cls.notebook_dict, "notebook_info")
+        cls.__write_json(cls, cls._notebook_metadata, "notebook_info")
 
     @classmethod
     def __log_dataset_info(cls):
-        if cls.GC_LOG_STATE == "DISABLED":
-            return
-
         # Overwrite old info - likely datasets persist throughout and probably
         # will only increase in size
         while True:
@@ -143,13 +110,10 @@ class GCLogger(object):
 
             # Find size
 
-            time.sleep(cls.SLOW_POLLING_SECONDS)
+            time.sleep(cls._SLOW_POLLING_SECONDS)
 
     @classmethod
     def __log_sysperf_metrics(cls):
-        if cls.GC_LOG_STATE == "DISABLED":
-            return
-
         while True:
             iteration_dict = {}
 
@@ -166,13 +130,10 @@ class GCLogger(object):
 
             cls.__write_json(cls, iteration_dict, "sys_perf.json", "a")
 
-            time.sleep(cls.FAST_POLLING_SECONDS)
+            time.sleep(cls._FAST_POLLING_SECONDS)
 
     @classmethod
     def __log_file_metrics(cls):
-        if cls.GC_LOG_STATE == "DISABLED":
-            return
-
         while True:
             # Get all .popef files name and size
             popef_files = pathlib.Path("/tmp/exe_cache").glob("**/*.popef")
@@ -185,7 +146,7 @@ class GCLogger(object):
             # Search for all weight files and poll size/name
             weights_extensions = ["onnx", "pt", "pb"]
             weight_files = []
-            search_dir = pathlib.Path(cls.notebook_dict["notebook_path"]).parents[1]
+            search_dir = pathlib.Path(cls._notebook_metadata["notebook_path"]).parents[1]
             for ext in weights_extensions:
                 weight_files.append(search_dir.glob(f"**/*.{ext}"))
 
@@ -199,16 +160,13 @@ class GCLogger(object):
             pkgs_dict = {i.key: i.version for i in pkg_resources.working_set}
             cls.__write_json(cls, pkgs_dict, "python_packages")
 
-            time.sleep(cls.SLOW_POLLING_SECONDS)
+            time.sleep(cls._SLOW_POLLING_SECONDS)
 
     @classmethod
     def __log_notebook_progression(cls):
-        if cls.GC_LOG_STATE == "DISABLED":
-            return
-
         check_timestamp = datetime.now()
         while True:
-            with open(pathlib.Path(cls.notebook_dict["notebook_path"]), "r") as notebook:
+            with open(pathlib.Path(cls._notebook_metadata["notebook_path"]), "r") as notebook:
                 raw_notebook = nbformat.read(notebook, nbformat.NO_CONVERT)
 
             # Index the cells in the notebook
@@ -239,7 +197,7 @@ class GCLogger(object):
             # Update just before sleeping
             check_timestamp = datetime.now()
 
-            time.sleep(cls.FAST_POLLING_SECONDS)
+            time.sleep(cls._FAST_POLLING_SECONDS)
 
     @classmethod
     def __log_compile_times(cls):
@@ -253,13 +211,11 @@ class GCLogger(object):
         expect etc. (HF only, model.compile() explicit calls etc.) then we can
         clean this up a lot and be more particular about what we collect.
         """
-        if cls.GC_LOG_STATE == "DISABLED":
-            return
 
         while True:
             compilation_statements = {}
 
-            with open(pathlib.Path(cls.notebook_dict["notebook_path"])) as notebook:
+            with open(pathlib.Path(cls._notebook_metadata["notebook_path"])) as notebook:
                 raw_notebook = nbformat.read(notebook, nbformat.NO_CONVERT)
 
             # Get all code cells, search for compile time
@@ -269,35 +225,47 @@ class GCLogger(object):
                 if len(output) > 1:
                     output = output[1]
 
+                # Get last few chars, should contain the compile time
                 text = output.get("text")
                 if text is not None and "compil" in text:  # "compil" here is purposeful
                     compilation_statements["timestamp"] = text[-100:]
 
             cls.__write_json(cls, compilation_statements, "compile_statments", "a")
 
-            time.sleep(cls.SLOW_POLLING_SECONDS)
+            time.sleep(cls._SLOW_POLLING_SECONDS)
 
     @classmethod
     def start_logging(cls):
-        if cls.GC_LOG_STATE == "DISABLED":
+        if cls._GC_LOG_STATE == "ENABLED":
             return
+        cls._GC_LOG_STATE = "ENABLED"
+
+        # Start multiprocess procs for below
 
         # One-time collection
         # (constant, static information on system/env)
         cls.__log_sysperf_info(cls)
         cls.__log_ipuperf_info(cls)
-        cls.__log_file_info(cls)
+        cls.__log_notebook_info(cls)
         cls.__log_dataset_info(cls)
 
-        # Frequent polling every cls.FAST_POLLING_SECONDS
+        # Frequent polling every cls._FAST_POLLING_SECONDS
         # (changing values, metrics, measurements on system/env)
         cls.__log_sysperf_metrics(cls)
         cls.__log_notebook_progression(cls)
 
-        # Infrequent polling every cls.SLOW_POLLING_SECONDS
+        # Infrequent polling every cls._SLOW_POLLING_SECONDS
         # (names, file sizes, packages etc.)
         cls.__log_file_metrics(cls)
         cls.__log_compile_times(cls)
+
+    @classmethod
+    def stop_logging(cls):
+        if cls._GC_LOG_STATE == "DISABLED":
+            return
+        cls._GC_LOG_STATE = "DISABLED"
+
+        # Multiprocess kill logging processes
 
 
 GCLogger()
