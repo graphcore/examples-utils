@@ -30,4 +30,4 @@ repos:
       pass_filenames: false
       language: python
       additional_dependencies:
-        - 'git+https://github.com/graphcore/examples-utils@latest_stable'
+        - .
