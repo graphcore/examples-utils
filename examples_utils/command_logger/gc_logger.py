@@ -166,7 +166,7 @@ class GCLogger(object):
             weights_extensions = ["onnx", "pt", "pb"]
             weight_files = []
             for ext in weights_extensions:
-                weight_files.append(Path(weights_cache.glob(f"**/*.{ext}")))
+                weight_files.extend(Path(weights_cache).glob(f"**/*.{ext}"))
 
             weight_dict = {}
             for file in weight_files:
