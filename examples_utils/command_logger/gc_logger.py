@@ -34,17 +34,18 @@ class GCLogger(object):
             if cls._GC_LOG_STATE is None:
                 # request user and save their preferred choice
                 print(
-                    "\n\n====================================================================================================================================================\n\n"
-                    "Graphcore would like to collect information about the applications and code being run in this notebook, as well as the system it's being run on to improve \n"
-                    "usability and support for future users. The information will be anonymised and sent to Graphcore \n\n"
+                    "\n\===========================================================================================================================================\n"
+                    "Graphcore would like to collect information about the applications and code being run in this notebook, as well as the system it's being run \n"
+                    "on to improve usability and support for future users. The information will be anonymised and sent to Graphcore \n\n"
                     "You can disable this at any time by running `GCLogger.stop_logging()'`.\n\n"
                     "Unless logging is disabled, the following information will be collected:\n"
                     "\t- User progression through the notebook\n"
                     "\t- Notebook details: number of cells, code being run and the output of the cells\n"
                     "\t- ML application details: Model information, performance, hyperparameters, and compilation time\n"
-                    "\t- Environment detailscls._GC_LOG_PATHs\n"
+                    "\t- Environment details\n"
                     "\t- System performance: IO, memory and host compute performance\n\n"
-                    "====================================================================================================================================================\n\n"
+                    f"You can view the information being collected at: {cls._GC_LOG_PATH}\n"
+                    "=============================================================================================================================================\n"
                 )
 
                 cls._GC_LOG_PATH.mkdir(parents=True, exist_ok=True)
@@ -53,6 +54,7 @@ class GCLogger(object):
 
     @classmethod
     def __write_json(cls, dict_to_write, filename, mode="w"):
+
         try:
             json_path = cls._GC_LOG_PATH.joinpath(f"{filename}.json")
 
@@ -64,6 +66,9 @@ class GCLogger(object):
 
     @classmethod
     def __log_sysperf_info(cls):
+        if cls._GC_LOG_STATE == "DISABLED":
+            return
+
         log_dict = {}
 
         # Record some constants (CPU count, freq, disk setup)
@@ -89,6 +94,9 @@ class GCLogger(object):
 
     @classmethod
     def __log_ipuperf_info(cls):
+        if cls._GC_LOG_STATE == "DISABLED":
+            return
+
         # Get information for each IPU available
         with open(cls._GC_LOG_PATH.joinpath("ipu_perf.json"), "a") as outfile:
             num_ipus = int(os.getenv("NUM_AVAILABLE_IPU"))
@@ -106,6 +114,9 @@ class GCLogger(object):
 
     @classmethod
     def __log_notebook_info(cls):
+        if cls._GC_LOG_STATE == "DISABLED":
+            return
+
         notebook_metadata = {
             "notebook_path": str(ipynbname.path()),
         }
@@ -117,6 +128,9 @@ class GCLogger(object):
         # Overwrite old info - likely datasets persist throughout and probably
         # will only increase in size
         while True:
+            if cls._GC_LOG_STATE == "DISABLED":
+                return
+
             # Look for everything that looks like a dataset
             # Find location/path
 
@@ -127,6 +141,9 @@ class GCLogger(object):
     @classmethod
     def __log_sysperf_metrics(cls):
         while True:
+            if cls._GC_LOG_STATE == "DISABLED":
+                return
+
             iteration_dict = {}
 
             # CPU utilisation
@@ -147,6 +164,9 @@ class GCLogger(object):
     @classmethod
     def __log_file_metrics(cls):
         while True:
+            if cls._GC_LOG_STATE == "DISABLED":
+                return
+
             # Find default exe dir, or look locally
             local_path = ipynbname.path().parents[1]
             exe_cache = os.getenv("POPLAR_EXECUTABLE_CACHE_DIR", local_path)
@@ -184,6 +204,9 @@ class GCLogger(object):
     def __log_notebook_progression(cls):
         check_timestamp = datetime.now()
         while True:
+            if cls._GC_LOG_STATE == "DISABLED":
+                return
+
             with open(ipynbname.path(), "r") as notebook:
                 raw_notebook = nbformat.read(notebook, nbformat.NO_CONVERT)
 
@@ -212,7 +235,7 @@ class GCLogger(object):
             execution_times.sort(key=lambda x: x[1])
             execution_times = {x[1]: x[0] for x in execution_times}
 
-            if execution_times is not {}:
+            if execution_times:
                 cls.__write_json(execution_times, "cell_execution_log", "a")
 
             # Update just before sleeping
@@ -234,6 +257,9 @@ class GCLogger(object):
         """
 
         while True:
+            if cls._GC_LOG_STATE == "DISABLED":
+                return
+
             compilation_statements = {}
 
             with open(ipynbname.path()) as notebook:
@@ -246,15 +272,16 @@ class GCLogger(object):
                 if len(output) > 1:
                     output = output[1]
 
-                    if output:
-                        try:
-                            text = output[0].get("text")
-                            if text is not None and "compil" in text:  # "compil" here is purposeful
-                                compilation_statements[datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")] = text[-100:]
-                        except:
-                            continue
+                if output:
+                    try:
+                        text = output[0].get("text")
+                        if text is not None and "compil" in text:  # "compil" here is purposeful
+                            compilation_statements[datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")] = text[-100:]
+                    except:
+                        continue
 
-            cls.__write_json(compilation_statements, "compile_statments", "a")
+            if compilation_statements:
+                cls.__write_json(compilation_statements, "compile_statments", "a")
 
             time.sleep(cls._SLOW_POLLING_SECONDS)
 
@@ -300,8 +327,10 @@ class GCLogger(object):
 
         # Multiprocess kill logging processes
         for i in range(len(cls._proc_list)):
-            cls._proc_list[i].close()
+            cls._proc_list[i].terminate()
             cls._proc_list[i].join()
+
+        print("GCLogger has stopped logging")
 
 
 GCLogger()
