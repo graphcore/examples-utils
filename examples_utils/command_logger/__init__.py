@@ -1,3 +1,3 @@
-# Copyright (c) 2022 Graphcore Ltd. All rights reserved.
+# Copyright (c) 2023 Graphcore Ltd. All rights reserved.
 
 from .gc_logger import *
