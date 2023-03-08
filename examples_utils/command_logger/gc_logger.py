@@ -1,5 +1,7 @@
 # Copyright (c) 2022 Graphcore Ltd. All rights reserved.
 
+import base64
+import hashlib
 import ipynbname
 import json
 import nbformat
@@ -19,20 +21,24 @@ from pathlib import Path
 
 class GCLogger(object):
     _instance = None
+    _CREATION_TIME = datetime.now().strftime("%Y_%m_%d")
+
     _GC_LOG_STATE = None
-    _GC_LOG_PATH = Path("/notebooks").joinpath("gc_logs", f"{datetime.now().strftime('%Y_%m_%d')}")
+    _GC_LOG_PATH = Path("/notebooks").joinpath("gc_logs", f"{_CREATION_TIME}")
 
     _FAST_POLLING_SECONDS = 10
     _SLOW_POLLING_SECONDS = 60
 
-    _proc_list = []
+    _PROC_LIST = []
+
+    _BUCKET_NAME = "s3://bucket-name"
 
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(GCLogger, cls).__new__(cls)
 
             if cls._GC_LOG_STATE is None:
-                # request user and save their preferred choice
+                # Request user and save their preferred choice
                 print(
                     "\n\===========================================================================================================================================\n"
                     "Graphcore would like to collect information about the applications and code being run in this notebook, as well as the system it's being run \n"
@@ -49,6 +55,9 @@ class GCLogger(object):
                 )
 
                 cls._GC_LOG_PATH.mkdir(parents=True, exist_ok=True)
+
+                # Create a unique user ID
+                cls._UNIQUE_HASH = base64.urlsafe_b64encode(hashlib.md5(cls._CREATION_TIME).digest()).decode("ascii")
 
         return cls._instance
 
@@ -286,6 +295,25 @@ class GCLogger(object):
             time.sleep(cls._SLOW_POLLING_SECONDS)
 
     @classmethod
+    def __upload_files(cls):
+        while True:
+            if cls._GC_LOG_STATE == "DISABLED":
+                return
+
+            # Create the upload path (target within the bucket) as the user hash
+            upload_path = f"/{cls._UNIQUE_HASH}/"
+
+            # Compose the AWSCLI upload command
+            cmd = ["aws", "s3", "cp", f"{cls._GC_LOG_PATH}", f"s3://{cls._BUCKET_NAME}/{upload_path}", "--recursive"]
+
+            subprocess.run(
+                cmd,
+                env=os.environ,
+            )
+
+            time.sleep(cls._FAST_POLLING_SECONDS)
+
+    @classmethod
     def start_logging(cls):
         if cls._GC_LOG_STATE == "ENABLED":
             print("GCLogger is already logging")
@@ -303,6 +331,7 @@ class GCLogger(object):
             # (changing values, metrics, measurements on system/env)
             cls.__log_sysperf_metrics,
             cls.__log_notebook_progression,
+            cls.__upload_files,
             # Infrequent polling every cls._SLOW_POLLING_SECONDS
             # (names, file sizes, packages etc.)
             cls.__log_file_metrics,
