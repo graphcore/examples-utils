@@ -7,7 +7,7 @@ import json
 from uuid import getnode as get_mac
 
 from tomlkit import item
-from examples_utils.command_logger.config_logger import LoggingState, LoggingTarget, ConfigLogger
+from examples_utils.notebook_logger.config_logger import LoggingState, LoggingTarget, ConfigLogger
 from examples_utils.testing import test_commands
 
 
