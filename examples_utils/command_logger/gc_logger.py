@@ -31,7 +31,7 @@ class GCLogger(object):
 
     _PROC_LIST = []
 
-    _BUCKET_NAME = "s3://bucket-name"
+    _BUCKET_NAME = "paperspace-uploading-test-bucket"
 
     def __new__(cls):
         if cls._instance is None:
@@ -40,7 +40,7 @@ class GCLogger(object):
             if cls._GC_LOG_STATE is None:
                 # Request user and save their preferred choice
                 print(
-                    "\n\===========================================================================================================================================\n"
+                    "\n============================================================================================================================================\n"
                     "Graphcore would like to collect information about the applications and code being run in this notebook, as well as the system it's being run \n"
                     "on to improve usability and support for future users. The information will be anonymised and sent to Graphcore \n\n"
                     "You can disable this at any time by running `GCLogger.stop_logging()'`.\n\n"
@@ -57,7 +57,9 @@ class GCLogger(object):
                 cls._GC_LOG_PATH.mkdir(parents=True, exist_ok=True)
 
                 # Create a unique user ID
-                cls._UNIQUE_HASH = base64.urlsafe_b64encode(hashlib.md5(cls._CREATION_TIME).digest()).decode("ascii")
+                cls._UNIQUE_HASH = base64.urlsafe_b64encode(
+                    hashlib.md5(cls._CREATION_TIME.encode('utf-8')).digest()
+                ).decode("ascii")[:12]
 
         return cls._instance
 
@@ -300,15 +302,20 @@ class GCLogger(object):
             if cls._GC_LOG_STATE == "DISABLED":
                 return
 
-            # Create the upload path (target within the bucket) as the user hash
-            upload_path = f"/{cls._UNIQUE_HASH}/"
-
-            # Compose the AWSCLI upload command
-            cmd = ["aws", "s3", "cp", f"{cls._GC_LOG_PATH}", f"s3://{cls._BUCKET_NAME}/{upload_path}", "--recursive"]
-
-            subprocess.run(
+            # Compose the AWSCLI upload command - Unique hash used to identify this user for this session ONLY
+            cmd = [
+                "aws", "s3", "cp",
+                f"{cls._GC_LOG_PATH}",
+                f"s3://{cls._BUCKET_NAME}/{cls._UNIQUE_HASH}",
+                "--recursive",
+            ]
+            
+            proc = subprocess.run(
                 cmd,
                 env=os.environ,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
             )
 
             time.sleep(cls._FAST_POLLING_SECONDS)
@@ -338,26 +345,32 @@ class GCLogger(object):
             cls.__log_compile_times,
         ]
 
-        # Start multiprocess procs for below
-        cls._proc_list = [i for i in range(len(background_functions))]
+        # Start multiprocess procs for all functions
+        cls._PROC_LIST = [
+            cls._PROC_LIST[i] = mp.Process(target=func)
+            for func in background_functions
+        ]
+        
         for i, func in enumerate(background_functions):
-            cls._proc_list[i] = mp.Process(
-                target=func,
-            )
-            cls._proc_list[i].daemon = True
-            cls._proc_list[i].start()
+            cls._PROC_LIST[i].daemon = True
+            cls._PROC_LIST[i].start()
 
     @classmethod
     def stop_logging(cls):
         if cls._GC_LOG_STATE == "DISABLED":
             print("GCLogger has already stopped logging")
             return
+
+        if cls._GC_LOG_STATE is None:
+            print("GCLogger has not logged anything yet")
+            return
+
         cls._GC_LOG_STATE = "DISABLED"
 
         # Multiprocess kill logging processes
         for i in range(len(cls._proc_list)):
-            cls._proc_list[i].terminate()
-            cls._proc_list[i].join()
+            cls._PROC_LIST[i].terminate()
+            cls._PROC_LIST[i].join()
 
         print("GCLogger has stopped logging")
 
