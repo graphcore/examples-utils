@@ -29,7 +29,7 @@ class GCLogger(object):
     _FAST_POLLING_SECONDS = 10
     _SLOW_POLLING_SECONDS = 60
 
-    _PROC_LIST = []
+    _proc_list = []
 
     _BUCKET_NAME = "paperspace-uploading-test-bucket"
 
@@ -58,7 +58,7 @@ class GCLogger(object):
 
                 # Create a unique user ID
                 cls._UNIQUE_HASH = base64.urlsafe_b64encode(
-                    hashlib.md5(cls._CREATION_TIME.encode('utf-8')).digest()
+                    hashlib.md5(cls._CREATION_TIME.encode("utf-8")).digest()
                 ).decode("ascii")[:12]
 
         return cls._instance
@@ -304,12 +304,14 @@ class GCLogger(object):
 
             # Compose the AWSCLI upload command - Unique hash used to identify this user for this session ONLY
             cmd = [
-                "aws", "s3", "cp",
+                "aws",
+                "s3",
+                "cp",
                 f"{cls._GC_LOG_PATH}",
                 f"s3://{cls._BUCKET_NAME}/{cls._UNIQUE_HASH}",
                 "--recursive",
             ]
-            
+
             proc = subprocess.run(
                 cmd,
                 env=os.environ,
@@ -346,14 +348,11 @@ class GCLogger(object):
         ]
 
         # Start multiprocess procs for all functions
-        cls._PROC_LIST = [
-            cls._PROC_LIST[i] = mp.Process(target=func)
-            for func in background_functions
-        ]
-        
+        cls._proc_list = [mp.Process(target=func) for func in background_functions]
+
         for i, func in enumerate(background_functions):
-            cls._PROC_LIST[i].daemon = True
-            cls._PROC_LIST[i].start()
+            cls._proc_list[i].daemon = True
+            cls._proc_list[i].start()
 
     @classmethod
     def stop_logging(cls):
@@ -369,8 +368,8 @@ class GCLogger(object):
 
         # Multiprocess kill logging processes
         for i in range(len(cls._proc_list)):
-            cls._PROC_LIST[i].terminate()
-            cls._PROC_LIST[i].join()
+            cls._proc_list[i].terminate()
+            cls._proc_list[i].join()
 
         print("GCLogger has stopped logging")
 
