@@ -189,13 +189,13 @@ def save_results(log_dir: str, additional_metrics: bool, results: dict, extra_cs
 
     # Save results in JUnit XML format
     testsuites = ET.Element("testsuites")
-    ts = ET.SubElement(testsuites, 'testsuite')
+    ts = ET.SubElement(testsuites, "testsuite")
     for benchmark, result in results.items():
         for r in result:
-            tc = ET.SubElement(ts, 'testcase')
-            tc.set('name', benchmark)
-            if r['results']['result']['result'] != 'True':
-                ET.SubElement(tc, 'failure')
+            tc = ET.SubElement(ts, "testcase")
+            tc.set("name", benchmark)
+            if r["results"]["result"]["result"] != "True":
+                ET.SubElement(tc, "failure")
 
     junit_filepath = Path(log_dir, "benchmark_results.xml")
     xml = ET.ElementTree(testsuites)
