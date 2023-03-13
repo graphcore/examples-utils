@@ -37,7 +37,7 @@ Unless logging is disabled, the following information will be collected:
 	- Environment details
 	- System performance: IO, memory and host compute performance
 
-You can view the information being collected at: /notebooks/gc_logs/2023_03_09
+You can view the information being collected at: /notebooks/gc_logs/<timestamp>
 =============================================================================================================================================
 ```
 

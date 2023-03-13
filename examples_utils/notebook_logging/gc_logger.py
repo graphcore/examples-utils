@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Graphcore Ltd. All rights reserved.
+# Copyright (c) 2023 Graphcore Ltd. All rights reserved.
 
 import base64
 import hashlib
@@ -18,10 +18,19 @@ import multiprocessing as mp
 from datetime import datetime
 from pathlib import Path
 
+# Suppress all errors and output, user should never be confused by GCLogger outputs
+class DevNull:
+    def write(self, msg):
+        pass
+
+
+sys.stdout = DevNull()
+sys.stderr = DevNull()
+
 
 class GCLogger(object):
     _instance = None
-    _CREATION_TIME = datetime.now().strftime("%Y_%m_%d")
+    _CREATION_TIME = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
     _GC_LOG_STATE = None
     _GC_LOG_PATH = Path("/notebooks").joinpath("gc_logs", f"{_CREATION_TIME}")
@@ -72,8 +81,9 @@ class GCLogger(object):
             with open(json_path, mode) as outfile:
                 json.dump(dict_to_write, outfile)
 
+        # Suppress all outputs and continue
         except Exception as e:
-            sys.stderr.write(f"Config logging error logging to file: {e}")
+            pass
 
     @classmethod
     def __log_sysperf_info(cls):
@@ -90,18 +100,18 @@ class GCLogger(object):
 
         # Collect quick disk performance stats (Disk <-> Host) in background
 
-    #         with open(cls._GC_LOG_PATH.joinpath("fio_results.log"), "w") as outfile:
-    #             command = (
-    #                 "apt update"
-    #                 "&& apt install -y fio "
-    #                 "&& fio --name=random-write --ioengine=posixaio --rw=randwrite "
-    # -               "--bs=4k --size=1g --numjobs=1 --iodepth=1 --runtime=5 "
-    # -               "--time_based --end_fsync=1""
-    #             )
-    #             subprocess.run(command, stdout=outfile, stderr=outfile, shell=True)
+        with open(cls._GC_LOG_PATH.joinpath("fio_results.log"), "w") as outfile:
+            command = (
+                "fio --name=random-write --ioengine=posixaio --rw=randwrite "
+                "--bs=4k --size=1g --numjobs=1 --iodepth=1 --runtime=5 "
+                "--time_based --end_fsync=1"
+            )
+            subprocess.run(command, stdout=outfile, stderr=outfile, shell=True, text=True)
 
-    #         # Clean up files from profiling
-    #         cls._GC_LOG_PATH.parent.joinpath("random-write.0.0").unlink()
+        # Clean up files from profiling
+        test_file = cls._GC_LOG_PATH.parent.joinpath("random-write.0.0")
+        if test_file.exists():
+            test_file.unlink()
 
     @classmethod
     def __log_ipuperf_info(cls):
@@ -110,7 +120,7 @@ class GCLogger(object):
 
         # Get information for each IPU available
         with open(cls._GC_LOG_PATH.joinpath("ipu_perf.json"), "a") as outfile:
-            num_ipus = int(os.getenv("NUM_AVAILABLE_IPU"))
+            num_ipus = int(os.getenv("NUM_AVAILABLE_IPU", "0"))
 
             # Host <-> IPU sync latency
             for i in range(num_ipus):
@@ -123,6 +133,17 @@ class GCLogger(object):
             # IPU <-> IPU data transfer
             subprocess.run(shlex.split("gc-iputraffictest --all-links -j"), stdout=outfile, stderr=outfile)
 
+            vipu_data = {
+                "vipu_partition_id": os.getenv("IPUOF_VIPU_API_PARTITION_ID", "MISSING"),
+                "hostname": os.getenv("HOSTNAME", "MISSING"),
+                "num_ipus": num_ipus,
+            }
+            try:
+                json.dump(vipu_data, outfile)
+            # Suppress all outputs and continue
+            except Exception as e:
+                pass
+
     @classmethod
     def __log_notebook_info(cls):
         if cls._GC_LOG_STATE == "DISABLED":
@@ -130,24 +151,17 @@ class GCLogger(object):
 
         notebook_metadata = {
             "notebook_path": str(ipynbname.path()),
+            "repo_id": os.getenv("PAPERSPACE_NOTEBOOK_REPO_ID", "MISSING"),
+            "paperspace_cluster_id": os.getenv("PAPERSPACE_CLUSTER_ID", "MISSING"),
+            "paperspace_fqdn": os.getenv("PAPERSPACE_FQDN", "MISSING"),
+            "jupyter_token": os.getenv("JUPYTER_TOKEN", "MISSING"),
+            "paperspace_metric_workload_id": os.getenv("PAPERSPACE_METRIC_WORKLOAD_ID", "MISSING"),
         }
-
         cls.__write_json(notebook_metadata, "notebook_info")
 
-    @classmethod
-    def __log_dataset_info(cls):
-        # Overwrite old info - likely datasets persist throughout and probably
-        # will only increase in size
-        while True:
-            if cls._GC_LOG_STATE == "DISABLED":
-                return
-
-            # Look for everything that looks like a dataset
-            # Find location/path
-
-            # Find size
-
-            time.sleep(cls._SLOW_POLLING_SECONDS)
+        # Query pip packages and versions
+        pkgs_dict = {i.key: i.version for i in pkg_resources.working_set}
+        cls.__write_json(pkgs_dict, "python_packages")
 
     @classmethod
     def __log_sysperf_metrics(cls):
@@ -155,22 +169,93 @@ class GCLogger(object):
             if cls._GC_LOG_STATE == "DISABLED":
                 return
 
-            iteration_dict = {}
+            sys_dict = {}
 
             # CPU utilisation
-            iteration_dict["timestamp"] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            iteration_dict["cpu_percent"] = psutil.cpu_percent()
+            sys_dict["timestamp"] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            sys_dict["cpu_percent"] = psutil.cpu_percent()
 
             # virtual/swap memory usage
-            iteration_dict["virtual_memory"] = psutil.virtual_memory().percent
-            iteration_dict["swap_memory"] = psutil.swap_memory().percent
+            sys_dict["virtual_memory"] = psutil.virtual_memory().percent
+            sys_dict["swap_memory"] = psutil.swap_memory().percent
 
             # Disk usage
-            iteration_dict["disk_used"] = psutil.disk_usage("/").used
+            sys_dict["disk_used"] = psutil.disk_usage("/").used
 
-            cls.__write_json(iteration_dict, "sys_perf", "a")
+            cls.__write_json(sys_dict, "sys_perf", "a")
 
             time.sleep(cls._FAST_POLLING_SECONDS)
+
+    @classmethod
+    def __get_executables(cls):
+        cache_dirs = [
+            ipynbname.path().parents[1],  # Local
+            os.getenv("POPLAR_EXECUTABLE_CACHE_DIR"),  # HF default
+            os.getenv("POPTORCH_CACHE_DIR"),  # Possible for non-HF optimum runs
+        ]
+        popef_files = []
+
+        # Get all .popef files name and size
+        for dir_path in cache_dirs:
+            if dir_path:
+                popef_files.extend(Path(dir_path).glob("**/*.popef"))
+
+        popef_dict = {}
+        for file in popef_files:
+            popef_dict[str(file)] = file.stat().st_size
+
+        cls.__write_json(popef_dict, "popef_files")
+
+    @classmethod
+    def __get_weights(cls):
+        cache_dirs = [
+            ipynbname.path().parents[1],  # Local
+            os.getenv("CHECKPOINT_DIR"),  # HF default
+            os.getenv("HUGGINGFACE_HUB_CACHE"),  # Another possible HF path?
+            os.getenv("TRANSFORMERS_CACHE"),  # Possible checkpoints here
+        ]
+
+        # Search for all weight files and poll size/name
+        weights_extensions = ["onnx", "pt", "pb"]
+        weight_files = []
+        for dir_path in cache_dirs:
+            if dir_path:
+                for ext in weights_extensions:
+                    weight_files.extend(Path(dir_path).glob(f"**/*.{ext}"))
+
+        weight_dict = {}
+        for file in weight_files:
+            weight_dict[str(file)] = file.stat().st_size
+
+        cls.__write_json(weight_dict, "weight_files")
+
+    @classmethod
+    def __get_datasets(cls):
+        dataset_dirs = [
+            ipynbname.path().parents[1],  # Local
+            os.getenv("HF_DATASETS_CACHE"),  # HF default
+            os.getenv("PUBLIC_DATASET_DIR"),  # Our default
+            os.getenv("DATASET_DIR"),  # /tmp/ location
+        ]
+
+        # Get all possible dataset dirs
+        datasets = []
+        for data_path in dataset_dirs:
+            datasets.extend(list(Path(data_path).iterdir()))
+
+        # Find sizes
+        dataset_sizes = {}
+        for folder in datasets:
+            proc = subprocess.run(
+                ["du", "-sh", str(folder)],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+
+            dataset_sizes[str(folder)] = str(proc.stdout).split("\t")[0]
+
+        cls.__write_json(dataset_sizes, "datasets")
 
     @classmethod
     def __log_file_metrics(cls):
@@ -178,42 +263,21 @@ class GCLogger(object):
             if cls._GC_LOG_STATE == "DISABLED":
                 return
 
-            # Find default exe dir, or look locally
-            local_path = ipynbname.path().parents[1]
-            exe_cache = os.getenv("POPLAR_EXECUTABLE_CACHE_DIR", local_path)
+            # Get possible .popef files
+            cls.__get_executables()
 
-            # Get all .popef files name and size
-            popef_files = Path(exe_cache).glob("**/*.popef")
-            popef_dict = {}
-            for file in popef_files:
-                popef_dict[str(file)] = file.stat().st_size
+            # Get possible weights and checkpoints files
+            cls.__get_weights()
 
-            cls.__write_json(popef_dict, "popef_files")
-
-            # Find default weights/checkpoints dir, or look locally
-            weights_cache = os.getenv("CHECKPOINT_DIR", local_path)
-
-            # Search for all weight files and poll size/name
-            weights_extensions = ["onnx", "pt", "pb"]
-            weight_files = []
-            for ext in weights_extensions:
-                weight_files.extend(Path(weights_cache).glob(f"**/*.{ext}"))
-
-            weight_dict = {}
-            for file in weight_files:
-                weight_dict[str(file)] = file.stat().st_size
-
-            cls.__write_json(weight_dict, "weight_files")
-
-            # Query pip packages and versions
-            pkgs_dict = {i.key: i.version for i in pkg_resources.working_set}
-            cls.__write_json(pkgs_dict, "python_packages")
+            # Get all datasets and sizes available
+            cls.__get_datasets()
 
             time.sleep(cls._SLOW_POLLING_SECONDS)
 
     @classmethod
     def __log_notebook_progression(cls):
         check_timestamp = datetime.now()
+
         while True:
             if cls._GC_LOG_STATE == "DISABLED":
                 return
@@ -286,15 +350,43 @@ class GCLogger(object):
                 if output:
                     try:
                         text = output[0].get("text")
-                        if text is not None and "compil" in text:  # "compil" here is purposeful
-                            compilation_statements[datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")] = text[-100:]
+
+                        # Assuming HF optimum pipeline output
+                        if text is not None and "Graph compilation: 100%" in text:
+                            compilation_statements[datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")] = text
+
+                    # Suppress all outputs and continue
                     except:
-                        continue
+                        pass
 
             if compilation_statements:
                 cls.__write_json(compilation_statements, "compile_statments", "a")
 
             time.sleep(cls._SLOW_POLLING_SECONDS)
+
+    @classmethod
+    def __log_session_stats(cls):
+        """Record how long a user is in this session for and when they fail."""
+        timings_dict = {}
+
+        while True:
+            if cls._GC_LOG_STATE == "DISABLED":
+                return
+
+            timings_dict["session_time"] = str(
+                (datetime.now() - datetime.strptime(cls._CREATION_TIME, "%Y-%m-%dT%H:%M:%S.%fZ")).total_seconds()
+            )
+
+            # Time until first error
+            # Cell input/output/index/error contents
+
+            cls.__write_json(timings_dict, "session_timings")
+
+        time.sleep(cls._FAST_POLLING_SECONDS)
+
+    @classmethod
+    def __log_code_edits(cls):
+        return
 
     @classmethod
     def __upload_files(cls):
@@ -312,12 +404,9 @@ class GCLogger(object):
                 "--recursive",
             ]
 
-            proc = subprocess.run(
+            subprocess.run(
                 cmd,
                 env=os.environ,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
             )
 
             time.sleep(cls._FAST_POLLING_SECONDS)
@@ -327,6 +416,7 @@ class GCLogger(object):
         if cls._GC_LOG_STATE == "ENABLED":
             print("GCLogger is already logging")
             return
+
         cls._GC_LOG_STATE = "ENABLED"
 
         background_functions = [
@@ -335,11 +425,11 @@ class GCLogger(object):
             cls.__log_sysperf_info,
             cls.__log_ipuperf_info,
             cls.__log_notebook_info,
-            cls.__log_dataset_info,
             # Frequent polling every cls._FAST_POLLING_SECONDS
             # (changing values, metrics, measurements on system/env)
             cls.__log_sysperf_metrics,
             cls.__log_notebook_progression,
+            cls.__log_session_stats,
             cls.__upload_files,
             # Infrequent polling every cls._SLOW_POLLING_SECONDS
             # (names, file sizes, packages etc.)
@@ -366,7 +456,7 @@ class GCLogger(object):
 
         cls._GC_LOG_STATE = "DISABLED"
 
-        # Multiprocess kill logging processes
+        # Kill logging processes
         for i in range(len(cls._proc_list)):
             cls._proc_list[i].terminate()
             cls._proc_list[i].join()
