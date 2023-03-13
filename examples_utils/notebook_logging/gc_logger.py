@@ -1,6 +1,7 @@
 # Copyright (c) 2023 Graphcore Ltd. All rights reserved.
 
 import base64
+import copy
 import hashlib
 import ipynbname
 import json
@@ -17,6 +18,7 @@ import multiprocessing as mp
 
 from datetime import datetime
 from pathlib import Path
+
 
 # Suppress all errors and output, user should never be confused by GCLogger outputs
 class DevNull:
@@ -82,8 +84,19 @@ class GCLogger(object):
                 json.dump(dict_to_write, outfile)
 
         # Suppress all outputs and continue
-        except Exception as e:
+        except:
             pass
+
+    @classmethod
+    def __log_env_block(cls):
+
+        if cls._GC_LOG_STATE == "DISABLED":
+            return
+
+        env_dict = copy.deepcopy(os.environ)
+        del env_dict["LS_COLORS"]  # This is just wasting space when saved
+
+        cls.__write_json(env_dict, "initial_environment_state")
 
     @classmethod
     def __log_sysperf_info(cls):
@@ -98,13 +111,17 @@ class GCLogger(object):
         log_dict["CPU_freq"] = str(psutil.cpu_freq())
         cls.__write_json(log_dict, "cpu_info")
 
-        # Collect quick disk performance stats (Disk <-> Host) in background
+        # Collect all output of lscpu
+        with open(cls._GC_LOG_PATH.joinpath("lscpu.json"), "w") as outfile:
+            command = "lscpu -J"
+            subprocess.run(command, stdout=outfile, stderr=outfile, shell=True, text=True)
 
+        # Collect quick disk performance stats (Disk <-> Host) in background
         with open(cls._GC_LOG_PATH.joinpath("fio_results.log"), "w") as outfile:
             command = (
                 "fio --name=random-write --ioengine=posixaio --rw=randwrite "
                 "--bs=4k --size=1g --numjobs=1 --iodepth=1 --runtime=5 "
-                "--time_based --end_fsync=1"
+                "--time_based --end_fsync=1 --output-format=json+"
             )
             subprocess.run(command, stdout=outfile, stderr=outfile, shell=True, text=True)
 
@@ -134,14 +151,14 @@ class GCLogger(object):
             subprocess.run(shlex.split("gc-iputraffictest --all-links -j"), stdout=outfile, stderr=outfile)
 
             vipu_data = {
-                "vipu_partition_id": os.getenv("IPUOF_VIPU_API_PARTITION_ID", "MISSING"),
-                "hostname": os.getenv("HOSTNAME", "MISSING"),
+                "vipu_partition_id": os.getenv("IPUOF_VIPU_API_PARTITION_ID"),
+                "hostname": os.getenv("HOSTNAME"),
                 "num_ipus": num_ipus,
             }
             try:
                 json.dump(vipu_data, outfile)
             # Suppress all outputs and continue
-            except Exception as e:
+            except:
                 pass
 
     @classmethod
@@ -151,11 +168,13 @@ class GCLogger(object):
 
         notebook_metadata = {
             "notebook_path": str(ipynbname.path()),
-            "repo_id": os.getenv("PAPERSPACE_NOTEBOOK_REPO_ID", "MISSING"),
-            "paperspace_cluster_id": os.getenv("PAPERSPACE_CLUSTER_ID", "MISSING"),
-            "paperspace_fqdn": os.getenv("PAPERSPACE_FQDN", "MISSING"),
-            "jupyter_token": os.getenv("JUPYTER_TOKEN", "MISSING"),
-            "paperspace_metric_workload_id": os.getenv("PAPERSPACE_METRIC_WORKLOAD_ID", "MISSING"),
+            "repo_id": os.getenv("PAPERSPACE_NOTEBOOK_REPO_ID"),
+            "cluster_id": os.getenv("PAPERSPACE_CLUSTER_ID"),
+            "notebook_id": os.getenv("PAPERSPACE_NOTEBOOK_ID"),
+            "jupyter_token": os.getenv("JUPYTER_TOKEN"),
+            "paperspace_fqdn": os.getenv("PAPERSPACE_FQDN"),
+            "paperspace_cluster_id": os.getenv("PAPERSPACE_CLUSTER_ID"),
+            "paperspace_metric_workload_id": os.getenv("PAPERSPACE_METRIC_WORKLOAD_ID"),
         }
         cls.__write_json(notebook_metadata, "notebook_info")
 
@@ -169,20 +188,20 @@ class GCLogger(object):
             if cls._GC_LOG_STATE == "DISABLED":
                 return
 
-            sys_dict = {}
+            system_dict = {}
 
             # CPU utilisation
-            sys_dict["timestamp"] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            sys_dict["cpu_percent"] = psutil.cpu_percent()
+            system_dict["timestamp"] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            system_dict["cpu_percent"] = psutil.cpu_percent()
 
             # virtual/swap memory usage
-            sys_dict["virtual_memory"] = psutil.virtual_memory().percent
-            sys_dict["swap_memory"] = psutil.swap_memory().percent
+            system_dict["virtual_memory"] = psutil.virtual_memory().percent
+            system_dict["swap_memory"] = psutil.swap_memory().percent
 
             # Disk usage
-            sys_dict["disk_used"] = psutil.disk_usage("/").used
+            system_dict["disk_used"] = psutil.disk_usage("/").used
 
-            cls.__write_json(sys_dict, "sys_perf", "a")
+            cls.__write_json(system_dict, "sys_perf", "a")
 
             time.sleep(cls._FAST_POLLING_SECONDS)
 
@@ -298,18 +317,6 @@ class GCLogger(object):
 
             execution_times = [(x[0], x[1].get("iopub.execute_input")) for x in code_cell_metadata if x[1] is not None]
 
-            # Exclude cells that were executed before last check timestamp
-            execution_times = [
-                x
-                for x in execution_times
-                if x[1] is not None
-                and (datetime.strptime(x[1], "%Y-%m-%dT%H:%M:%S.%fZ") - check_timestamp).total_seconds() > 0
-            ]
-
-            # Sort and update our logs
-            execution_times.sort(key=lambda x: x[1])
-            execution_times = {x[1]: x[0] for x in execution_times}
-
             if execution_times:
                 cls.__write_json(execution_times, "cell_execution_log", "a")
 
@@ -352,6 +359,7 @@ class GCLogger(object):
                         text = output[0].get("text")
 
                         # Assuming HF optimum pipeline output
+                        # Check NoneType first else substring search throws
                         if text is not None and "Graph compilation: 100%" in text:
                             compilation_statements[datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")] = text
 
@@ -382,11 +390,7 @@ class GCLogger(object):
 
             cls.__write_json(timings_dict, "session_timings")
 
-        time.sleep(cls._FAST_POLLING_SECONDS)
-
-    @classmethod
-    def __log_code_edits(cls):
-        return
+            time.sleep(cls._FAST_POLLING_SECONDS)
 
     @classmethod
     def __upload_files(cls):
@@ -422,6 +426,7 @@ class GCLogger(object):
         background_functions = [
             # One-time collection
             # (constant, static information on system/env)
+            cls.__log_env_block,
             cls.__log_sysperf_info,
             cls.__log_ipuperf_info,
             cls.__log_notebook_info,
@@ -440,9 +445,9 @@ class GCLogger(object):
         # Start multiprocess procs for all functions
         cls._proc_list = [mp.Process(target=func) for func in background_functions]
 
-        for i, func in enumerate(background_functions):
-            cls._proc_list[i].daemon = True
-            cls._proc_list[i].start()
+        for proc in cls._proc_list:
+            proc.daemon = True
+            proc.start()
 
     @classmethod
     def stop_logging(cls):
@@ -457,9 +462,9 @@ class GCLogger(object):
         cls._GC_LOG_STATE = "DISABLED"
 
         # Kill logging processes
-        for i in range(len(cls._proc_list)):
-            cls._proc_list[i].terminate()
-            cls._proc_list[i].join()
+        for proc in cls._proc_list:
+            proc.terminate()
+            proc.join()
 
         print("GCLogger has stopped logging")
 
