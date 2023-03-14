@@ -21,13 +21,13 @@ from pathlib import Path
 
 
 # Suppress all errors and output, user should never be confused by GCLogger outputs
-class DevNull:
-    def write(self, msg):
-        pass
+# class DevNull:
+#     def write(self, msg):
+#         pass
 
 
-sys.stdout = DevNull()
-sys.stderr = DevNull()
+# sys.stdout = DevNull()
+# sys.stderr = DevNull()
 
 
 class GCLogger(object):
@@ -94,7 +94,6 @@ class GCLogger(object):
             return
 
         env_dict = copy.deepcopy(os.environ)
-        del env_dict["LS_COLORS"]  # This is just wasting space when saved
 
         cls.__write_json(env_dict, "initial_environment_state")
 
@@ -126,9 +125,10 @@ class GCLogger(object):
             subprocess.run(command, stdout=outfile, stderr=outfile, shell=True, text=True)
 
         # Clean up files from profiling
+        # Subprocess since paperspace env dosent like unlink/remove
         test_file = cls._GC_LOG_PATH.parent.joinpath("random-write.0.0")
         if test_file.exists():
-            test_file.unlink()
+            subprocess.run(f"rm -rf {test_file}", shell=True)
 
     @classmethod
     def __log_ipuperf_info(cls):
@@ -310,17 +310,25 @@ class GCLogger(object):
             if cls._GC_LOG_STATE == "DISABLED":
                 return
 
-            # Load cache Json written by CellTracker extension
-            cache_file = Path("/root/.ipython/extensions/cell_logs.json").resolve()
-            with open(cache_file, "r") as file:
-                cell_dict = json.load(file)
+            # Load cache files written by CellTracker extension
+            cache_path = Path("/root/.ipython/extensions/cell_logs/").resolve()
+            cache_files = cache_path.glob("**/*")
 
-            # Append to store Json in logging dir
-            cls.__write_json(cell_dict, "cell_logs", "a")
+            # Read and combine all cell execution logs into one
+            cell_execution_dict = {}
+            for file in cache_files:
+                with open(file, "r") as f:
+                    code = f.read()
 
-            # Delete cached Json
-            if cache_file.exists():
-                cache_file.unlink()
+                cell_execution_dict[file.stem] = code
+
+            # Append to data storage Json in logging dir
+            cls.__write_json(cell_execution_dict, "cell_logs", "a")
+
+            # Delete all cached files
+            # Subprocess since paperspace env dosent like unlink/remove
+            for file in cache_files:
+                subprocess.run(f"rm -rf {file}", shell=True)
 
             time.sleep(cls._FAST_POLLING_SECONDS)
 
