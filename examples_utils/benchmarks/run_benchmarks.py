@@ -182,8 +182,8 @@ def run_and_monitor_progress(
             if monitor_ipus:
                 t_monitor.join()
             break
-        t = time.time()
-        elapsed_time = t - t0
+        curr_time = time.time()
+        elapsed_time = curr_time - t0
 
         # Monitor if benchmark has timed out
         if timeout is not None and elapsed_time >= timeout:
@@ -191,8 +191,8 @@ def run_and_monitor_progress(
             timeout_error = True
             proc.kill()
 
-        if t > next_trace_time:
-            next_trace_time = t + trace_period
+        if curr_time > next_trace_time:
+            next_trace_time = curr_time + trace_period
             sys.stderr.write("\r")
             frame_idx = (frame_idx + 1) % len(progress_frames)
             sys.stderr.write(
