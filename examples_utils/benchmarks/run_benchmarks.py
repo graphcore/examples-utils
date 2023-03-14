@@ -171,7 +171,7 @@ def run_and_monitor_progress(
         t_monitor = threading.Thread(target=monitor_thread, name="monitor_thread")
         t_monitor.start()
 
-    t0 = time.time()
+    t0 = int(time.time())
     next_trace_time = t0 + trace_period
     frame_idx = 0
     timeout_error = False
@@ -182,7 +182,7 @@ def run_and_monitor_progress(
             if monitor_ipus:
                 t_monitor.join()
             break
-        curr_time = time.time()
+        curr_time = int(time.time())
         elapsed_time = curr_time - t0
 
         # Monitor if benchmark has timed out
