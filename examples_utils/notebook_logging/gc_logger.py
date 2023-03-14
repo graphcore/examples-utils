@@ -67,7 +67,7 @@ class GCLogger(object):
 
                 cls._GC_LOG_PATH.mkdir(parents=True, exist_ok=True)
 
-                # Create a unique user ID
+                # Create a short unique user ID
                 cls._UNIQUE_HASH = base64.urlsafe_b64encode(
                     hashlib.md5(cls._CREATION_TIME.encode("utf-8")).digest()
                 ).decode("ascii")[:12]
@@ -295,33 +295,32 @@ class GCLogger(object):
 
     @classmethod
     def __log_notebook_progression(cls):
-        check_timestamp = datetime.now()
+        """Track cell exeuction order via timestamps
+
+        Note: We use a custom IPython extension to track events, and use it to
+        run some lines before any cell is executed. To avoid any noticeable
+        delay, we keep this as light as possible, just recording the timestamp
+        and cell input code.
+
+        We write this to a cache file in .ipython/extensions/ and then append
+        it to our main storage in this loop, flushing the cache afterwards.
+        """
 
         while True:
             if cls._GC_LOG_STATE == "DISABLED":
                 return
 
-            with open(ipynbname.path(), "r") as notebook:
-                raw_notebook = nbformat.read(notebook, nbformat.NO_CONVERT)
+            # Load cache Json written by CellTracker extension
+            cache_file = Path("/root/.ipython/extensions/cell_logs.json").resolve()
+            with open(cache_file, "r") as file:
+                cell_dict = json.load(file)
 
-            # Index the cells in the notebook
-            cell_indexes = [i for i in range(len(raw_notebook["cells"]))]
-            indexed_cells = [(i, j) for i, j in zip(cell_indexes, raw_notebook["cells"])]
+            # Append to store Json in logging dir
+            cls.__write_json(cell_dict, "cell_logs", "a")
 
-            # Find out which code cells were executed since last check
-            code_cell_metadata = [
-                [cell[0], cell[1]["metadata"].get("execution")]
-                for cell in indexed_cells
-                if cell[1]["cell_type"] == "code"
-            ]
-
-            execution_times = [(x[0], x[1].get("iopub.execute_input")) for x in code_cell_metadata if x[1] is not None]
-
-            if execution_times:
-                cls.__write_json(execution_times, "cell_execution_log", "a")
-
-            # Update just before sleeping
-            check_timestamp = datetime.now()
+            # Delete cached Json
+            if cache_file.exists():
+                cache_file.unlink()
 
             time.sleep(cls._FAST_POLLING_SECONDS)
 
@@ -349,6 +348,7 @@ class GCLogger(object):
 
             # Get all code cells, search for compile time
             code_cell_outputs = [cell["outputs"] for cell in raw_notebook["cells"] if cell["cell_type"] == "code"]
+
             for output in code_cell_outputs:
                 # Some cells have a seperate 'data' outputs. We need 'text' output
                 if len(output) > 1:
