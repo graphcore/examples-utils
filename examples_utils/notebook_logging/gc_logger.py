@@ -21,13 +21,13 @@ from pathlib import Path
 
 
 # Suppress all errors and output, user should never be confused by GCLogger outputs
-# class DevNull:
-#     def write(self, msg):
-#         pass
+class DevNull:
+    def write(self, msg):
+        pass
 
 
-# sys.stdout = DevNull()
-# sys.stderr = DevNull()
+sys.stdout = DevNull()
+sys.stderr = DevNull()
 
 
 class GCLogger(object):
@@ -71,6 +71,15 @@ class GCLogger(object):
                 cls._UNIQUE_HASH = base64.urlsafe_b64encode(
                     hashlib.md5(cls._CREATION_TIME.encode("utf-8")).digest()
                 ).decode("ascii")[:12]
+
+                # Help IPython find our custom extension
+                extension_path = Path(__file__).parent.joinpath("cell_logger.py").resolve()
+                destination_path = Path("/root/.ipython/extensions").resolve()
+
+                subprocess.run(f"cp {extension_path} {destination_path}", shell=True)
+
+                # Create necessary folders for later
+                destination_path.joinpath("cell_logs", "errors").mkdir(parents=True, exist_ok=True)
 
         return cls._instance
 
@@ -232,11 +241,20 @@ class GCLogger(object):
         # Get all .popef files name and size
         for dir_path in cache_dirs:
             if dir_path:
-                popef_files.extend(Path(dir_path).glob("**/*.popef"))
+                popef_files.extend(Path(dir_path).glob("*.popef"))
 
         popef_dict = {}
+        # Analyse the popef file using gc CLI tool
         for file in popef_files:
-            popef_dict[str(file)] = file.stat().st_size
+            proc = subprocess.run(
+                f"popef_dump --all {file}",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                shell=True,
+                text=True,
+            )
+
+            popef_dict[str(file)] = proc.stdout
 
         cls.__write_json(popef_dict, "popef_files")
 
@@ -321,18 +339,13 @@ class GCLogger(object):
         it to our main storage in this loop, flushing the cache afterwards.
         """
 
-        from IPython import get_ipython
-
-        ipython = get_ipython()
-        ipython.run_line_magic("load_ext", "cell_logger")
-
         while True:
             if cls._GC_LOG_STATE == "DISABLED":
                 return
 
             # Load cache files written by CellTracker extension
             cache_path = Path("/root/.ipython/extensions/cell_logs/").resolve()
-            cache_files = cache_path.glob("**/*")
+            cache_files = cache_path.glob("**/*.txt")
 
             # Read and combine all cell execution logs into one
             cell_execution_dict = {}
@@ -344,6 +357,45 @@ class GCLogger(object):
 
             # Append to data storage Json in logging dir
             cls.__write_json(cell_execution_dict, "cell_logs", "a")
+
+            # Delete all cached files
+            # Subprocess since paperspace env dosent like unlink/remove
+            for file in cache_files:
+                subprocess.run(f"rm -rf {file}", shell=True)
+
+            time.sleep(cls._FAST_POLLING_SECONDS)
+
+    @classmethod
+    def __log_errors(cls):
+        """Log all errors and the code that produced them.
+
+        Note: We use a custom IPython extension to track events, and use it to
+        run some lines before any cell is executed. To avoid any noticeable
+        delay, we keep this as light as possible, just recording the timestamp,
+        cell input code and error.
+
+        We write this to a cache file in .ipython/extensions/ and then append
+        it to our main storage in this loop, flushing the cache afterwards.
+        """
+
+        while True:
+            if cls._GC_LOG_STATE == "DISABLED":
+                return
+
+            # Load cache files written by CellTracker extension
+            cache_path = Path("/root/.ipython/extensions/cell_logs/errors").resolve()
+            cache_files = cache_path.glob("**/*.json")
+
+            # Read and combine all cell execution logs into one
+            error_dict = {}
+            for file in cache_files:
+                with open(file, "r") as f:
+                    error = json.load(f)
+
+                error_dict[file.stem] = error
+
+            # Append to data storage Json in logging dir
+            cls.__write_json(error_dict, "error_logs", "a")
 
             # Delete all cached files
             # Subprocess since paperspace env dosent like unlink/remove
@@ -462,6 +514,7 @@ class GCLogger(object):
             # (changing values, metrics, measurements on system/env)
             cls.__log_sysperf_metrics,
             cls.__log_notebook_progression,
+            cls.__log_errors,
             cls.__log_session_stats,
             cls.__upload_files,
             # Infrequent polling every cls._SLOW_POLLING_SECONDS
