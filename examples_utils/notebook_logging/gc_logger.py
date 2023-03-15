@@ -80,8 +80,27 @@ class GCLogger(object):
         try:
             json_path = cls._GC_LOG_PATH.joinpath(f"{filename}.json")
 
-            with open(json_path, mode) as outfile:
-                json.dump(dict_to_write, outfile)
+            if mode == "w":
+                with open(json_path, "w") as outfile:
+                    json.dump(dict_to_write, outfile)
+
+            elif mode == "a":
+                # Incase it dosent, we cant read and it wont auto-create
+                if not json_path.exists():
+                    with open(json_path, "w+") as touchfile:
+                        json.dump({}, touchfile)
+
+                # Read and update
+                with open(json_path, "r") as infile:
+                    old_dict = json.load(infile)
+
+                new_dict = dict(old_dict, **dict_to_write)
+
+                with open(json_path, "w") as outfile:
+                    json.dump(new_dict, outfile)
+
+            else:
+                return
 
         # Suppress all outputs and continue
         except:
@@ -93,7 +112,7 @@ class GCLogger(object):
         if cls._GC_LOG_STATE == "DISABLED":
             return
 
-        env_dict = copy.deepcopy(os.environ)
+        env_dict = dict(copy.deepcopy(os.environ))
 
         cls.__write_json(env_dict, "initial_environment_state")
 
@@ -188,18 +207,14 @@ class GCLogger(object):
             if cls._GC_LOG_STATE == "DISABLED":
                 return
 
-            system_dict = {}
-
-            # CPU utilisation
-            system_dict["timestamp"] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            system_dict["cpu_percent"] = psutil.cpu_percent()
-
-            # virtual/swap memory usage
-            system_dict["virtual_memory"] = psutil.virtual_memory().percent
-            system_dict["swap_memory"] = psutil.swap_memory().percent
-
-            # Disk usage
-            system_dict["disk_used"] = psutil.disk_usage("/").used
+            system_dict = {
+                datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ"): {
+                    "cpu_percent": psutil.cpu_percent(),
+                    "virtual_memory": psutil.virtual_memory().percent,
+                    "swap_memory": psutil.swap_memory().percent,
+                    "disk_used": psutil.disk_usage("/").used,
+                }
+            }
 
             cls.__write_json(system_dict, "sys_perf", "a")
 
@@ -305,6 +320,11 @@ class GCLogger(object):
         We write this to a cache file in .ipython/extensions/ and then append
         it to our main storage in this loop, flushing the cache afterwards.
         """
+
+        from IPython import get_ipython
+
+        ipython = get_ipython()
+        ipython.run_line_magic("load_ext", "cell_logger")
 
         while True:
             if cls._GC_LOG_STATE == "DISABLED":
