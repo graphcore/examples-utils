@@ -1,19 +1,9 @@
 # Copyright (c) 2023 Graphcore Ltd. All rights reserved.
 
 import json
-import sys
 
 from datetime import datetime
 from pathlib import Path
-
-
-class DevNull:
-    def write(self, msg):
-        pass
-
-
-sys.stdout = DevNull()
-sys.stderr = DevNull()
 
 
 class CellLogger(object):

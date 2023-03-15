@@ -9,25 +9,13 @@ import nbformat
 import os
 import pkg_resources
 import psutil
-import shlex
 import subprocess
-import sys
 import time
 import multiprocessing as mp
 
 
 from datetime import datetime
 from pathlib import Path
-
-
-# Suppress all errors and output, user should never be confused by GCLogger outputs
-class DevNull:
-    def write(self, msg):
-        pass
-
-
-sys.stdout = DevNull()
-sys.stderr = DevNull()
 
 
 class GCLogger(object):
@@ -169,14 +157,29 @@ class GCLogger(object):
 
             # Host <-> IPU sync latency
             for i in range(num_ipus):
-                subprocess.run(shlex.split(f"gc-hostsynclatencytest -d {i} -j"), stdout=outfile, stderr=outfile)
+                subprocess.run(
+                    f"gc-hostsynclatencytest -d {i} -j",
+                    stdout=outfile,
+                    stderr=outfile,
+                    shell=True,
+                )
 
             # Host <-> IPU data transfer
             for i in range(num_ipus):
-                subprocess.run(shlex.split(f"gc-hosttraffictest -d {i} -j"), stdout=outfile, stderr=outfile)
+                subprocess.run(
+                    f"gc-hosttraffictest -d {i} -j",
+                    stdout=outfile,
+                    stderr=outfile,
+                    shell=True,
+                )
 
             # IPU <-> IPU data transfer
-            subprocess.run(shlex.split("gc-iputraffictest --all-links -j"), stdout=outfile, stderr=outfile)
+            subprocess.run(
+                "gc-iputraffictest --all-links -j",
+                stdout=outfile,
+                stderr=outfile,
+                shell=True,
+            )
 
             vipu_data = {
                 "vipu_partition_id": os.getenv("IPUOF_VIPU_API_PARTITION_ID"),
