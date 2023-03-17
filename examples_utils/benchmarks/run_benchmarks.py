@@ -175,6 +175,8 @@ def run_and_monitor_progress(
     next_trace_time = t0 + trace_period
     frame_idx = 0
     timeout_error = False
+    if trace_period == 1:
+        raise Exception('bad trace_period')
     sys.stderr.write(f'>>>>> t0 {t0}, trace_period {trace_period}, next_trace_time {next_trace_time}')
     while True:
         # Check if benchmarking process thread has terminated every second
