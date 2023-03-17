@@ -28,7 +28,7 @@ class GCLogger(object):
     _FAST_POLLING_SECONDS = 10
     _SLOW_POLLING_SECONDS = 60
 
-    _proc_list = []
+    proc_list = []
 
     _BUCKET_NAME = "paperspace-uploading-test-bucket"
 
@@ -485,7 +485,7 @@ class GCLogger(object):
             cmd = [
                 "aws",
                 "s3",
-                "cp",
+                "sync",
                 f"{cls._GC_LOG_PATH}",
                 f"s3://{cls._BUCKET_NAME}/{cls._UNIQUE_HASH}",
                 "--recursive",
@@ -527,9 +527,9 @@ class GCLogger(object):
         ]
 
         # Start multiprocess procs for all functions
-        cls._proc_list = [mp.Process(target=func) for func in background_functions]
+        cls.proc_list = [mp.Process(target=func) for func in background_functions]
 
-        for proc in cls._proc_list:
+        for proc in cls.proc_list:
             proc.daemon = True
             proc.start()
 
@@ -546,7 +546,7 @@ class GCLogger(object):
         cls._GC_LOG_STATE = "DISABLED"
 
         # Kill logging processes
-        for proc in cls._proc_list:
+        for proc in cls.proc_list:
             proc.terminate()
             proc.join()
 
