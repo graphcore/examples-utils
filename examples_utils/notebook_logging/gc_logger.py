@@ -111,6 +111,9 @@ class GCLogger(object):
 
         env_dict = dict(copy.deepcopy(os.environ))
 
+        # TODO: filter anything from here before saving? 
+        # TODO: process any vars for easier use later?
+
         cls.__write_json(env_dict, "initial_environment_state")
 
     @classmethod
@@ -467,11 +470,10 @@ class GCLogger(object):
             timings_dict["session_time"] = str(
                 (datetime.now() - datetime.strptime(cls._CREATION_TIME, "%Y-%m-%dT%H:%M:%S.%fZ")).total_seconds()
             )
-
-            # Time until first error
-            # Cell input/output/index/error contents
-
             cls.__write_json(timings_dict, "session_timings")
+
+            # TODO: Time until first error
+            # TODO: Cell input/output/index/error contents
 
             time.sleep(cls._FAST_POLLING_SECONDS)
 
