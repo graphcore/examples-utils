@@ -175,7 +175,6 @@ def run_and_monitor_progress(
     next_trace_time = t0 + trace_period
     frame_idx = 0
     timeout_error = False
-    sys.stderr.write(f'>>>>> t0 {t0}, trace_period {trace_period}, next_trace_time {next_trace_time}, cmd {cmd}')
     while True:
         # Check if benchmarking process thread has terminated every second
         t.join(1)
@@ -186,8 +185,6 @@ def run_and_monitor_progress(
         curr_time = int(time.time())
         elapsed_time = curr_time - t0
 
-        sys.stderr.write(f'>>>>> curr_time {curr_time}, next_trace_time {next_trace_time}, elapsed_time {elapsed_time}')
-
         # Monitor if benchmark has timed out
         if timeout is not None and elapsed_time >= timeout:
             logger.error("TIMEOUT")
@@ -196,9 +193,8 @@ def run_and_monitor_progress(
 
         if curr_time > next_trace_time:
             next_trace_time = curr_time + trace_period
-            sys.stderr.write(f'>>>>> !!! curr_time {curr_time}, next_trace_time {next_trace_time}')
-            sys.stderr.write("\r")
             frame_idx = (frame_idx + 1) % len(progress_frames)
+            sys.stderr.write("\r")
             sys.stderr.write(
                 f"\tBenchmark elapsed time: {str(timedelta(seconds=elapsed_time))} "
                 f"({elapsed_time} seconds) {progress_frames[frame_idx]}"
