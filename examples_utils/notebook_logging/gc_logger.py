@@ -485,10 +485,10 @@ class GCLogger(object):
             cmd = [
                 "aws",
                 "s3",
-                "sync",
+                "cp",
+                "--recursive",
                 f"{cls._GC_LOG_PATH}",
                 f"s3://{cls._BUCKET_NAME}/{cls._UNIQUE_HASH}",
-                "--recursive",
             ]
 
             subprocess.run(
