@@ -111,7 +111,7 @@ class GCLogger(object):
 
         env_dict = dict(copy.deepcopy(os.environ))
 
-        # TODO: filter anything from here before saving? 
+        # TODO: filter anything from here before saving?
         # TODO: process any vars for easier use later?
 
         cls.__write_json(env_dict, "initial_environment_state")
