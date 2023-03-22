@@ -13,7 +13,7 @@ import subprocess
 import time
 import multiprocessing as mp
 
-
+from amplitude import Amplitude, BaseEvent
 from datetime import datetime
 from pathlib import Path
 
@@ -69,85 +69,37 @@ class GCLogger(object):
                 # Create necessary folders for later
                 destination_path.joinpath("cell_logs", "errors").mkdir(parents=True, exist_ok=True)
 
+                # Find amplitude API key and initialise client
+                amplitude_key_path = Path("/root/.amplitude_key").resolve()
+                with open(amplitude_key_path, "r") as keyfile:
+                    key = keyfile.read()
+
+                cls.__amplitude_client = Amplitude(key)
+
         return cls._instance
 
     @classmethod
-    def __write_json(cls, dict_to_write, filename, mode="w"):
+    def __track(cls, dict_to_write, name):
+        """Use Amplitude to track information as an event."""
 
-        try:
-            json_path = cls._GC_LOG_PATH.joinpath(f"{filename}.json")
-
-            if mode == "w":
-                with open(json_path, "w") as outfile:
-                    json.dump(dict_to_write, outfile)
-
-            elif mode == "a":
-                # Incase it dosent, we cant read and it wont auto-create
-                if not json_path.exists():
-                    with open(json_path, "w+") as touchfile:
-                        json.dump({}, touchfile)
-
-                # Read and update
-                with open(json_path, "r") as infile:
-                    old_dict = json.load(infile)
-
-                new_dict = dict(old_dict, **dict_to_write)
-
-                with open(json_path, "w") as outfile:
-                    json.dump(new_dict, outfile)
-
-            else:
-                return
-
-        # Suppress all outputs and continue
-        except:
-            pass
+        event = BaseEvent(
+            event_type=name,
+            event_properties=dict_to_write,
+            user_id=cls._UNIQUE_HASH,
+            device_id=os.getenv("HOSTNAME"),
+        )
+        cls.__amplitude_client.track(event)
 
     @classmethod
     def __log_env_block(cls):
+        """Log the entire environment variables initial state"""
 
         if cls._GC_LOG_STATE == "DISABLED":
             return
 
         env_dict = dict(copy.deepcopy(os.environ))
 
-        # TODO: filter anything from here before saving?
-        # TODO: process any vars for easier use later?
-
-        cls.__write_json(env_dict, "initial_environment_state")
-
-    @classmethod
-    def __log_sysperf_info(cls):
-        if cls._GC_LOG_STATE == "DISABLED":
-            return
-
-        log_dict = {}
-
-        # Record some constants (CPU count, freq, disk setup)
-        log_dict["CPU_count"] = psutil.cpu_count()
-        log_dict["CPU_stats"] = str(psutil.cpu_stats())
-        log_dict["CPU_freq"] = str(psutil.cpu_freq())
-        cls.__write_json(log_dict, "cpu_info")
-
-        # Collect all output of lscpu
-        with open(cls._GC_LOG_PATH.joinpath("lscpu.json"), "w") as outfile:
-            command = "lscpu -J"
-            subprocess.run(command, stdout=outfile, stderr=outfile, shell=True, text=True)
-
-        # Collect quick disk performance stats (Disk <-> Host) in background
-        with open(cls._GC_LOG_PATH.joinpath("fio_results.log"), "w") as outfile:
-            command = (
-                "fio --name=random-write --ioengine=posixaio --rw=randwrite "
-                "--bs=4k --size=1g --numjobs=1 --iodepth=1 --runtime=5 "
-                "--time_based --end_fsync=1 --output-format=json+"
-            )
-            subprocess.run(command, stdout=outfile, stderr=outfile, shell=True, text=True)
-
-        # Clean up files from profiling
-        # Subprocess since paperspace env dosent like unlink/remove
-        test_file = cls._GC_LOG_PATH.parent.joinpath("random-write.0.0")
-        if test_file.exists():
-            subprocess.run(f"rm -rf {test_file}", shell=True)
+        cls.__track(env_dict, "initial_environment_state")
 
     @classmethod
     def __log_ipuperf_info(cls):
@@ -155,45 +107,48 @@ class GCLogger(object):
             return
 
         # Get information for each IPU available
-        with open(cls._GC_LOG_PATH.joinpath("ipu_perf.json"), "a") as outfile:
-            num_ipus = int(os.getenv("NUM_AVAILABLE_IPU", "0"))
+        num_ipus = int(os.getenv("NUM_AVAILABLE_IPU", "0"))
 
-            # Host <-> IPU sync latency
-            for i in range(num_ipus):
-                subprocess.run(
-                    f"gc-hostsynclatencytest -d {i} -j",
-                    stdout=outfile,
-                    stderr=outfile,
-                    shell=True,
-                )
-
-            # Host <-> IPU data transfer
-            for i in range(num_ipus):
-                subprocess.run(
-                    f"gc-hosttraffictest -d {i} -j",
-                    stdout=outfile,
-                    stderr=outfile,
-                    shell=True,
-                )
-
-            # IPU <-> IPU data transfer
-            subprocess.run(
-                "gc-iputraffictest --all-links -j",
-                stdout=outfile,
-                stderr=outfile,
+        # Host <-> IPU sync latency
+        hostsync_dict = {}
+        for i in range(num_ipus):
+            proc = subprocess.run(
+                f"gc-hostsynclatencytest -d {i} -j",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
                 shell=True,
             )
+            hostsync_dict[i] = json.loads(proc.stdout)
+        cls.__track(hostsync_dict, "host_sync_test_results")
 
-            vipu_data = {
-                "vipu_partition_id": os.getenv("IPUOF_VIPU_API_PARTITION_ID"),
-                "hostname": os.getenv("HOSTNAME"),
-                "num_ipus": num_ipus,
-            }
-            try:
-                json.dump(vipu_data, outfile)
-            # Suppress all outputs and continue
-            except:
-                pass
+        # Host <-> IPU data transfer
+        hosttraffic_dict = {}
+        for i in range(num_ipus):
+            subprocess.run(
+                f"gc-hosttraffictest -d {i} -j",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                shell=True,
+            )
+            hosttraffic_dict[i] = json.loads(proc.stdout)
+        cls.__track(hosttraffic_dict, "host_traffic_test_results")
+
+        # IPU <-> IPU data transfer
+        subprocess.run(
+            "gc-iputraffictest --all-links -j",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            shell=True,
+        )
+        iputraffic_dict = json.loads(proc.stdout)
+        cls.__track(iputraffic_dict, "ipu_traffic_test_results")
+
+        vipu_info = {
+            "vipu_partition_id": os.getenv("IPUOF_VIPU_API_PARTITION_ID"),
+            "hostname": os.getenv("HOSTNAME"),
+            "num_ipus": num_ipus,
+        }
+        cls.__track(vipu_info, "vipu_info")
 
     @classmethod
     def __log_notebook_info(cls):
@@ -210,11 +165,11 @@ class GCLogger(object):
             "paperspace_cluster_id": os.getenv("PAPERSPACE_CLUSTER_ID"),
             "paperspace_metric_workload_id": os.getenv("PAPERSPACE_METRIC_WORKLOAD_ID"),
         }
-        cls.__write_json(notebook_metadata, "notebook_info")
+        cls.__track(notebook_metadata, "notebook_metadata")
 
         # Query pip packages and versions
         pkgs_dict = {i.key: i.version for i in pkg_resources.working_set}
-        cls.__write_json(pkgs_dict, "python_packages")
+        cls.__track(pkgs_dict, "python_packages")
 
     @classmethod
     def __log_sysperf_metrics(cls):
@@ -230,8 +185,7 @@ class GCLogger(object):
                     "disk_used": psutil.disk_usage("/").used,
                 }
             }
-
-            cls.__write_json(system_dict, "sys_perf", "a")
+            cls.__track(system_dict, "sys_perf")
 
             time.sleep(cls._FAST_POLLING_SECONDS)
 
@@ -262,7 +216,7 @@ class GCLogger(object):
 
             popef_dict[str(file)] = proc.stdout
 
-        cls.__write_json(popef_dict, "popef_files")
+        cls.__track(popef_dict, "popef_files")
 
     @classmethod
     def __get_weights(cls):
@@ -285,7 +239,7 @@ class GCLogger(object):
         for file in weight_files:
             weight_dict[str(file)] = file.stat().st_size
 
-        cls.__write_json(weight_dict, "weight_files")
+        cls.__track(weight_dict, "weight_files")
 
     @classmethod
     def __get_datasets(cls):
@@ -313,7 +267,7 @@ class GCLogger(object):
 
             dataset_sizes[str(folder)] = str(proc.stdout).split("\t")[0]
 
-        cls.__write_json(dataset_sizes, "datasets")
+        cls.__track(dataset_sizes, "datasets")
 
     @classmethod
     def __log_file_metrics(cls):
@@ -362,7 +316,7 @@ class GCLogger(object):
                 cell_execution_dict[file.stem] = code
 
             # Append to data storage Json in logging dir
-            cls.__write_json(cell_execution_dict, "cell_logs", "a")
+            cls.__track(cell_execution_dict, "cell_logs")
 
             # Delete all cached files
             # Subprocess since paperspace env dosent like unlink/remove
@@ -401,7 +355,7 @@ class GCLogger(object):
                 error_dict[file.stem] = error
 
             # Append to data storage Json in logging dir
-            cls.__write_json(error_dict, "error_logs", "a")
+            cls.__track(error_dict, "error_logs")
 
             # Delete all cached files
             # Subprocess since paperspace env dosent like unlink/remove
@@ -454,7 +408,7 @@ class GCLogger(object):
                         pass
 
             if compilation_statements:
-                cls.__write_json(compilation_statements, "compile_statments", "a")
+                cls.__track(compilation_statements, "compile_statments")
 
             time.sleep(cls._SLOW_POLLING_SECONDS)
 
@@ -470,7 +424,7 @@ class GCLogger(object):
             timings_dict["session_time"] = str(
                 (datetime.now() - datetime.strptime(cls._CREATION_TIME, "%Y-%m-%dT%H:%M:%S.%fZ")).total_seconds()
             )
-            cls.__write_json(timings_dict, "session_timings")
+            cls.__track(timings_dict, "session_timings")
 
             # TODO: Time until first error
             # TODO: Cell input/output/index/error contents
@@ -512,7 +466,6 @@ class GCLogger(object):
             # One-time collection
             # (constant, static information on system/env)
             cls.__log_env_block,
-            cls.__log_sysperf_info,
             cls.__log_ipuperf_info,
             cls.__log_notebook_info,
             # Frequent polling every cls._FAST_POLLING_SECONDS
