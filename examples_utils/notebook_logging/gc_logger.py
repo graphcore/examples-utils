@@ -2,14 +2,12 @@
 
 import base64
 import boto3
-import copy
 import hashlib
 import ipynbname
 import json
 import nbformat
 import os
 import pkg_resources
-import psutil
 import subprocess
 import time
 import multiprocessing as mp
@@ -29,7 +27,8 @@ class GCLogger(object):
     _FAST_POLLING_SECONDS = 10
     _SLOW_POLLING_SECONDS = 60
 
-    _proc_list = []
+    _GC_LOGGER_DATA = mp.Manager().dict()
+    _PROC_LIST = []
 
     _BUCKET_NAME = "paperspace-uploading-test-bucket"
     _FIREHOSE_STREAM_NAME = "GCLOGGER_STREAM"
@@ -83,106 +82,13 @@ class GCLogger(object):
     def _firehose_put(cls, data: dict):
         """Submit a PUT record request to the firehose stream."""
 
-        cls._FIREHOSE_CLIENT.put_record(DeliveryStreamName=cls._FIREHOSE_STREAM_NAME, Record=data)
+        while True:
+            if cls._GC_LOG_STATE == "DISABLED":
+                return
 
-    @classmethod
-    def __log_env_block(cls):
+            cls._FIREHOSE_CLIENT.put_record(DeliveryStreamName=cls._FIREHOSE_STREAM_NAME, Record=cls._GC_LOGGER_DATA)
 
-        if cls._GC_LOG_STATE == "DISABLED":
-            return
-
-        env_state = dict(copy.deepcopy(os.environ))
-        cls._firehose_put(env_state)
-
-    @classmethod
-    def __log_sysperf_info(cls):
-        if cls._GC_LOG_STATE == "DISABLED":
-            return
-
-        log_dict = {}
-
-        # Record some constants (CPU count, freq, disk setup)
-        log_dict["CPU_count"] = psutil.cpu_count()
-        log_dict["CPU_stats"] = str(psutil.cpu_stats())
-        log_dict["CPU_freq"] = str(psutil.cpu_freq())
-
-        # Collect all output of lscpu
-        proc = subprocess.run(
-            "lscpu -J",
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            shell=True,
-            text=True,
-        )
-        log_dict["lscpu_results"] = json.loads(proc.stdout)
-
-        # Collect quick disk performance stats (Disk <-> Host) in background
-        command = (
-            "fio --name=random-write --ioengine=posixaio --rw=randwrite "
-            "--bs=4k --size=1g --numjobs=1 --iodepth=1 --runtime=5 "
-            "--time_based --end_fsync=1 --output-format=json+"
-        )
-        proc = subprocess.run(
-            command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            shell=True,
-            text=True,
-        )
-        log_dict["fio_results"] = proc.stdout
-
-        cls._firehose_put(log_dict)
-
-        # Clean up files from profiling
-        # Subprocess since paperspace env dosent like unlink/remove
-        test_file = cls._GC_LOG_PATH.parent.joinpath("random-write.0.0")
-        if test_file.exists():
-            subprocess.run(f"rm -rf {test_file}", shell=True)
-
-    @classmethod
-    def __log_ipuperf_info(cls):
-        if cls._GC_LOG_STATE == "DISABLED":
-            return
-
-        # Get information for each IPU available
-        num_ipus = int(os.getenv("NUM_AVAILABLE_IPU", "0"))
-
-        # Host <-> IPU sync latency
-        hostsync_results = {}
-        for i in range(num_ipus):
-            proc = subprocess.run(
-                f"gc-hostsynclatencytest -d {i} -j",
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                shell=True,
-                text=True,
-            )
-            hostsync_results[i] = json.loads(proc.stdout)
-        cls._firehose_put(hostsync_results)
-
-        # Host <-> IPU data transfer
-        hosttraffic_results = {}
-        for i in range(num_ipus):
-            subprocess.run(
-                f"gc-hosttraffictest -d {i} -j",
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                shell=True,
-                text=True,
-            )
-            hosttraffic_results[i] = json.loads(proc.stdout)
-        cls._firehose_put(hosttraffic_results)
-
-        # IPU <-> IPU data transfer
-        subprocess.run(
-            "gc-iputraffictest --all-links -j",
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            shell=True,
-            text=True,
-        )
-        iputraffic_results = json.loads(proc.stdout)
-        cls._firehose_put(iputraffic_results)
+            time.sleep(cls._FAST_POLLING_SECONDS)
 
     @classmethod
     def __log_notebook_info(cls):
@@ -199,37 +105,16 @@ class GCLogger(object):
             "paperspace_cluster_id": os.getenv("PAPERSPACE_CLUSTER_ID"),
             "paperspace_metric_workload_id": os.getenv("PAPERSPACE_METRIC_WORKLOAD_ID"),
         }
-        cls._firehose_put(notebook_metadata)
+        cls._GC_LOGGER_DATA.update(notebook_metadata)
 
-        # Query pip packages and versions
-        python_pkgs_versions = {i.key: i.version for i in pkg_resources.working_set}
-        cls._firehose_put(python_pkgs_versions)
+        # Query pip packages and versions for frameworks
+        all_pkgs = {i.key: i.version for i in pkg_resources.working_set}
+        frameworks = ["poptorch", "torch"]
 
-        # VIPU server information
-        vipu_info = {
-            "vipu_partition_id": os.getenv("IPUOF_VIPU_API_PARTITION_ID"),
-            "hostname": os.getenv("HOSTNAME"),
-            "num_ipus": os.getenv("NUM_AVAILABLE_IPU", "0"),
-        }
-        cls._firehose_put(vipu_info)
-
-    @classmethod
-    def __log_sysperf_metrics(cls):
-        while True:
-            if cls._GC_LOG_STATE == "DISABLED":
-                return
-
-            system_perf_metrics = {
-                datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ"): {
-                    "cpu_percent": psutil.cpu_percent(),
-                    "virtual_memory": psutil.virtual_memory().percent,
-                    "swap_memory": psutil.swap_memory().percent,
-                    "disk_used": psutil.disk_usage("/").used,
-                }
-            }
-            cls._firehose_put(system_perf_metrics)
-
-            time.sleep(cls._FAST_POLLING_SECONDS)
+        frameworks_versions = {}
+        for fw in frameworks:
+            frameworks_versions[f"{fw}_version"] = all_pkgs.get(fw)
+        cls._GC_LOGGER_DATA.update(frameworks_versions)
 
     @classmethod
     def __get_executables(cls):
@@ -381,6 +266,8 @@ class GCLogger(object):
         """
 
         cls._first_error_time = None
+        first_error_time = {}
+        creation_time_obj = datetime.strptime(cls._CREATION_TIME, "%Y-%m-%dT%H:%M:%S.%fZ")
 
         while True:
             if cls._GC_LOG_STATE == "DISABLED":
@@ -393,6 +280,9 @@ class GCLogger(object):
             # Record first ever error in the notebook
             if next(cache_files, None) is None and cls._first_error_time is None:
                 cls._first_error_time = datetime.now()
+                first_error_time["time_to_first_notebook_error"] = (
+                    cls._first_error_time - creation_time_obj
+                ).total_seconds()
 
             # Read and combine all cell execution logs into one
             error_traces = {}
@@ -458,29 +348,6 @@ class GCLogger(object):
             time.sleep(cls._SLOW_POLLING_SECONDS)
 
     @classmethod
-    def __log_session_stats(cls):
-        """Record how long a user is in this session for and when they fail."""
-
-        creation_time_obj = datetime.strptime(cls._CREATION_TIME, "%Y-%m-%dT%H:%M:%S.%fZ")
-
-        while True:
-            if cls._GC_LOG_STATE == "DISABLED":
-                return
-
-            timings = {}
-
-            timings["session_time"] = str((datetime.now() - creation_time_obj).total_seconds())
-
-            # Poll class attr to find first error
-            if cls._first_error_time is not None:
-                timings["first_error_time"] = cls._first_error_time.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-                timings["time_until_error"] = (cls._first_error_time - creation_time_obj).total_seconds()
-
-            cls._firehose_put(timings)
-
-            time.sleep(cls._FAST_POLLING_SECONDS)
-
-    @classmethod
     def start_logging(cls):
         if cls._GC_LOG_STATE == "ENABLED":
             print("GCLogger is already logging")
@@ -490,27 +357,24 @@ class GCLogger(object):
 
         background_functions = [
             # One-time collection
-            # (constant, static information on system/env)
-            cls.__log_env_block,
-            cls.__log_sysperf_info,
-            cls.__log_ipuperf_info,
             cls.__log_notebook_info,
             # Frequent polling every cls._FAST_POLLING_SECONDS
-            # (changing values, metrics, measurements on system/env)
-            cls.__log_sysperf_metrics,
             cls.__log_notebook_progression,
             cls.__log_errors,
-            cls.__log_session_stats,
             # Infrequent polling every cls._SLOW_POLLING_SECONDS
-            # (names, file sizes, packages etc.)
             cls.__log_file_metrics,
             cls.__log_compile_times,
         ]
 
-        # Start multiprocess procs for all functions
-        cls._proc_list = [mp.Process(target=func) for func in background_functions]
+        # Prepare shared dict and populate with Nulls in schema format
+        with open(Path(__file__).parent.joinpath("columns.txt"), "r") as columns_file:
+            columns = columns_file.read().split("\n")
+        for col in columns:
+            cls._GC_LOGGER_DATA[col] = None
 
-        for proc in cls._proc_list:
+        # Start multiprocess procs for all functions
+        cls._PROC_LIST = [mp.Process(target=func) for func in background_functions]
+        for proc in cls._PROC_LIST:
             proc.daemon = True
             proc.start()
 
@@ -527,7 +391,7 @@ class GCLogger(object):
         cls._GC_LOG_STATE = "DISABLED"
 
         # Kill logging processes
-        for proc in cls._proc_list:
+        for proc in cls._PROC_LIST:
             proc.terminate()
             proc.join()
 
