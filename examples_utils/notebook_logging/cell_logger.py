@@ -23,14 +23,7 @@ class CellLogger(object):
             cache_path = self.log_path.joinpath(filepath)
 
             with open(cache_path, "w") as outfile:
-                if "txt" in filepath:
-                    outfile.write(content)
-
-                elif "json" in filepath:
-                    json.dump(content, outfile)
-
-                else:
-                    return
+                json.dump(content, outfile)
 
         # Silently skip if not possible
         except:
@@ -41,9 +34,12 @@ class CellLogger(object):
 
         # TODO: Can we get cell ID? Perhaps output too?
         timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-        code = info.raw_cell
+        run_dict = {
+            "timestamp": timestamp,
+            "code": info.raw_cell,
+        }
 
-        self.__write_to_file(code, f"{timestamp}.txt")
+        self.__write_to_file(run_dict, f"{timestamp}.json")
 
     def post_run_cell(self, result):
         """Runs just after any cell is run"""
@@ -51,8 +47,8 @@ class CellLogger(object):
         # Only do anything if error
         if result.error_before_exec or result.error_in_exec:
             timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-
             error_dict = {
+                "timestamp": timestamp,
                 "code": result.info.raw_cell,
                 "error": str(result.error_before_exec) if result.error_before_exec else str(result.error_in_exec),
             }
