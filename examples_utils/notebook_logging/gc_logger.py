@@ -1,6 +1,7 @@
 # Copyright (c) 2023 Graphcore Ltd. All rights reserved.
 
 import base64
+import boto3
 import copy
 import hashlib
 import ipynbname
@@ -31,6 +32,8 @@ class GCLogger(object):
     _proc_list = []
 
     _BUCKET_NAME = "paperspace-uploading-test-bucket"
+    _FIREHOSE_STREAM_NAME = "GCLOGGER_STREAM"
+    _FIREHOSE_CLIENT = boto3.client("firehose")
 
     def __new__(cls):
         if cls._instance is None:
@@ -69,7 +72,18 @@ class GCLogger(object):
                 # Create necessary folders for later
                 destination_path.joinpath("cell_logs", "errors").mkdir(parents=True, exist_ok=True)
 
+                # Create a firehose delivery stream
+                cls._FIREHOSE_CLIENT.create_delivery_stream(
+                    DeliveryStreamName=cls._FIREHOSE_STREAM_NAME, S3DestinationConfiguration={}  # TODO
+                )
+
         return cls._instance
+
+    @classmethod
+    def _firehose_put(cls, data: dict):
+        """Submit a PUT record request to the firehose stream."""
+
+        cls._FIREHOSE_CLIENT.put_record(DeliveryStreamName=cls._FIREHOSE_STREAM_NAME, Record=data)
 
     @classmethod
     def __log_env_block(cls):
@@ -77,7 +91,8 @@ class GCLogger(object):
         if cls._GC_LOG_STATE == "DISABLED":
             return
 
-        env_dict = dict(copy.deepcopy(os.environ))
+        env_state = dict(copy.deepcopy(os.environ))
+        cls._firehose_put(env_state)
 
     @classmethod
     def __log_sysperf_info(cls):
@@ -116,6 +131,8 @@ class GCLogger(object):
         )
         log_dict["fio_results"] = proc.stdout
 
+        cls._firehose_put(log_dict)
+
         # Clean up files from profiling
         # Subprocess since paperspace env dosent like unlink/remove
         test_file = cls._GC_LOG_PATH.parent.joinpath("random-write.0.0")
@@ -131,7 +148,7 @@ class GCLogger(object):
         num_ipus = int(os.getenv("NUM_AVAILABLE_IPU", "0"))
 
         # Host <-> IPU sync latency
-        hostsync_dict = {}
+        hostsync_results = {}
         for i in range(num_ipus):
             proc = subprocess.run(
                 f"gc-hostsynclatencytest -d {i} -j",
@@ -140,10 +157,11 @@ class GCLogger(object):
                 shell=True,
                 text=True,
             )
-            hostsync_dict[i] = json.loads(proc.stdout)
+            hostsync_results[i] = json.loads(proc.stdout)
+        cls._firehose_put(hostsync_results)
 
         # Host <-> IPU data transfer
-        hosttraffic_dict = {}
+        hosttraffic_results = {}
         for i in range(num_ipus):
             subprocess.run(
                 f"gc-hosttraffictest -d {i} -j",
@@ -152,7 +170,8 @@ class GCLogger(object):
                 shell=True,
                 text=True,
             )
-            hosttraffic_dict[i] = json.loads(proc.stdout)
+            hosttraffic_results[i] = json.loads(proc.stdout)
+        cls._firehose_put(hosttraffic_results)
 
         # IPU <-> IPU data transfer
         subprocess.run(
@@ -162,13 +181,8 @@ class GCLogger(object):
             shell=True,
             text=True,
         )
-        iputraffic_dict = json.loads(proc.stdout)
-
-        vipu_info = {
-            "vipu_partition_id": os.getenv("IPUOF_VIPU_API_PARTITION_ID"),
-            "hostname": os.getenv("HOSTNAME"),
-            "num_ipus": num_ipus,
-        }
+        iputraffic_results = json.loads(proc.stdout)
+        cls._firehose_put(iputraffic_results)
 
     @classmethod
     def __log_notebook_info(cls):
@@ -185,9 +199,19 @@ class GCLogger(object):
             "paperspace_cluster_id": os.getenv("PAPERSPACE_CLUSTER_ID"),
             "paperspace_metric_workload_id": os.getenv("PAPERSPACE_METRIC_WORKLOAD_ID"),
         }
+        cls._firehose_put(notebook_metadata)
 
         # Query pip packages and versions
-        pkgs_dict = {i.key: i.version for i in pkg_resources.working_set}
+        python_pkgs_versions = {i.key: i.version for i in pkg_resources.working_set}
+        cls._firehose_put(python_pkgs_versions)
+
+        # VIPU server information
+        vipu_info = {
+            "vipu_partition_id": os.getenv("IPUOF_VIPU_API_PARTITION_ID"),
+            "hostname": os.getenv("HOSTNAME"),
+            "num_ipus": os.getenv("NUM_AVAILABLE_IPU", "0"),
+        }
+        cls._firehose_put(vipu_info)
 
     @classmethod
     def __log_sysperf_metrics(cls):
@@ -195,7 +219,7 @@ class GCLogger(object):
             if cls._GC_LOG_STATE == "DISABLED":
                 return
 
-            system_dict = {
+            system_perf_metrics = {
                 datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ"): {
                     "cpu_percent": psutil.cpu_percent(),
                     "virtual_memory": psutil.virtual_memory().percent,
@@ -203,6 +227,7 @@ class GCLogger(object):
                     "disk_used": psutil.disk_usage("/").used,
                 }
             }
+            cls._firehose_put(system_perf_metrics)
 
             time.sleep(cls._FAST_POLLING_SECONDS)
 
@@ -220,18 +245,20 @@ class GCLogger(object):
             if dir_path:
                 popef_files.extend(Path(dir_path).glob("*.popef"))
 
-        popef_dict = {}
+        popef_file_dumps = {}
         # Analyse the popef file using gc CLI tool
         for file in popef_files:
             proc = subprocess.run(
-                f"popef_dump --all {file}",
+                f"popef_dump -m {file}",
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 shell=True,
                 text=True,
             )
 
-            popef_dict[str(file)] = proc.stdout
+            popef_file_dumps[str(file)] = proc.stdout
+
+        cls._firehose_put(popef_file_dumps)
 
     @classmethod
     def __get_weights(cls):
@@ -250,9 +277,11 @@ class GCLogger(object):
                 for ext in weights_extensions:
                     weight_files.extend(Path(dir_path).glob(f"**/*.{ext}"))
 
-        weight_dict = {}
+        weight_file_sizes = {}
         for file in weight_files:
-            weight_dict[str(file)] = file.stat().st_size
+            weight_file_sizes[str(file)] = file.stat().st_size
+
+        cls._firehose_put(weight_file_sizes)
 
     @classmethod
     def __get_datasets(cls):
@@ -280,6 +309,8 @@ class GCLogger(object):
             )
 
             dataset_sizes[str(folder)] = str(proc.stdout).split("\t")[0]
+
+        cls._firehose_put(dataset_sizes)
 
     @classmethod
     def __log_file_metrics(cls):
@@ -320,12 +351,14 @@ class GCLogger(object):
             cache_files = cache_path.glob("**/*.json")
 
             # Read and combine all cell execution logs into one
-            cell_execution_dict = {}
+            cell_execution_code = {}
             for file in cache_files:
                 with open(file, "r") as f:
                     code = json.load(f)
 
-                cell_execution_dict[code["timestamp"]] = code
+                cell_execution_code[code["timestamp"]] = code
+
+            cls._firehose_put(cell_execution_code)
 
             # Delete all cached files
             # Subprocess since paperspace env dosent like unlink/remove
@@ -362,12 +395,14 @@ class GCLogger(object):
                 cls._first_error_time = datetime.now()
 
             # Read and combine all cell execution logs into one
-            error_dict = {}
+            error_traces = {}
             for file in cache_files:
                 with open(file, "r") as f:
                     error = json.load(f)
 
-                error_dict[error["timestamp"]] = error
+                error_traces[error["timestamp"]] = error
+
+            cls._firehose_put(error_traces)
 
             # Delete all cached files
             # Subprocess since paperspace env dosent like unlink/remove
@@ -389,8 +424,6 @@ class GCLogger(object):
         clean this up a lot and be more particular about what we collect.
         """
 
-        compilation_statements = {}
-
         while True:
             if cls._GC_LOG_STATE == "DISABLED":
                 return
@@ -401,6 +434,7 @@ class GCLogger(object):
             # Get all code cells, search for compile time
             code_cell_outputs = [cell["outputs"] for cell in raw_notebook["cells"] if cell["cell_type"] == "code"]
 
+            compilation_statements = {}
             for output in code_cell_outputs:
                 # Some cells have a seperate 'data' outputs. We need 'text' output
                 if len(output) > 1:
@@ -419,12 +453,13 @@ class GCLogger(object):
                     except:
                         pass
 
+            cls._firehose_put(compilation_statements)
+
             time.sleep(cls._SLOW_POLLING_SECONDS)
 
     @classmethod
     def __log_session_stats(cls):
         """Record how long a user is in this session for and when they fail."""
-        timings_dict = {}
 
         creation_time_obj = datetime.strptime(cls._CREATION_TIME, "%Y-%m-%dT%H:%M:%S.%fZ")
 
@@ -432,35 +467,16 @@ class GCLogger(object):
             if cls._GC_LOG_STATE == "DISABLED":
                 return
 
-            timings_dict["session_time"] = str((datetime.now() - creation_time_obj).total_seconds())
+            timings = {}
+
+            timings["session_time"] = str((datetime.now() - creation_time_obj).total_seconds())
 
             # Poll class attr to find first error
             if cls._first_error_time is not None:
-                timings_dict["first_error_time"] = cls._first_error_time.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-                timings_dict["time_until_error"] = (cls._first_error_time - creation_time_obj).total_seconds()
+                timings["first_error_time"] = cls._first_error_time.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+                timings["time_until_error"] = (cls._first_error_time - creation_time_obj).total_seconds()
 
-            time.sleep(cls._FAST_POLLING_SECONDS)
-
-    @classmethod
-    def __upload_files(cls):
-        while True:
-            if cls._GC_LOG_STATE == "DISABLED":
-                return
-
-            # Compose the AWSCLI upload command - Unique hash used to identify this user for this session ONLY
-            cmd = [
-                "aws",
-                "s3",
-                "cp",
-                "--recursive",
-                f"{cls._GC_LOG_PATH}",
-                f"s3://{cls._BUCKET_NAME}/{cls._UNIQUE_HASH}",
-            ]
-
-            subprocess.run(
-                cmd,
-                env=os.environ,
-            )
+            cls._firehose_put(timings)
 
             time.sleep(cls._FAST_POLLING_SECONDS)
 
@@ -485,7 +501,6 @@ class GCLogger(object):
             cls.__log_notebook_progression,
             cls.__log_errors,
             cls.__log_session_stats,
-            cls.__upload_files,
             # Infrequent polling every cls._SLOW_POLLING_SECONDS
             # (names, file sizes, packages etc.)
             cls.__log_file_metrics,
