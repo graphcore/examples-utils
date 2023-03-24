@@ -8,3 +8,9 @@ paperspace_cluster_id
 paperspace_metric_workload_id
 poptorch_version
 torch_version
+compilation_times
+error_traces
+cell_executions
+weights_file_sizes
+popef_file_dumps
+dataset_sizes
