@@ -11,6 +11,7 @@ torch_version
 compilation_times
 error_traces
 cell_executions
-weights_file_sizes
+weight_file_sizes
 popef_file_dumps
 dataset_sizes
+time_to_first_notebook_error

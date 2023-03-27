@@ -23,7 +23,6 @@ class GCLogger(object):
     _CREATION_TIME = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
     _LOG_STATE = None
-    _LOG_PATH = Path("/notebooks").joinpath("gc_logs", f"{_CREATION_TIME}")
 
     _POLLING_SECONDS = 10
 
@@ -36,13 +35,13 @@ class GCLogger(object):
 
     _BUCKET_NAME = "paperspace-uploading-test-bucket"
     _FIREHOSE_STREAM_NAME = "GCLOGGER_STREAM"
-    _FIREHOSE_CLIENT = boto3.client("firehose")
+    _FIREHOSE_CLIENT = boto3.client("firehose", region_name="us-east-1")
 
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(GCLogger, cls).__new__(cls)
 
-            if cls._GC_LOG_STATE is None:
+            if cls._LOG_STATE is None:
                 # Request user and save their preferred choice
                 print(
                     "\n============================================================================================================================================\n"
@@ -55,11 +54,8 @@ class GCLogger(object):
                     "\t- ML application details: Model information, performance, hyperparameters, and compilation time\n"
                     "\t- Environment details\n"
                     "\t- System performance: IO, memory and host compute performance\n\n"
-                    f"You can view the information being collected at: {cls._LOG_PATH}\n"
                     "=============================================================================================================================================\n"
                 )
-
-                cls._LOG_PATH.mkdir(parents=True, exist_ok=True)
 
                 # Create a short unique user ID
                 cls._UNIQUE_HASH = base64.urlsafe_b64encode(
@@ -76,9 +72,9 @@ class GCLogger(object):
                 destination_path.joinpath("cell_logs", "errors").mkdir(parents=True, exist_ok=True)
 
                 # Create a firehose delivery stream
-                cls._FIREHOSE_CLIENT.create_delivery_stream(
-                    DeliveryStreamName=cls._FIREHOSE_STREAM_NAME, S3DestinationConfiguration={}  # TODO
-                )
+                # cls._FIREHOSE_CLIENT.create_delivery_stream(
+                #     DeliveryStreamName=cls._FIREHOSE_STREAM_NAME, S3DestinationConfiguration={}  # TODO
+                # )
 
         return cls._instance
 
@@ -87,26 +83,28 @@ class GCLogger(object):
         """Submit a PUT record request to the firehose stream."""
 
         while True:
-            if cls._GC_LOG_STATE == "DISABLED":
+            if cls._LOG_STATE == "DISABLED":
                 return
 
-            cls._FIREHOSE_CLIENT.put_record(DeliveryStreamName=cls._FIREHOSE_STREAM_NAME, Record=cls._PAYLOAD)
+            cls._FIREHOSE_CLIENT.put_record(
+                DeliveryStreamName=cls._FIREHOSE_STREAM_NAME, Record=cls._PAYLOAD._getvalue()
+            )
 
             time.sleep(cls._POLLING_SECONDS)
 
     @classmethod
-    def __update_payload(cls, new_output: str, field_name: str) -> str:
+    def __update_payload(cls, new_output: str, name: str) -> str:
         """Query a method to return its outputs if updated."""
 
         # Collect latest old and new values
-        old_output = cls._OUTPUT_BUFFER[field_name]
+        old_output = cls._OUTPUT_BUFFER[name]
 
         # Update if values have changed
         if new_output != old_output:
-            cls._PAYLOAD[field_name] = new_output
-            cls._OUTPUT_BUFFER[field_name] = copy.deepcopy(new_output)
+            cls._PAYLOAD[name] = new_output
+            cls._OUTPUT_BUFFER[name] = copy.deepcopy(new_output)
         else:
-            cls._PAYLOAD[field_name] = None
+            cls._PAYLOAD[name] = ""
 
     @classmethod
     def __get_notebook_metadata(cls):
@@ -116,19 +114,18 @@ class GCLogger(object):
             if cls._LOG_STATE == "disabled":
                 return
 
-            notebook_metadata = json.dumps(
-                {
-                    "notebook_path": str(ipynbname.path()),
-                    "cluster_id": os.getenv("PAPERSPACE_CLUSTER_ID"),
-                    "jupyter_token": os.getenv("JUPYTER_TOKEN"),
-                    "notebook_id": os.getenv("PAPERSPACE_NOTEBOOK_ID"),
-                    "paperspace_fqdn": os.getenv("PAPERSPACE_FQDN"),
-                    "paperspace_metric_workload_id": os.getenv("PAPERSPACE_METRIC_WORKLOAD_ID"),
-                    "repo_id": os.getenv("PAPERSPACE_NOTEBOOK_REPO_ID"),
-                }
-            )
+            notebook_metadata = {
+                "notebook_path": str(ipynbname.path()),
+                "cluster_id": os.getenv("PAPERSPACE_CLUSTER_ID"),
+                "jupyter_token": os.getenv("JUPYTER_TOKEN"),
+                "notebook_id": os.getenv("PAPERSPACE_NOTEBOOK_ID"),
+                "paperspace_fqdn": os.getenv("PAPERSPACE_FQDN"),
+                "paperspace_metric_workload_id": os.getenv("PAPERSPACE_METRIC_WORKLOAD_ID"),
+                "repo_id": os.getenv("PAPERSPACE_NOTEBOOK_REPO_ID"),
+            }
 
-            cls.__update_payload(notebook_metadata, "notebook_metadata")
+            for key, val in notebook_metadata.items():
+                cls.__update_payload(val, key)
 
             time.sleep(cls._POLLING_SECONDS)
 
@@ -137,7 +134,6 @@ class GCLogger(object):
         """Get framework versions."""
 
         frameworks = ["poptorch", "torch"]
-        frameworks_versions = {}
 
         while True:
             if cls._LOG_STATE == "disabled":
@@ -146,15 +142,13 @@ class GCLogger(object):
             # Query pip packages and versions for frameworks
             all_pkgs = {i.key: i.version for i in pkg_resources.working_set}
             for fw in frameworks:
-                frameworks_versions[f"{fw}_version"] = all_pkgs.get(fw)
-
-            cls.__update_payload(frameworks_versions, "frameworks_versions")
+                cls.__update_payload(all_pkgs.get(fw), f"{fw}_version")
 
             time.sleep(cls._POLLING_SECONDS)
 
     @classmethod
     def __get_executables(cls) -> str:
-        """Get weights file paths and sizes from wherever possible."""
+        """Get popef file paths and metadata from wherever possible."""
 
         # Get all .popef files name and size
         cache_dirs = [
@@ -216,7 +210,7 @@ class GCLogger(object):
             for file in weight_files:
                 weight_file_sizes[str(file)] = file.stat().st_size
 
-            cls.__update_payload(weight_file_sizes, "weight_file_sizes")
+            cls.__update_payload(json.dumps(weight_file_sizes), "weight_file_sizes")
 
             time.sleep(cls._POLLING_SECONDS)
 
@@ -229,8 +223,8 @@ class GCLogger(object):
         dataset_dirs = [
             ipynbname.path().parents[1],  # Local
             os.getenv("HF_DATASETS_CACHE"),  # HF default
-            os.getenv("PUBLIC_DATASET_DIR"),  # Our default
-            os.getenv("DATASET_DIR"),  # /tmp/ location
+            os.getenv("PUBLIC_DATASETS_DIR"),  # Our default
+            os.getenv("DATASETS_DIR"),  # /tmp/ location
         ]
 
         while True:
@@ -355,7 +349,7 @@ class GCLogger(object):
                     cls._first_error_time - creation_time_obj
                 ).total_seconds()
 
-            cls.__update_payload(first_error_time, "first_error_time")
+            cls.__update_payload(first_error_time, "time_to_first_notebook_error")
 
             time.sleep(cls._POLLING_SECONDS)
 
@@ -403,17 +397,17 @@ class GCLogger(object):
                     except:
                         pass
 
-            cls.__update_payload(compilation_times, "compilation_times")
+            cls.__update_payload({"compilation_times": json.dumps(compilation_times)}, "compilation_times")
 
             time.sleep(cls._POLLING_SECONDS)
 
     @classmethod
     def start_logging(cls):
-        if cls._GC_LOG_STATE == "ENABLED":
+        if cls._LOG_STATE == "ENABLED":
             print("GCLogger is already logging")
             return
 
-        cls._GC_LOG_STATE = "ENABLED"
+        cls._LOG_STATE = "ENABLED"
 
         # Convert data collection into repeated polling with update checking
         background_functions = [
@@ -433,8 +427,8 @@ class GCLogger(object):
         with open(Path(__file__).parent.joinpath("columns.txt"), "r") as columns_file:
             columns = columns_file.read().split("\n")
         for col in columns:
-            cls._PAYLOAD[col] = None
-            cls._OUTPUT_BUFFER[col] = None
+            cls._PAYLOAD[col] = ""
+            cls._OUTPUT_BUFFER[col] = ""
 
         # Start multiprocess procs for all functions
         cls._PROC_LIST = [mp.Process(target=func) for func in background_functions]
@@ -444,15 +438,15 @@ class GCLogger(object):
 
     @classmethod
     def stop_logging(cls):
-        if cls._GC_LOG_STATE == "DISABLED":
+        if cls._LOG_STATE == "DISABLED":
             print("GCLogger has already stopped logging")
             return
 
-        if cls._GC_LOG_STATE is None:
+        if cls._LOG_STATE is None:
             print("GCLogger has not logged anything yet")
             return
 
-        cls._GC_LOG_STATE = "DISABLED"
+        cls._LOG_STATE = "DISABLED"
 
         # Kill logging processes
         for proc in cls._PROC_LIST:
