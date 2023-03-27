@@ -3,12 +3,14 @@ from pathlib import Path
 import os
 import hashlib
 import json
+import logging
 
 from transformers import CAMEMBERT_PRETRAINED_CONFIG_ARCHIVE_MAP
 
 METADATA_FILENAME = "gradient_dataset_metadata.json"
 
-def check_files_match_metadata(dataset_folder: Path, compare_hash: bool):
+def check_files_match_metadata(dataset_folder: str, compare_hash: bool):
+    dataset_folder = Path(dataset_folder)
     file_list = sorted(list(f for f in dataset_folder.rglob("*") if f.is_file() and f.name!=METADATA_FILENAME))
     gradient_file_arguments = preprocess_list_of_files(dataset_folder, file_list)
 
@@ -65,12 +67,16 @@ def compare_file_lists(loaded_metadata_files:list, generated_locally_metadata_fi
     # Are there any extra or missing files print an error, if so remove them from relevant lists
     loaded_filenames = list(map(lambda file_dict: file_dict["path"], loaded_metadata_files))
     generated_filenames = list(map(lambda file_dict: file_dict["path"], generated_locally_metadata_files))
+    #logger = logging.getLogger("metadata")
+    #logger.setLevel(logging.INFO)
     # Files found but not expected
     extra_files = [filename for filename in generated_filenames if filename not in loaded_filenames]
-    print("Extra files found in local storage: "+ str(extra_files))
+    if extra_files:
+        logging.warning("Extra files found in local storage: "+ str(extra_files))
     # Files expected but not found
     missing_files = [filename for filename in loaded_filenames if filename not in generated_filenames]
-    print("Missing files, files in metadata.json but not local storage: " + str(missing_files))
+    if missing_files:
+        logging.error("Missing files, files in metadata.json but not local storage: " + str(missing_files))
     # For all files left check that the keys are the same
     found_files_metadata = [filedict for filedict in loaded_metadata_files if filedict["path"] not in missing_files]
     found_files_locally = [filedict for filedict in generated_locally_metadata_files if filedict["path"] not in extra_files]
@@ -78,10 +84,10 @@ def compare_file_lists(loaded_metadata_files:list, generated_locally_metadata_fi
     for i in range(len(found_files_metadata)):
         for key in keys:
             if found_files_locally[i][key] != found_files_metadata[i][key]:
-                print(" ")
-                print("Difference in file found and file expected")
-                print("Path: " + found_files_metadata[i]["path"])
-                print(" Key: " + key)
-                print(" gradient_metadata.json value: "+ str(found_files_metadata[i][key] ))
-                print(" Local value: "+ str(found_files_locally[i][key]))
-
+                logging.warning(
+                    "\nDifference in file found and file expected\n"+
+                    "Path: " + found_files_metadata[i]["path"] + "\n"+
+                    " Key: " + key + "\n"+
+                    " gradient_metadata.json value: "+ str(found_files_metadata[i][key]) +"\n"+
+                    " Local value: "+ str(found_files_locally[i][key])
+                )
