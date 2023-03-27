@@ -2,7 +2,6 @@ notebook_path
 repo_id
 cluster_id
 notebook_id
-jupyter_token
 paperspace_fqdn
 paperspace_cluster_id
 paperspace_metric_workload_id

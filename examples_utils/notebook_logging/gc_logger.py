@@ -117,7 +117,6 @@ class GCLogger(object):
             notebook_metadata = {
                 "notebook_path": str(ipynbname.path()),
                 "cluster_id": os.getenv("PAPERSPACE_CLUSTER_ID"),
-                "jupyter_token": os.getenv("JUPYTER_TOKEN"),
                 "notebook_id": os.getenv("PAPERSPACE_NOTEBOOK_ID"),
                 "paperspace_fqdn": os.getenv("PAPERSPACE_FQDN"),
                 "paperspace_metric_workload_id": os.getenv("PAPERSPACE_METRIC_WORKLOAD_ID"),
