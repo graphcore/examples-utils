@@ -1,4 +1,11 @@
 # Copyright (c) 2023 Graphcore Ltd. All rights reserved.
+"""
+Checks if files in local folder match what is expected from the gradient_dataset_metadata.json
+
+To use import the check_files_match_metadata function:
+check_files_match_metadata(dataset_folder: str, compare_hash: bool)
+"""
+
 from typing import NamedTuple, Optional, List
 from pathlib import Path
 import os
@@ -8,19 +15,6 @@ import logging
 
 
 METADATA_FILENAME = "gradient_dataset_metadata.json"
-
-
-def check_files_match_metadata(dataset_folder: str, compare_hash: bool):
-    dataset_folder = Path(dataset_folder)
-    file_list = sorted(list(f for f in dataset_folder.rglob("*") if f.is_file() and f.name != METADATA_FILENAME))
-    gradient_file_arguments = preprocess_list_of_files(dataset_folder, file_list)
-
-    file_metadata = get_files_metadata(gradient_file_arguments, compare_hash)
-
-    f = open(dataset_folder / METADATA_FILENAME)
-    data = json.load(f)
-
-    compare_file_lists(data["files"], file_metadata)
 
 
 def md5_hash_file(file_path: Path):
@@ -72,16 +66,16 @@ def preprocess_list_of_files(dataset_folder: Path, file_list: List[Path]) -> Lis
 
 def compare_file_lists(loaded_metadata_files: list, generated_locally_metadata_files: list):
     # Find extra or missing files and print an error, if so remove them from relevant lists
-    loaded_filenames = list(map(lambda file_dict: file_dict["path"], loaded_metadata_files))
-    generated_filenames = list(map(lambda file_dict: file_dict["path"], generated_locally_metadata_files))
+    expected_filepaths = list(map(lambda file_dict: file_dict["path"], loaded_metadata_files))
+    local_filepaths = list(map(lambda file_dict: file_dict["path"], generated_locally_metadata_files))
     # Files found but not expected
-    extra_files = [filename for filename in generated_filenames if filename not in loaded_filenames]
+    extra_files = [filepath for filepath in local_filepaths if filepath not in expected_filepaths]
     if extra_files:
         logging.warning("Extra files found in local storage: " + str(extra_files))
     # Files expected but not found
-    missing_files = [filename for filename in loaded_filenames if filename not in generated_filenames]
+    missing_files = [filepath for filepath in expected_filepaths if filepath not in local_filepaths]
     if missing_files:
-        logging.error("Missing files, files in metadata.json but not local storage: " + str(missing_files))
+        logging.error("Missing files, files in metadata.json but not found in local storage: " + str(missing_files))
     # For all files left check that the keys are the same
     found_files_metadata = [filedict for filedict in loaded_metadata_files if filedict["path"] not in missing_files]
     found_files_locally = [
@@ -106,3 +100,18 @@ def compare_file_lists(loaded_metadata_files: list, generated_locally_metadata_f
                     + str(found_files_locally[i][key])
                     + "\n"
                 )
+
+
+def check_files_match_metadata(dataset_folder: str, compare_hash: bool):
+    dataset_folder = Path(dataset_folder)
+    file_list = sorted(list(f for f in dataset_folder.rglob("*") if f.is_file() and f.name != METADATA_FILENAME))
+    gradient_file_arguments = preprocess_list_of_files(dataset_folder, file_list)
+
+    file_metadata = get_files_metadata(gradient_file_arguments, compare_hash)
+
+    data = json.loads((dataset_folder / METADATA_FILENAME).read_text())
+
+    compare_file_lists(data["files"], file_metadata)
+
+
+check_files_match_metadata("/home/evaw/evaw/workspace/gpj-release/gptj-6b-checkpoints", True)
