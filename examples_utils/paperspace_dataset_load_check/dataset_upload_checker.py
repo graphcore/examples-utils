@@ -5,7 +5,6 @@ import hashlib
 import json
 import logging
 
-from transformers import CAMEMBERT_PRETRAINED_CONFIG_ARCHIVE_MAP
 
 METADATA_FILENAME = "gradient_dataset_metadata.json"
 
@@ -84,10 +83,13 @@ def compare_file_lists(loaded_metadata_files:list, generated_locally_metadata_fi
     for i in range(len(found_files_metadata)):
         for key in keys:
             if found_files_locally[i][key] != found_files_metadata[i][key]:
+
                 logging.warning(
-                    "\nDifference in file found and file expected\n"+
+                    "Difference in file found and file expected\n"+
                     "Path: " + found_files_metadata[i]["path"] + "\n"+
                     " Key: " + key + "\n"+
                     " gradient_metadata.json value: "+ str(found_files_metadata[i][key]) +"\n"+
-                    " Local value: "+ str(found_files_locally[i][key])
+                    " Local value: "+ str(found_files_locally[i][key])+"\n"
                 )
+
+check_files_match_metadata("/home/evaw/evaw/workspace/gpj-release/gptj-6b-checkpoints", True)
