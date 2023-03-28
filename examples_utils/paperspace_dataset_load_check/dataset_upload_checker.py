@@ -63,11 +63,9 @@ def preprocess_list_of_files(dataset_folder: Path, file_list: List[Path])  -> Li
 
 
 def compare_file_lists(loaded_metadata_files:list, generated_locally_metadata_files:list):
-    # Are there any extra or missing files print an error, if so remove them from relevant lists
+    # Find extra or missing files and print an error, if so remove them from relevant lists
     loaded_filenames = list(map(lambda file_dict: file_dict["path"], loaded_metadata_files))
     generated_filenames = list(map(lambda file_dict: file_dict["path"], generated_locally_metadata_files))
-    #logger = logging.getLogger("metadata")
-    #logger.setLevel(logging.INFO)
     # Files found but not expected
     extra_files = [filename for filename in generated_filenames if filename not in loaded_filenames]
     if extra_files:
@@ -83,7 +81,6 @@ def compare_file_lists(loaded_metadata_files:list, generated_locally_metadata_fi
     for i in range(len(found_files_metadata)):
         for key in keys:
             if found_files_locally[i][key] != found_files_metadata[i][key]:
-
                 logging.warning(
                     "Difference in file found and file expected\n"+
                     "Path: " + found_files_metadata[i]["path"] + "\n"+
