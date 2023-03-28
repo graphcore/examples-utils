@@ -91,5 +91,3 @@ def compare_file_lists(loaded_metadata_files:list, generated_locally_metadata_fi
                     " gradient_metadata.json value: "+ str(found_files_metadata[i][key]) +"\n"+
                     " Local value: "+ str(found_files_locally[i][key])+"\n"
                 )
-
-check_files_match_metadata("/home/evaw/evaw/workspace/gpj-release/gptj-6b-checkpoints", True)
