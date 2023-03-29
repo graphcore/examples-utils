@@ -24,7 +24,7 @@ class GCLogger(object):
 
     _LOG_STATE = None
 
-    _POLLING_SECONDS = 10
+    _POLLING_SECONDS = 30
 
     _MP_MANAGER = mp.Manager()
 
