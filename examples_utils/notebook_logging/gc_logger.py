@@ -34,8 +34,8 @@ class GCLogger(object):
     _PROC_LIST = []
 
     _BUCKET_NAME = "paperspace-uploading-test-bucket"
-    _FIREHOSE_STREAM_NAME = "GCLOGGER_STREAM"
-    _FIREHOSE_CLIENT = boto3.client("firehose", region_name="us-east-1")
+    _REGION_NAME = "us-east-1"
+    _FIREHOSE_STREAM_NAME = "GCLOGGER_FIREHOSE_STREAM"
 
     def __new__(cls):
         if cls._instance is None:
@@ -71,9 +71,22 @@ class GCLogger(object):
                 # Create necessary folders for later
                 destination_path.joinpath("cell_logs", "errors").mkdir(parents=True, exist_ok=True)
 
-                # Create a firehose delivery stream
+                config_file = Path(os.getenv("DATASETS_DIR"), "GCL", ".config").resolve()
+                with open(config_file, "r") as file:
+                    aws_access_key = file.readline()
+                    aws_secret_key = file.readline()
+
+                cls._FIREHOSE_CLIENT = boto3.client(
+                    "firehose",
+                    aws_access_key_id=aws_access_key,
+                    aws_secret_access_key=aws_secret_key,
+                    region_name=cls._REGION_NAME,
+                )
+
+                # # Create a firehose delivery stream
                 # cls._FIREHOSE_CLIENT.create_delivery_stream(
-                #     DeliveryStreamName=cls._FIREHOSE_STREAM_NAME, S3DestinationConfiguration={}  # TODO
+                #     DeliveryStreamName=cls._FIREHOSE_STREAM_NAME,
+                #     S3DestinationConfiguration={}
                 # )
 
         return cls._instance
@@ -90,7 +103,8 @@ class GCLogger(object):
             cls._PAYLOAD["user_onetime_id"] = cls._UNIQUE_HASH
 
             cls._FIREHOSE_CLIENT.put_record(
-                DeliveryStreamName=cls._FIREHOSE_STREAM_NAME, Record=cls._PAYLOAD._getvalue()
+                DeliveryStreamName=cls._FIREHOSE_STREAM_NAME,
+                Record={"Data": json.dumps(cls._PAYLOAD._getvalue()).encode("utf-8")},
             )
 
             time.sleep(cls._POLLING_SECONDS)
@@ -279,19 +293,19 @@ class GCLogger(object):
             cache_files = cache_path.glob("**/*.json")
 
             # Read and combine all cell execution logs into one
-            cell_executions = {}
+            code_executed = {}
             for file in cache_files:
                 with open(file, "r") as f:
                     code = json.load(f)
 
-                cell_executions[file.stem] = code
+                code_executed[file.stem] = code
 
             # Delete all cached files
             # Subprocess since paperspace env dosent like unlink/remove
             for file in cache_files:
                 subprocess.run(f"rm -rf {file}", shell=True)
 
-            cls.__update_payload(cell_executions, "cell_executions")
+            cls.__update_payload(code_executed, "code_executed")
 
             time.sleep(cls._POLLING_SECONDS)
 
@@ -351,11 +365,9 @@ class GCLogger(object):
             # Record first ever error in the notebook
             if next(cache_files, None) is None and first_error_time is {}:
                 cls._first_error_time = datetime.now()
-                first_error_time["time_to_first_notebook_error"] = (
-                    cls._first_error_time - creation_time_obj
-                ).total_seconds()
+                first_error_time = (cls._first_error_time - creation_time_obj).total_seconds()
 
-            cls.__update_payload(first_error_time, "time_to_first_notebook_error")
+            cls.__update_payload(first_error_time, "time_to_first_error_seconds")
 
             time.sleep(cls._POLLING_SECONDS)
 
