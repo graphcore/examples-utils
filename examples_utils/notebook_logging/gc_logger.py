@@ -71,7 +71,7 @@ class GCLogger(object):
                 # Create necessary folders for later
                 destination_path.joinpath("cell_logs", "errors").mkdir(parents=True, exist_ok=True)
 
-                config_file = Path(os.getenv("DATASETS_DIR"), "GCL", ".config").resolve()
+                config_file = Path(os.getenv("GCLOGGER_CONFIG")).resolve()
                 with open(config_file, "r") as file:
                     aws_access_key = file.readline()
                     aws_secret_key = file.readline()
