@@ -33,10 +33,9 @@ class CellLogger(object):
         """Runs just before any cell is run"""
 
         # TODO: Can we get cell ID? Perhaps output too?
-        timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
         run_dict = {
-            "timestamp": timestamp,
-            "code": info.raw_cell,
+            "code_executed": info.raw_cell,
         }
 
         self.__write_to_file(run_dict, f"{timestamp}.json")
@@ -46,11 +45,10 @@ class CellLogger(object):
 
         # Only do anything if error
         if result.error_before_exec or result.error_in_exec:
-            timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
             error_dict = {
-                "timestamp": timestamp,
-                "code": result.info.raw_cell,
-                "error": str(result.error_before_exec) if result.error_before_exec else str(result.error_in_exec),
+                "code_executed": result.info.raw_cell,
+                "error_trace": str(result.error_before_exec) if result.error_before_exec else str(result.error_in_exec),
             }
 
             self.__write_to_file(error_dict, f"errors/{timestamp}.json")

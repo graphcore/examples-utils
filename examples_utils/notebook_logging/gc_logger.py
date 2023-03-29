@@ -20,7 +20,7 @@ from pathlib import Path
 
 class GCLogger(object):
     _instance = None
-    _CREATION_TIME = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    _CREATION_TIME = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
 
     _LOG_STATE = None
 
@@ -86,6 +86,9 @@ class GCLogger(object):
             if cls._LOG_STATE == "DISABLED":
                 return
 
+            cls._PAYLOAD["paperspace_machine_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+            cls._PAYLOAD["user_onetime_id"] = cls._UNIQUE_HASH
+
             cls._FIREHOSE_CLIENT.put_record(
                 DeliveryStreamName=cls._FIREHOSE_STREAM_NAME, Record=cls._PAYLOAD._getvalue()
             )
@@ -103,8 +106,10 @@ class GCLogger(object):
         if new_output != old_output:
             cls._PAYLOAD[name] = new_output
             cls._OUTPUT_BUFFER[name] = copy.deepcopy(new_output)
+        # Else add an empty value of that type
         else:
-            cls._PAYLOAD[name] = ""
+            output_type = type(new_output)
+            cls._PAYLOAD[name] = output_type()
 
     @classmethod
     def __get_notebook_metadata(cls):
@@ -116,11 +121,9 @@ class GCLogger(object):
 
             notebook_metadata = {
                 "notebook_path": str(ipynbname.path()),
-                "cluster_id": os.getenv("PAPERSPACE_CLUSTER_ID"),
+                "notebook_repo_id": os.getenv("PAPERSPACE_NOTEBOOK_REPO_ID"),
                 "notebook_id": os.getenv("PAPERSPACE_NOTEBOOK_ID"),
-                "paperspace_fqdn": os.getenv("PAPERSPACE_FQDN"),
-                "paperspace_metric_workload_id": os.getenv("PAPERSPACE_METRIC_WORKLOAD_ID"),
-                "repo_id": os.getenv("PAPERSPACE_NOTEBOOK_REPO_ID"),
+                "cluster_id": os.getenv("PAPERSPACE_CLUSTER_ID"),
             }
 
             for key, val in notebook_metadata.items():
@@ -141,7 +144,11 @@ class GCLogger(object):
             # Query pip packages and versions for frameworks
             all_pkgs = {i.key: i.version for i in pkg_resources.working_set}
             for fw in frameworks:
-                cls.__update_payload(all_pkgs.get(fw), f"{fw}_version")
+                version = all_pkgs.get(fw).split(".")
+
+                cls.__update_payload(version[0], f"{fw}_version_major")
+                cls.__update_payload(version[1], f"{fw}_version_minor")
+                cls.__update_payload(version[2], f"{fw}_version_patch")
 
             time.sleep(cls._POLLING_SECONDS)
 
@@ -209,46 +216,46 @@ class GCLogger(object):
             for file in weight_files:
                 weight_file_sizes[str(file)] = file.stat().st_size
 
-            cls.__update_payload(json.dumps(weight_file_sizes), "weight_file_sizes")
+            cls.__update_payload(weight_file_sizes, "weight_file_sizes")
 
             time.sleep(cls._POLLING_SECONDS)
 
-    @classmethod
-    def __get_datasets(cls) -> str:
-        """Get dataset paths and sizes from wherever possible"""
+    # @classmethod
+    # def __get_datasets(cls) -> str:
+    #     """Get dataset paths and sizes from wherever possible"""
 
-        # Get all possible dataset dirs
-        datasets = []
-        dataset_dirs = [
-            ipynbname.path().parents[1],  # Local
-            os.getenv("HF_DATASETS_CACHE"),  # HF default
-            os.getenv("PUBLIC_DATASETS_DIR"),  # Our default
-            os.getenv("DATASETS_DIR"),  # /tmp/ location
-        ]
+    #     # Get all possible dataset dirs
+    #     datasets = []
+    #     dataset_dirs = [
+    #         ipynbname.path().parents[1],  # Local
+    #         os.getenv("HF_DATASETS_CACHE"),  # HF default
+    #         os.getenv("PUBLIC_DATASETS_DIR"),  # Our default
+    #         os.getenv("DATASETS_DIR"),  # /tmp/ location
+    #     ]
 
-        while True:
-            if cls._LOG_STATE == "disabled":
-                return
+    #     while True:
+    #         if cls._LOG_STATE == "disabled":
+    #             return
 
-            for data_path in dataset_dirs:
-                datasets.extend(list(Path(data_path).iterdir()))
+    #         for data_path in dataset_dirs:
+    #             datasets.extend(list(Path(data_path).iterdir()))
 
-            # Find sizes
-            dataset_sizes = ""
-            for folder in datasets:
-                proc = subprocess.run(
-                    ["du", "-sh", str(folder)],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    shell=True,
-                    text=True,
-                )
+    #         # Find sizes
+    #         dataset_sizes = ""
+    #         for folder in datasets:
+    #             proc = subprocess.run(
+    #                 ["du", "-sh", str(folder)],
+    #                 stdout=subprocess.PIPE,
+    #                 stderr=subprocess.STDOUT,
+    #                 shell=True,
+    #                 text=True,
+    #             )
 
-                dataset_sizes = str(proc.stdout).split("\t")[0]
+    #             dataset_sizes = str(proc.stdout).split("\t")[0]
 
-            cls.__update_payload(dataset_sizes, "dataset_sizes")
+    #         cls.__update_payload(dataset_sizes, "dataset_sizes")
 
-            time.sleep(cls._POLLING_SECONDS)
+    #         time.sleep(cls._POLLING_SECONDS)
 
     @classmethod
     def __get_notebook_progression(cls) -> str:
@@ -277,7 +284,7 @@ class GCLogger(object):
                 with open(file, "r") as f:
                     code = json.load(f)
 
-                cell_executions[code["timestamp"]] = code
+                cell_executions[file.stem] = code
 
             # Delete all cached files
             # Subprocess since paperspace env dosent like unlink/remove
@@ -315,7 +322,7 @@ class GCLogger(object):
                 with open(file, "r") as f:
                     error = json.load(f)
 
-                error_traces[error["timestamp"]] = error
+                error_traces[file.stem] = error
 
             # Delete all cached files
             # Subprocess since paperspace env dosent like unlink/remove
@@ -331,7 +338,7 @@ class GCLogger(object):
         """Get the first ever error and what time it occured"""
 
         first_error_time = {}
-        creation_time_obj = datetime.strptime(cls._CREATION_TIME, "%Y-%m-%dT%H:%M:%S.%fZ")
+        creation_time_obj = datetime.strptime(cls._CREATION_TIME, "%Y-%m-%d %H:%M:%S.%f")
 
         while True:
             if cls._LOG_STATE == "disabled":
@@ -396,7 +403,10 @@ class GCLogger(object):
                     except:
                         pass
 
-            cls.__update_payload({"compilation_times": json.dumps(compilation_times)}, "compilation_times")
+            cls.__update_payload(
+                {datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"): json.dumps(compilation_times)},
+                "compilation_time_traces",
+            )
 
             time.sleep(cls._POLLING_SECONDS)
 
@@ -414,7 +424,7 @@ class GCLogger(object):
             cls.__get_frameworks_versions,
             cls.__get_executables,
             cls.__get_weights,
-            cls.__get_datasets,
+            # cls.__get_datasets,
             cls.__get_notebook_progression,
             cls.__get_errors,
             cls.__get_first_error,
