@@ -13,9 +13,7 @@ torch_version_minor
 torch_version_patch
 compilation_time_traces
 time_to_first_error_seconds
-error_type
 error_traces
-code_run_time
 code_executed
 popef_file_dumps
 weight_file_sizes
