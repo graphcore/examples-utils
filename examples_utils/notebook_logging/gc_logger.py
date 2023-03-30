@@ -61,7 +61,6 @@ class GCLogger(object):
         "popgeometric_version_minor": 0,
         "popgeometric_version_patch": "",
         "time_to_first_error_seconds": 0,
-        "error_type": "",
         "error_trace": "",
         "code_executed": "",
     }
@@ -111,11 +110,10 @@ class GCLogger(object):
                     region_name=cls._REGION_NAME,
                 )
 
-                # # Create a firehose delivery stream
-                # cls._FIREHOSE_CLIENT.create_delivery_stream(
-                #     DeliveryStreamName=cls._FIREHOSE_STREAM_NAME,
-                #     S3DestinationConfiguration={}
-                # )
+                # Create a firehose delivery stream
+                cls._FIREHOSE_CLIENT.create_delivery_stream(
+                    DeliveryStreamName=cls._FIREHOSE_STREAM_NAME, S3DestinationConfiguration={}
+                )
 
                 # Convert data collection into repeated polling with update checking
                 background_functions = [
@@ -126,7 +124,6 @@ class GCLogger(object):
                     # cls.__get_weights,
                     # cls.__get_datasets,
                     # cls.__get_compile_times,
-                    cls.__check_logging_termination,
                 ]
 
                 # Start multiprocess procs for all functions
@@ -136,6 +133,9 @@ class GCLogger(object):
                     proc.start()
 
         return cls._instance
+
+    def __init__(self, ip):
+        return
 
     @classmethod
     def __update_payload(cls, output: str, name: str) -> str:
@@ -356,19 +356,17 @@ class GCLogger(object):
     #         time.sleep(cls._POLLING_SECONDS)
 
     @classmethod
-    def __check_logging_termination(cls):
+    def stop_logging(cls):
         """Continously check if logging should be terminated."""
 
-        while True:
-            if os.getenv("STOP_GC_LOGGER", "FALSE") == "TRUE":
-                cls._LOG_STATE = "DISABLED"
+        cls._LOG_STATE = "DISABLED"
 
-                # Kill logging processes
-                for proc in cls._PROC_LIST:
-                    proc.terminate()
-                    proc.join()
+        # Kill logging processes
+        for proc in cls._PROC_LIST:
+            proc.terminate()
+            proc.join()
 
-                print("GCLogger has stopped logging")
+        print("GCLogger has stopped logging")
 
     @classmethod
     def __firehose_put(cls, payload):
@@ -391,7 +389,6 @@ class GCLogger(object):
         event_dict["paperspace_machine_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
         event_dict["event_type"] = "cell_execution_start"
         event_dict["code_executed"] = info.raw_cell
-        event_dict["error_type"] = ""
         event_dict["error_trace"] = ""
 
         cls.__firehose_put(json.dumps(event_dict).encode("utf-8"))
@@ -404,14 +401,13 @@ class GCLogger(object):
         if result.error_before_exec or result.error_in_exec:
 
             if cls._PAYLOAD["time_to_first_error_seconds"] == 0:
-                cls._PAYLOAD["time_to_first_error_seconds"] = (datetime.now() - cls._CREATION_TIME).total_seconds()
+                cls._PAYLOAD["time_to_first_error_seconds"] = int((datetime.now() - cls._CREATION_TIME).total_seconds())
 
             # Columns unique to a cell execution start event
             event_dict = cls._PAYLOAD._getvalue()
             event_dict["paperspace_machine_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
             event_dict["event_type"] = "error_result"
             event_dict["code_executed"] = result.info.raw_cell
-            event_dict["error_type"] = print(result)
             event_dict["error_trace"] = (
                 str(result.error_before_exec) if result.error_before_exec else str(result.error_in_exec)
             )
@@ -420,6 +416,13 @@ class GCLogger(object):
 
 
 def load_ipython_extension(ip):
-    tracker = GCLogger(ip)
-    ip.events.register("pre_run_cell", tracker.pre_run_cell)
-    ip.events.register("post_run_cell", tracker.post_run_cell)
+    global _gc_logger
+    _gc_logger = GCLogger(ip)
+    ip.events.register("pre_run_cell", _gc_logger.pre_run_cell)
+    ip.events.register("post_run_cell", _gc_logger.post_run_cell)
+
+
+def unload_ipython_extension(ip):
+    global _gc_logger
+    _gc_logger.stop_logging()
+    del _gc_logger
