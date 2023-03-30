@@ -32,8 +32,7 @@ class GCLogger(object):
     _PROC_LIST = []
 
     _BUCKET_NAME = "paperspace-uploading-test-bucket"
-    _REGION_NAME = "us-east-1"
-    _FIREHOSE_STREAM_NAME = "GCLOGGER_FIREHOSE_STREAM"
+    _FIREHOSE_STREAM_NAME = "paperspacenotebook_development"
 
     _FRAMEWORKS = ["poptorch", "torch", "transformers", "tensorflow", "poptorch-geometric"]
 
@@ -107,7 +106,6 @@ class GCLogger(object):
                     "firehose",
                     aws_access_key_id=aws_access_key,
                     aws_secret_access_key=aws_secret_key,
-                    region_name=cls._REGION_NAME,
                 )
 
                 # Create a firehose delivery stream
@@ -136,6 +134,19 @@ class GCLogger(object):
 
     def __init__(self, ip):
         return
+
+    @classmethod
+    def stop_logging(cls):
+        """Continously check if logging should be terminated."""
+
+        cls._LOG_STATE = "DISABLED"
+
+        # Kill logging processes
+        for proc in cls._PROC_LIST:
+            proc.terminate()
+            proc.join()
+
+        print("GCLogger has stopped logging")
 
     @classmethod
     def __update_payload(cls, output: str, name: str) -> str:
@@ -356,19 +367,6 @@ class GCLogger(object):
     #         time.sleep(cls._POLLING_SECONDS)
 
     @classmethod
-    def stop_logging(cls):
-        """Continously check if logging should be terminated."""
-
-        cls._LOG_STATE = "DISABLED"
-
-        # Kill logging processes
-        for proc in cls._PROC_LIST:
-            proc.terminate()
-            proc.join()
-
-        print("GCLogger has stopped logging")
-
-    @classmethod
     def __firehose_put(cls, payload):
         """Submit a PUT record request to the firehose stream."""
 
@@ -391,7 +389,7 @@ class GCLogger(object):
         event_dict["code_executed"] = info.raw_cell
         event_dict["error_trace"] = ""
 
-        cls.__firehose_put(json.dumps(event_dict).encode("utf-8"))
+        cls.__firehose_put(json.dumps(event_dict, separators=(",", ":")).encode("utf-8"))
 
     @classmethod
     def post_run_cell(cls, result):
