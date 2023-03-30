@@ -23,6 +23,7 @@ class GCLogger(object):
     _CREATION_TIME = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
 
     _LOG_STATE = None
+    _TIER_TYPE = os.getenv("TIER_TYPE", "UNKNOWN")
 
     _POLLING_SECONDS = 30
 
@@ -41,7 +42,7 @@ class GCLogger(object):
         if cls._instance is None:
             cls._instance = super(GCLogger, cls).__new__(cls)
 
-            if cls._LOG_STATE is None:
+            if cls._LOG_STATE is None and cls._TIER_TYPE == "FREE":
                 # Request user and save their preferred choice
                 print(
                     "\n============================================================================================================================================\n"
@@ -71,6 +72,7 @@ class GCLogger(object):
                 # Create necessary folders for later
                 destination_path.joinpath("cell_logs", "errors").mkdir(parents=True, exist_ok=True)
 
+                # Get AWS keys for firehose
                 config_file = Path(os.getenv("GCLOGGER_CONFIG")).resolve()
                 with open(config_file, "r") as file:
                     aws_access_key = file.readline()
@@ -426,6 +428,9 @@ class GCLogger(object):
     def start_logging(cls):
         if cls._LOG_STATE == "ENABLED":
             print("GCLogger is already logging")
+            return
+
+        if cls._TIER_TYPE != "FREE":
             return
 
         cls._LOG_STATE = "ENABLED"
