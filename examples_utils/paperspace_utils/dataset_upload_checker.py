@@ -114,4 +114,45 @@ def check_files_match_metadata(dataset_folder: str, compare_hash: bool):
     compare_file_lists(data["files"], file_metadata)
 
 
-check_files_match_metadata("/home/evaw/evaw/workspace/gpj-release/gptj-6b-checkpoints", True)
+def create_metadata_file(dictionary: dict, path: Path) -> str:
+    content = json.dumps(dictionary, indent=4)
+    file_name = path / METADATA_FILENAME
+    with open(file_name, "w") as outfile:
+        outfile.write(content)
+    return file_name
+
+
+def get_metadata_file_data(name: str):
+    """Given the path to a folder, upload to a Gradient dataset of the same name
+    using the gradient CLI."""
+    dataset_folder = Path(os.getcwd()) / name
+
+    starting_dir = Path.cwd()
+    os.chdir(dataset_folder.parent)
+    os.environ["PAPERSPACE_CLI_DEBUG"] = "true"
+    dataset = Dataset.from_name(dataset_folder.name)
+    version_id = f"{dataset.id}:{dataset.version}"
+    logfile = f"log-upload-{dataset.name}-{version_id}.log"
+    failed_log = f"uploads-{dataset.name}-{version_id}-failed.txt"
+    complete_log = f"uploads-{dataset.name}-{version_id}-complete.txt"
+    fileHandler = logging.FileHandler(logfile)
+    logFormatter = logging.Formatter(
+        fmt="%(asctime)s %(levelname)-8s %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    fileHandler.setFormatter(logFormatter)
+    logging.getLogger().addHandler(fileHandler)
+
+    logging.info(f"Logging to file {Path.cwd() / logfile}, failures logged in {failed_log}")
+    logging.info(f"Uploading {dataset.name} to {version_id}")
+    file_list = sorted(list(f for f in dataset_folder.rglob("*") if f.is_file() and f.name != METADATA_FILENAME))
+    Path(complete_log).write_text("\n".join(str(f) for f in file_list))
+    gradient_file_arguments = preprocess_list_of_files(dataset_folder, dataset, logfile, failed_log, file_list)
+
+    file_metadata = get_files_metadata(gradient_file_arguments)
+    metadata = {"dataset": dataset._asdict(), "timestamp": str(datetime.datetime.now()), "files": file_metadata}
+
+    metadata_filepath = create_metadata_file(metadata, dataset_folder)
+
+
+# check_files_match_metadata("/home/evaw/evaw/workspace/gpj-release/gptj-6b-checkpoints", True)
