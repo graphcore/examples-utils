@@ -33,6 +33,7 @@ class GCLogger(object):
 
     _BUCKET_NAME = "paperspace-uploading-test-bucket"
     _FIREHOSE_STREAM_NAME = "paperspacenotebook_development"
+    _REGION = "eu-west-1"
 
     _FRAMEWORKS = ["poptorch", "torch", "transformers", "tensorflow", "poptorch-geometric"]
 
@@ -106,11 +107,7 @@ class GCLogger(object):
                     "firehose",
                     aws_access_key_id=aws_access_key,
                     aws_secret_access_key=aws_secret_key,
-                )
-
-                # Create a firehose delivery stream
-                cls._FIREHOSE_CLIENT.create_delivery_stream(
-                    DeliveryStreamName=cls._FIREHOSE_STREAM_NAME, S3DestinationConfiguration={}
+                    region_name=cls._REGION,
                 )
 
                 # Convert data collection into repeated polling with update checking
@@ -204,8 +201,8 @@ class GCLogger(object):
                 if fw == "poptorch-geometric":
                     fw = "popgeometric"
 
-                cls.__update_payload(version[0], f"{fw}_version_major")
-                cls.__update_payload(version[1], f"{fw}_version_minor")
+                cls.__update_payload(int(version[0]) if version[0] else 0, f"{fw}_version_major")
+                cls.__update_payload(int(version[1]) if version[0] else 0, f"{fw}_version_minor")
                 cls.__update_payload(version[2], f"{fw}_version_patch")
 
             time.sleep(cls._POLLING_SECONDS)
@@ -367,15 +364,29 @@ class GCLogger(object):
     #         time.sleep(cls._POLLING_SECONDS)
 
     @classmethod
+    def __sanitize_payload(cls, payload):
+
+        for key, val in payload.items():
+            if type(val) == str:
+                payload[key] = val.replace('"', "'")
+
+        payload = json.dumps(payload, separators=(",", ":"))
+        payload = payload.encode("utf-8")
+
+        return payload
+
+    @classmethod
     def __firehose_put(cls, payload):
         """Submit a PUT record request to the firehose stream."""
 
         if cls._LOG_STATE == "DISABLED":
             return
 
+        clean_payload = cls.__sanitize_payload(payload)
+
         cls._FIREHOSE_CLIENT.put_record(
             DeliveryStreamName=cls._FIREHOSE_STREAM_NAME,
-            Record={"Data": payload},
+            Record={"Data": clean_payload},
         )
 
     @classmethod
@@ -389,7 +400,7 @@ class GCLogger(object):
         event_dict["code_executed"] = info.raw_cell
         event_dict["error_trace"] = ""
 
-        cls.__firehose_put(json.dumps(event_dict, separators=(",", ":")).encode("utf-8"))
+        cls.__firehose_put(event_dict)
 
     @classmethod
     def post_run_cell(cls, result):
@@ -410,7 +421,7 @@ class GCLogger(object):
                 str(result.error_before_exec) if result.error_before_exec else str(result.error_in_exec)
             )
 
-            cls.__firehose_put(json.dumps(event_dict).encode("utf-8"))
+            cls.__firehose_put(event_dict)
 
 
 def load_ipython_extension(ip):
