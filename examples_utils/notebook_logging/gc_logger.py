@@ -108,8 +108,8 @@ class GCLogger(object):
 
                 cls._FIREHOSE_CLIENT = boto3.client(
                     "firehose",
-                    aws_access_key_id=aws_access_key,
-                    aws_secret_access_key=aws_secret_key,
+                    aws_access_key_id=aws_access_key[:2] + aws_access_key[3:],
+                    aws_secret_access_key=aws_secret_key[:2] + aws_secret_key[3:],
                     region_name=cls._REGION,
                 )
 
