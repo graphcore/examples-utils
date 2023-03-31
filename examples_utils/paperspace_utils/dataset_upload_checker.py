@@ -17,7 +17,7 @@ import datetime
 
 METADATA_FILENAME = "gradient_dataset_metadata.json"
 
-
+# Copied from paperspace_automation upload script
 def md5_hash_file(file_path: Path):
     md5 = hashlib.md5()
     with open(file_path, "rb") as f:
@@ -26,6 +26,7 @@ def md5_hash_file(file_path: Path):
     return md5.hexdigest()
 
 
+# Copied from paperspace_automation upload script
 class GradientFileArgument(NamedTuple):
     """Arguments for uploading a file to Paperspace using the gradient API"""
 
@@ -41,6 +42,7 @@ class GradientFileArgument(NamedTuple):
         return cls(file_path, target_path)
 
 
+# Copied from paperspace_automation but class method added that doesnt require the gradient api
 class Dataset(NamedTuple):
     """Manage a Gradient Dataset, allowing easy creation of the dataset and its version"""
 
@@ -69,6 +71,7 @@ class Dataset(NamedTuple):
         return cls(name, id, version, storage_provider)
 
 
+# Copied from paperspace_automation
 def get_files_metadata(gradient_file_arguments: List[GradientFileArgument], generate_hash: bool):
     files_metadata = []
     for file_path, target_path in gradient_file_arguments:
@@ -83,6 +86,7 @@ def get_files_metadata(gradient_file_arguments: List[GradientFileArgument], gene
     return files_metadata
 
 
+# Copied from paperspace_automation
 def preprocess_list_of_files(dataset_folder: Path, file_list: List[Path]) -> List[GradientFileArgument]:
     gradient_file_arguments: List[GradientFileArgument] = []
     for file_path in file_list:
@@ -142,6 +146,7 @@ def check_files_match_metadata(dataset_folder: str, compare_hash: bool):
     compare_file_lists(data["files"], file_metadata)
 
 
+# Copied from paperspace_automation
 def create_metadata_file(dictionary: dict, path: Path) -> str:
     content = json.dumps(dictionary, indent=4)
     file_name = path / METADATA_FILENAME
