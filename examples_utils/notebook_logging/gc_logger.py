@@ -82,7 +82,7 @@ class GCLogger(object):
                     "\n============================================================================================================================================\n"
                     "Graphcore would like to collect information about the applications and code being run in this notebook, as well as the system it's being run \n"
                     "on to improve usability and support for future users. The information will be anonymised and sent to Graphcore \n\n"
-                    "You can disable this at any time by running `!export STOP_GC_LOGGING=TRUE` from any cell.\n\n"
+                    "You can disable this at any time by running `%%unload_ext gc_logger` from any cell.\n\n"
                     "Unless logging is disabled, the following information will be collected:\n"
                     "\t- User progression through the notebook\n"
                     "\t- Notebook details: number of cells, code being run and the output of the cells\n"
