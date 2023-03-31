@@ -7,6 +7,7 @@ import ipynbname
 import json
 import os
 import pkg_resources
+import re
 import time
 import multiprocessing as mp
 
@@ -38,7 +39,8 @@ class GCLogger(object):
     _FRAMEWORKS = ["poptorch", "torch", "transformers", "tensorflow", "poptorch-geometric"]
 
     _COLUMN_TYPES = {
-        "paperspace_machine_time": "",
+        "execution_start_time": "",
+        "execution_end_time": "",
         "event_type": "",
         "user_onetime_id": "",
         "notebook_path": "",
@@ -62,6 +64,7 @@ class GCLogger(object):
         "popgeometric_version_patch": "",
         "time_to_first_error_seconds": 0,
         "error_trace": "",
+        "cell_output": "",
         "code_executed": "",
     }
 
@@ -383,7 +386,6 @@ class GCLogger(object):
             return
 
         clean_payload = cls.__sanitize_payload(payload)
-
         cls._FIREHOSE_CLIENT.put_record(
             DeliveryStreamName=cls._FIREHOSE_STREAM_NAME,
             Record={"Data": clean_payload},
@@ -392,36 +394,47 @@ class GCLogger(object):
     @classmethod
     def pre_run_cell(cls, info):
         """Runs just before any cell is run."""
-
-        # Columns unique to a cell execution start event
-        event_dict = cls._PAYLOAD._getvalue()
-        event_dict["paperspace_machine_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
-        event_dict["event_type"] = "cell_execution_start"
-        event_dict["code_executed"] = info.raw_cell
-        event_dict["error_trace"] = ""
-
-        cls.__firehose_put(event_dict)
+        cls._PAYLOAD["execution_start_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
 
     @classmethod
     def post_run_cell(cls, result):
         """Runs just after any cell is run."""
 
-        # Only do anything if error
-        if result.error_before_exec or result.error_in_exec:
+        event_dict = cls._PAYLOAD._getvalue()
 
+        # Common values to all events
+        event_dict["execution_end_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+        event_dict["code_executed"] = str(result.info.raw_cell)
+        event_dict["cell_output"] = str(result.result)
+
+        if result.error_before_exec or result.error_in_exec:
+            # Only get this value once
             if cls._PAYLOAD["time_to_first_error_seconds"] == 0:
                 cls._PAYLOAD["time_to_first_error_seconds"] = int((datetime.now() - cls._CREATION_TIME).total_seconds())
 
-            # Columns unique to a cell execution start event
-            event_dict = cls._PAYLOAD._getvalue()
-            event_dict["paperspace_machine_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
-            event_dict["event_type"] = "error_result"
-            event_dict["code_executed"] = result.info.raw_cell
+            event_dict["event_type"] = "error"
             event_dict["error_trace"] = (
                 str(result.error_before_exec) if result.error_before_exec else str(result.error_in_exec)
             )
+        else:
+            event_dict["event_type"] = "success"
+            event_dict["error_trace"] = ""
 
-            cls.__firehose_put(event_dict)
+        # if "Graph compilation" in event_dict["cell_output"]:
+        #     event_dict["event_type"] = "Compilation attempt"
+
+        #     # Detect compile time from output
+        #     for line in event_dict["cell_output"].splitlines():
+        #         if "Graph compilation: 100%" in line:
+        #             compilation_time_string = re.search("(?<=\[)(.*?)(?=\])", line)
+        #             compilation_time_minutes = compilation_time_string.split("<")[0]
+        #             compilation_time_seconds = int(compilation_time_minutes[:2])*60 + int(compilation_time_minutes[3:])
+
+        #             event_dict["compilation_time_seconds"] = compilation_time_seconds
+        # else:
+        #     event_dict["compilation_time_seconds"] = 0
+
+        cls.__firehose_put(event_dict)
 
 
 def load_ipython_extension(ip):
