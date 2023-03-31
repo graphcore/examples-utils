@@ -39,6 +39,7 @@ class GCLogger(object):
     _FRAMEWORKS = ["poptorch", "torch", "transformers", "tensorflow", "poptorch-geometric"]
 
     _COLUMN_TYPES = {
+        "event_time": "",
         "execution_start_time": "",
         "execution_end_time": "",
         "event_type": "",
@@ -385,7 +386,10 @@ class GCLogger(object):
         if cls._LOG_STATE == "DISABLED":
             return
 
+        payload["event_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+
         clean_payload = cls.__sanitize_payload(payload)
+
         cls._FIREHOSE_CLIENT.put_record(
             DeliveryStreamName=cls._FIREHOSE_STREAM_NAME,
             Record={"Data": clean_payload},
