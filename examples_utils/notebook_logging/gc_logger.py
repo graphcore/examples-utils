@@ -101,7 +101,7 @@ class GCLogger(object):
                 cls._PAYLOAD["user_onetime_id"] = cls._UNIQUE_HASH
 
                 # Get AWS keys for firehose
-                config_file = Path(os.getenv("GCLOGGER_CONFIG")).resolve()
+                config_file = Path(os.getenv("GCLOGGER_CONFIG"), ".config").resolve()
                 with open(config_file, "r") as file:
                     aws_access_key = file.readline()
                     aws_secret_key = file.readline()
