@@ -12,6 +12,7 @@ import os
 import hashlib
 import json
 import logging
+import datetime
 
 
 METADATA_FILENAME = "gradient_dataset_metadata.json"
@@ -38,6 +39,34 @@ class GradientFileArgument(NamedTuple):
         target_path = file_path.resolve().parent.relative_to(dataset_path.resolve()).as_posix()
         target_path = "/" + str(target_path).lstrip(".")
         return cls(file_path, target_path)
+
+
+class Dataset(NamedTuple):
+    """Manage a Gradient Dataset, allowing easy creation of the dataset and its version"""
+
+    name: str
+    id: str
+    version: str
+    storage_provider_id: str
+
+    @classmethod
+    def from_name(cls, name: str, storage_provider: str):
+        """Gets or creates a dataset with the given name and creates a version"""
+        api_key = check_authentication()
+        dataset_client = gradient.DatasetsClient(api_key)
+        try:
+            d_id = dataset_client.create(name, storage_provider_id=storage_provider)
+        except gradient.ResourceFetchingError as error:
+            d_id = str(error).split()[-1]
+            # Check that this is actually a dataset ID.
+            dataset_client.get(d_id)
+        version_client = gradient.DatasetVersionsClient(api_key)
+        new_version = version_client.create(d_id)
+        return cls(name, str(d_id), str(new_version))
+
+    @classmethod
+    def from_name_id_version(cls, name: str, id: str, version: str, storage_provider: str):
+        return cls(name, id, version, storage_provider)
 
 
 def get_files_metadata(gradient_file_arguments: List[GradientFileArgument], generate_hash: bool):
@@ -110,7 +139,6 @@ def check_files_match_metadata(dataset_folder: str, compare_hash: bool):
     file_metadata = get_files_metadata(gradient_file_arguments, compare_hash)
 
     data = json.loads((dataset_folder / METADATA_FILENAME).read_text())
-
     compare_file_lists(data["files"], file_metadata)
 
 
@@ -126,33 +154,12 @@ def get_metadata_file_data(name: str):
     """Given the path to a folder, upload to a Gradient dataset of the same name
     using the gradient CLI."""
     dataset_folder = Path(os.getcwd()) / name
+    dataset = Dataset.from_name_id_version(dataset_folder.name, "test_version", "test_id", "local_storage")
 
-    starting_dir = Path.cwd()
-    os.chdir(dataset_folder.parent)
-    os.environ["PAPERSPACE_CLI_DEBUG"] = "true"
-    dataset = Dataset.from_name(dataset_folder.name)
-    version_id = f"{dataset.id}:{dataset.version}"
-    logfile = f"log-upload-{dataset.name}-{version_id}.log"
-    failed_log = f"uploads-{dataset.name}-{version_id}-failed.txt"
-    complete_log = f"uploads-{dataset.name}-{version_id}-complete.txt"
-    fileHandler = logging.FileHandler(logfile)
-    logFormatter = logging.Formatter(
-        fmt="%(asctime)s %(levelname)-8s %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-    fileHandler.setFormatter(logFormatter)
-    logging.getLogger().addHandler(fileHandler)
-
-    logging.info(f"Logging to file {Path.cwd() / logfile}, failures logged in {failed_log}")
-    logging.info(f"Uploading {dataset.name} to {version_id}")
     file_list = sorted(list(f for f in dataset_folder.rglob("*") if f.is_file() and f.name != METADATA_FILENAME))
-    Path(complete_log).write_text("\n".join(str(f) for f in file_list))
-    gradient_file_arguments = preprocess_list_of_files(dataset_folder, dataset, logfile, failed_log, file_list)
+    gradient_file_arguments = preprocess_list_of_files(dataset_folder, file_list)
 
-    file_metadata = get_files_metadata(gradient_file_arguments)
+    file_metadata = get_files_metadata(gradient_file_arguments, True)
     metadata = {"dataset": dataset._asdict(), "timestamp": str(datetime.datetime.now()), "files": file_metadata}
 
     metadata_filepath = create_metadata_file(metadata, dataset_folder)
-
-
-# check_files_match_metadata("/home/evaw/evaw/workspace/gpj-release/gptj-6b-checkpoints", True)
