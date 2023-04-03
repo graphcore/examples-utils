@@ -175,15 +175,16 @@ class GCLogger(object):
 
             # Encode and hash
             letters = string.ascii_lowercase
-            notebook_id = os.getenv("PAPERSPACE_NOTEBOOK_REPO_ID") + "".join(random.choice(letters) for _ in range(4))
-            notebook_id = base64.urlsafe_b64encode(hashlib.md5(notebook_id.encode("utf-8")).digest()).decode("ascii")[
-                :16
-            ]
+            notebook_id = os.getenv("PAPERSPACE_NOTEBOOK_ID")
+            salted_id = notebook_id + "".join(random.choice(letters) for _ in range(4))
+            anonymised_notebook_id = base64.urlsafe_b64encode(hashlib.md5(salted_id.encode("utf-8")).digest()).decode(
+                "ascii"
+            )[:16]
 
             notebook_metadata = {
                 "notebook_path": notebook_path,
-                "notebook_repo_id": notebook_id,
-                "notebook_id": os.getenv("PAPERSPACE_NOTEBOOK_ID"),
+                "notebook_repo_id": os.getenv("PAPERSPACE_NOTEBOOK_REPO_ID"),
+                "notebook_id": anonymised_notebook_id,
                 "cluster_id": os.getenv("PAPERSPACE_CLUSTER_ID"),
             }
 
