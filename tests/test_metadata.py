@@ -1,7 +1,7 @@
 # Copyright (c) 2023 Graphcore Ltd. All rights reserved.
 
 import os
-from dataset_upload_checker import create_metadata_file, get_metadata_file_data, check_files_match_metadata
+from examples_utils.paperspace_utils import create_metadata_file, get_metadata_file_data, check_files_match_metadata
 import pytest
 import shutil
 import json
