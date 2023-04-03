@@ -7,8 +7,6 @@ import ipynbname
 import json
 import os
 import pkg_resources
-import random
-import string
 import time
 import multiprocessing as mp
 
@@ -174,9 +172,8 @@ class GCLogger(object):
                 notebook_path = ""
 
             # Encode and hash
-            letters = string.ascii_lowercase
             notebook_id = os.getenv("PAPERSPACE_NOTEBOOK_ID")
-            salted_id = notebook_id + "".join(random.choice(letters) for _ in range(4))
+            salted_id = notebook_id + datetime.now().strftime("%Y-%m-%d")
             anonymised_notebook_id = base64.urlsafe_b64encode(hashlib.md5(salted_id.encode("utf-8")).digest()).decode(
                 "ascii"
             )[:16]
