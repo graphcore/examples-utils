@@ -130,23 +130,13 @@ class GCLogger(object):
                     proc.daemon = True
                     proc.start()
 
+            else:
+                cls._LOG_STATE = "DISABLED"
+
         return cls._instance
 
     def __init__(self, ip):
         return
-
-    @classmethod
-    def stop_logging(cls):
-        """Continously check if logging should be terminated."""
-
-        cls._LOG_STATE = "DISABLED"
-
-        # Kill logging processes
-        for proc in cls._PROC_LIST:
-            proc.terminate()
-            proc.join()
-
-        print("GCLogger has stopped logging")
 
     @classmethod
     def __update_payload(cls, output: str, name: str) -> str:
@@ -404,11 +394,18 @@ class GCLogger(object):
     @classmethod
     def pre_run_cell(cls, info):
         """Runs just before any cell is run."""
+
+        if cls._LOG_STATE == "DISABLED":
+            return
+
         cls._PAYLOAD["execution_start_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
 
     @classmethod
     def post_run_cell(cls, result):
         """Runs just after any cell is run."""
+
+        if cls._LOG_STATE == "DISABLED":
+            return
 
         event_dict = cls._PAYLOAD._getvalue()
 
