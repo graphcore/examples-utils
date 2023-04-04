@@ -20,7 +20,7 @@ class GCLogger(object):
     _instance = None
     _CREATION_TIME = datetime.now()
 
-    _LOG_STATE = None
+    LOG_STATE = None
     _TIER_TYPE = os.getenv("TIER_TYPE", "UNKNOWN")
 
     _POLLING_SECONDS = 10
@@ -73,8 +73,8 @@ class GCLogger(object):
             cls._SHELL = ip
             cls._instance = super(GCLogger, cls).__new__(cls)
 
-            if cls._LOG_STATE is None and cls._TIER_TYPE == "FREE":
-                cls._LOG_STATE = "ENABLED"
+            if cls.LOG_STATE is None and cls._TIER_TYPE == "FREE":
+                cls.LOG_STATE = "ENABLED"
 
                 # Request user and save their preferred choice
                 print(
@@ -100,18 +100,22 @@ class GCLogger(object):
                 ).decode("ascii")[:12]
                 cls._PAYLOAD["user_onetime_id"] = cls._UNIQUE_HASH
 
-                # Get AWS keys for firehose
-                config_file = Path(os.getenv("GCLOGGER_CONFIG"), ".config").resolve()
-                with open(config_file, "r") as file:
-                    aws_access_key = base64.b64decode(file.readline().encode("ascii")).decode("ascii").strip()
-                    aws_secret_key = base64.b64decode(file.readline().encode("ascii")).decode("ascii").strip()
+                try:
+                    # Get AWS keys for firehose
+                    config_file = Path(os.getenv("GCLOGGER_CONFIG"), ".config").resolve()
+                    with open(config_file, "r") as file:
+                        aws_access_key = base64.b64decode(file.readline().encode("ascii")).decode("ascii").strip()
+                        aws_secret_key = base64.b64decode(file.readline().encode("ascii")).decode("ascii").strip()
 
-                cls._FIREHOSE_CLIENT = boto3.client(
-                    "firehose",
-                    aws_access_key_id=aws_access_key[:2] + aws_access_key[3:],
-                    aws_secret_access_key=aws_secret_key[:2] + aws_secret_key[3:],
-                    region_name=cls._REGION,
-                )
+                    cls._FIREHOSE_CLIENT = boto3.client(
+                        "firehose",
+                        aws_access_key_id=aws_access_key[:2] + aws_access_key[3:],
+                        aws_secret_access_key=aws_secret_key[:2] + aws_secret_key[3:],
+                        region_name=cls._REGION,
+                    )
+                except:
+                    cls.LOG_STATE = "DISBALED"
+                    return cls._instance
 
                 # Convert data collection into repeated polling with update checking
                 background_functions = [
@@ -131,7 +135,7 @@ class GCLogger(object):
                     proc.start()
 
             else:
-                cls._LOG_STATE = "DISABLED"
+                cls.LOG_STATE = "DISABLED"
 
         return cls._instance
 
@@ -141,6 +145,9 @@ class GCLogger(object):
     @classmethod
     def __update_payload(cls, output: str, name: str) -> str:
         """Update the payload with empty types as backups."""
+
+        if cls.LOG_STATE == "DISABLED":
+            return
 
         if output:
             cls._PAYLOAD[name] = output
@@ -153,7 +160,7 @@ class GCLogger(object):
         """Get notebook metadata."""
 
         while True:
-            if cls._LOG_STATE == "DISABLED":
+            if cls.LOG_STATE == "DISABLED":
                 return
 
             try:
@@ -185,7 +192,7 @@ class GCLogger(object):
         """Get framework versions."""
 
         while True:
-            if cls._LOG_STATE == "DISABLED":
+            if cls.LOG_STATE == "DISABLED":
                 return
 
             try:
@@ -221,7 +228,7 @@ class GCLogger(object):
     #     popef_file_dumps = {}
 
     #     while True:
-    #         if cls._LOG_STATE == "DISABLED":
+    #         if cls.LOG_STATE == "DISABLED":
     #             return
 
     #         for dir_path in cache_dirs:
@@ -259,7 +266,7 @@ class GCLogger(object):
     #     ]
 
     #     while True:
-    #         if cls._LOG_STATE == "DISABLED":
+    #         if cls.LOG_STATE == "DISABLED":
     #             return
 
     #         for dir_path in cache_dirs:
@@ -289,7 +296,7 @@ class GCLogger(object):
     #     ]
 
     #     while True:
-    #         if cls._LOG_STATE == "DISABLED":
+    #         if cls.LOG_STATE == "DISABLED":
     #             return
 
     #         for data_path in dataset_dirs:
@@ -326,7 +333,7 @@ class GCLogger(object):
     #     """
 
     #     while True:
-    #         if cls._LOG_STATE == "DISABLED":
+    #         if cls.LOG_STATE == "DISABLED":
     #             return
 
     #         with open(ipynbname.path()) as notebook:
@@ -379,7 +386,7 @@ class GCLogger(object):
     def __firehose_put(cls, payload):
         """Submit a PUT record request to the firehose stream."""
 
-        if cls._LOG_STATE == "DISABLED":
+        if cls.LOG_STATE == "DISABLED":
             return
 
         payload["event_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
@@ -395,7 +402,7 @@ class GCLogger(object):
     def pre_run_cell(cls, info):
         """Runs just before any cell is run."""
 
-        if cls._LOG_STATE == "DISABLED":
+        if cls.LOG_STATE == "DISABLED":
             return
 
         cls._PAYLOAD["execution_start_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
@@ -404,7 +411,7 @@ class GCLogger(object):
     def post_run_cell(cls, result):
         """Runs just after any cell is run."""
 
-        if cls._LOG_STATE == "DISABLED":
+        if cls.LOG_STATE == "DISABLED":
             return
 
         event_dict = cls._PAYLOAD._getvalue()
@@ -453,5 +460,5 @@ def load_ipython_extension(ip):
 
 def unload_ipython_extension(ip):
     global _gc_logger
-    _gc_logger.stop_logging()
+    _gc_logger.LOG_STATE = "DISABLED"
     del _gc_logger
