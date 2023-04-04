@@ -52,7 +52,7 @@ def change_metadata_to_false_data():
 def test_metadata_checker(generate_data, generate_gradient_metadata_file, caplog):
     with caplog.at_level(logging.INFO):
         check_files_match_metadata("test_metadata", True)
-    assert caplog.text == ""
+    assert "All files in metadata found for test_metadata" in caplog.text
 
     with caplog.at_level(logging.INFO):
         change_metadata_to_false_data()

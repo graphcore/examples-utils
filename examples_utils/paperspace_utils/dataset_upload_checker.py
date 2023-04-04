@@ -115,9 +115,11 @@ def compare_file_lists(loaded_metadata_files: list, generated_locally_metadata_f
         filedict for filedict in generated_locally_metadata_files if filedict["path"] not in extra_files
     ]
     keys = generated_locally_metadata_files[0].keys()
+    all_files_found = True
     for i in range(len(found_files_metadata)):
         for key in keys:
             if found_files_locally[i][key] != found_files_metadata[i][key]:
+                all_files_found = False
                 logging.warning(
                     "Difference in file found and file expected\n"
                     + "Path: "
@@ -133,6 +135,7 @@ def compare_file_lists(loaded_metadata_files: list, generated_locally_metadata_f
                     + str(found_files_locally[i][key])
                     + "\n"
                 )
+    return all_files_found
 
 
 def check_files_match_metadata(dataset_folder: str, compare_hash: bool):
@@ -142,8 +145,12 @@ def check_files_match_metadata(dataset_folder: str, compare_hash: bool):
 
     file_metadata = get_files_metadata(gradient_file_arguments, compare_hash)
 
-    data = json.loads((dataset_folder / METADATA_FILENAME).read_text())
-    compare_file_lists(data["files"], file_metadata)
+    if os.path.isfile(dataset_folder / METADATA_FILENAME):
+        data = json.loads((dataset_folder / METADATA_FILENAME).read_text())
+        if compare_file_lists(data["files"], file_metadata):
+            logging.info("All files in metadata found for " + str(dataset_folder))
+    else:
+        logging.warning("No metadata file found, no check performed")
 
 
 # Copied from paperspace_automation
