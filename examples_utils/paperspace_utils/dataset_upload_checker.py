@@ -141,6 +141,7 @@ def compare_file_lists(loaded_metadata_files: list, generated_locally_metadata_f
 def check_files_match_metadata(dataset_folder: str, compare_hash: bool):
     dataset_folder = Path(dataset_folder)
     file_list = sorted(list(f for f in dataset_folder.rglob("*") if f.is_file() and f.name != METADATA_FILENAME))
+    print(file_list)
     gradient_file_arguments = preprocess_list_of_files(dataset_folder, file_list)
 
     file_metadata = get_files_metadata(gradient_file_arguments, compare_hash)
@@ -157,15 +158,15 @@ def check_files_match_metadata(dataset_folder: str, compare_hash: bool):
 def create_metadata_file(dictionary: dict, path: Path) -> str:
     content = json.dumps(dictionary, indent=4)
     file_name = path / METADATA_FILENAME
+    print(file_name)
+    Path(file_name).write_text(content)
     with open(file_name, "w") as outfile:
         outfile.write(content)
     return file_name
 
 
-def get_metadata_file_data(name: str):
-    """Given the path to a folder, upload to a Gradient dataset of the same name
-    using the gradient CLI."""
-    dataset_folder = Path(os.getcwd()) / name
+def get_metadata_file_data(name: str, path: str):
+    dataset_folder = Path(path) / name
     dataset = Dataset.from_name_id_version(dataset_folder.name, "test_version", "test_id", "local_storage")
 
     file_list = sorted(list(f for f in dataset_folder.rglob("*") if f.is_file() and f.name != METADATA_FILENAME))
