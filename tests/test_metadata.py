@@ -9,10 +9,6 @@ from pathlib import Path
 import logging
 
 
-def delete_test_data():
-    shutil.rmtree("test_metadata")
-
-
 @pytest.fixture
 def generate_data(tmp_path):
     # Create example dataset
@@ -23,10 +19,9 @@ def generate_data(tmp_path):
 
 
 def test_accurate_metadata(generate_data, caplog):
-    print(generate_data)
     with caplog.at_level(logging.INFO):
         check_files_match_metadata(generate_data, True)
-    assert "All files in metadata found for" in caplog.text
+    assert "1/1 files found from metadata" in caplog.text
 
 
 def test_extra_file_in_metadata(generate_data, caplog):
