@@ -66,13 +66,15 @@ def expand_env_variables_error_thrown(path: str):
 
 
 def main():
-    notebook_id = os.environ.get("PAPERSPACE_METRIC_WORKLOAD_ID", str(datetime.now()))
+    notebook_id = os.environ.get("PAPERSPACE_METRIC_WORKLOAD_ID", "")
     # Check that graphcore_health_checks folder exists
     if not os.path.isdir("./storage/graphcore_health_checks"):
         os.makedirs("./storage/graphcore_health_checks")
 
     logging.basicConfig(
-        filename="./storage/graphcore_health_checks/" + notebook_id + ".json", format="%(message)s", filemode="w"
+        filename="./storage/graphcore_health_checks/" + str(datetime.now()) + "_" + notebook_id + ".json",
+        format="%(message)s",
+        filemode="w",
     )
 
     logger = logging.getLogger()
