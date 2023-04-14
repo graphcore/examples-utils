@@ -68,11 +68,11 @@ def expand_env_variables_error_thrown(path: str):
 def main():
     notebook_id = os.environ.get("PAPERSPACE_METRIC_WORKLOAD_ID", "")
     # Check that graphcore_health_checks folder exists
-    if not os.path.isdir("./storage/graphcore_health_checks"):
-        os.makedirs("./storage/graphcore_health_checks")
+    if not os.path.isdir("/storage/graphcore_health_checks"):
+        os.makedirs("/storage/graphcore_health_checks")
 
     logging.basicConfig(
-        filename="./storage/graphcore_health_checks/" + str(datetime.now()) + "_" + notebook_id + ".json",
+        filename="/storage/graphcore_health_checks/" + str(datetime.now()) + "_" + notebook_id + ".json",
         format="%(message)s",
         filemode="w",
     )
@@ -90,7 +90,7 @@ def main():
         datasets = my_dict["integrations"].keys()
 
     # Check that dataset exists and if a metadata file is found check that all files in the metadata file exist
-    check_files_exist(datasets, "./datasets")
+    check_files_exist(datasets, "/datasets")
 
     # Check that the folders specified in the key of the symlink_config.json exist
     logging.info("Checking symlink folders exist")
