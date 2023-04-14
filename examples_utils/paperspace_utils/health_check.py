@@ -1,8 +1,5 @@
 # Copyright (c) 2023 Graphcore Ltd. All rights reserved.
 from datetime import datetime
-from genericpath import isdir
-from posixpath import expandvars
-import subprocess
 import json
 import os
 import yaml
