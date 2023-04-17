@@ -1,12 +1,13 @@
 # Copyright (c) 2023 Graphcore Ltd. All rights reserved.
 """
-Checks if files in local folder match what is expected from the gradient_dataset_metadata.json
+Checks if files in dataset folder match those listed in the gradient_dataset_metadata.json
 
 To use import the check_files_match_metadata function:
 check_files_match_metadata(dataset_folder: str, compare_hash: bool)
 """
 
-from typing import NamedTuple, Optional, List
+from importlib.metadata import metadata
+from typing import NamedTuple, List
 from pathlib import Path
 import os
 import hashlib
@@ -98,6 +99,7 @@ def preprocess_list_of_files(dataset_folder: Path, file_list: List[Path]) -> Lis
 
 
 def compare_file_lists(loaded_metadata_files: list, generated_locally_metadata_files: list):
+    output_dict = {}
     # Find extra or missing files and print an error, if so remove them from relevant lists
     expected_filepaths = list(map(lambda file_dict: file_dict["path"], loaded_metadata_files))
     local_filepaths = list(map(lambda file_dict: file_dict["path"], generated_locally_metadata_files))
@@ -107,24 +109,26 @@ def compare_file_lists(loaded_metadata_files: list, generated_locally_metadata_f
     # Files expected but not found
     missing_files = [filepath for filepath in expected_filepaths if filepath not in local_filepaths]
 
-    # For all files left check that the keys are the same
     found_files_metadata = [filedict for filedict in loaded_metadata_files if filedict["path"] not in missing_files]
     found_files_locally = [
         filedict for filedict in generated_locally_metadata_files if filedict["path"] not in extra_files
     ]
     logging.info(str(len(found_files_locally)) + "/" + str(len(expected_filepaths)) + " files found from metadata")
+    output_dict["Files found"] = (
+        str(len(found_files_locally)) + "/" + str(len(expected_filepaths)) + " files found from metadata"
+    )
     if missing_files:
         logging.error("Missing files, files in metadata.json but not found in local storage: " + str(missing_files))
-
+    output_dict["Missing Files"] = missing_files
     if extra_files:
         logging.warning("Extra files found in local storage: " + str(extra_files))
-
+    output_dict["Extra files"] = extra_files
+    logging.info("Output dict" + str(output_dict))
     keys = generated_locally_metadata_files[0].keys()
-    all_files_found = True
     for i in range(len(found_files_metadata)):
         for key in keys:
+            file_differences = []
             if found_files_locally[i][key] != found_files_metadata[i][key]:
-                all_files_found = False
                 logging.warning(
                     "Difference in file found and file expected\n"
                     + "Path: "
@@ -140,7 +144,16 @@ def compare_file_lists(loaded_metadata_files: list, generated_locally_metadata_f
                     + str(found_files_locally[i][key])
                     + "\n"
                 )
-    return all_files_found
+                file_differences.append(
+                    {
+                        "path": found_files_metadata[i]["path"],
+                        "key": key,
+                        "gradient_metadata.json value": str(found_files_metadata[i][key]),
+                        "local value": str(found_files_locally[i][key]),
+                    }
+                )
+        output_dict["file_differences"] = file_differences
+    return output_dict
 
 
 def check_files_match_metadata(dataset_folder: str, compare_hash: bool):
@@ -151,7 +164,11 @@ def check_files_match_metadata(dataset_folder: str, compare_hash: bool):
         dataset_folder (str): full or relative path to dataset folder
         compare_hash (bool): whether or not to compare the md5_hash of the files
 
+    Returns:
+
+
     """
+    result = {}
     dataset_folder = Path(dataset_folder)
     file_list = sorted(list(f for f in dataset_folder.rglob("*") if f.is_file() and f.name != METADATA_FILENAME))
     gradient_file_arguments = preprocess_list_of_files(dataset_folder, file_list)
@@ -159,9 +176,11 @@ def check_files_match_metadata(dataset_folder: str, compare_hash: bool):
 
     if os.path.isfile(dataset_folder / METADATA_FILENAME):
         data = json.loads((dataset_folder / METADATA_FILENAME).read_text())
-        compare_file_lists(data["files"], file_metadata)
+        result = compare_file_lists(data["files"], file_metadata)
     else:
         logging.warning("No metadata file found, no check performed")
+        result = {}
+    return result
 
 
 # Copied from paperspace_automation
