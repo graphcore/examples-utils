@@ -144,6 +144,14 @@ def compare_file_lists(loaded_metadata_files: list, generated_locally_metadata_f
 
 
 def check_files_match_metadata(dataset_folder: str, compare_hash: bool):
+    """
+    Checks whether files in dataset_folder match the files listed in dataset_folder/METADATA_FILENAME
+
+    Parameters:
+        dataset_folder (str): full or relative path to dataset folder
+        compare_hash (bool): whether or not to compare the md5_hash of the files
+
+    """
     dataset_folder = Path(dataset_folder)
     file_list = sorted(list(f for f in dataset_folder.rglob("*") if f.is_file() and f.name != METADATA_FILENAME))
     gradient_file_arguments = preprocess_list_of_files(dataset_folder, file_list)
