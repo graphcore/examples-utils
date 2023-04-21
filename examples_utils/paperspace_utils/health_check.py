@@ -34,7 +34,6 @@ def check_files_exist(files: [str], dirname: str):
             else:
                 logging.warning("Metadata file not found in " + full_path)
                 output_dict[filename] = {"warning": "Metadata file not found in " + full_path}
-    print(output_dict)
     return output_dict
 
 
@@ -48,30 +47,6 @@ def check_paths_exists(paths: [str]):
             logging.warning("Folder does not exist " + path)
             symlinks_exist.append({path: False})
     return symlinks_exist
-
-
-# Check that the number of detected IPUs is correct
-# Ideally this should get the number of IPUs from the host names
-def check_num_pod_expected(logger: logging.Logger):
-    pod_type = os.getenv("GRAPHCORE_POD_TYPE")
-    expected_ipu_num = pod_type.replace("pod", "")
-
-    num_ipus = os.getenv("NUM_AVAILABLE_IPU", "0")
-
-    if expected_ipu_num != num_ipus:
-        logger.warning("Incorrect number of IPUs found " + num_ipus + " expected " + expected_ipu_num)
-    else:
-        logger.info("Correct number IPUs found")
-
-
-def expand_env_variables(path: str):
-    path = os.path.expandvars(path)
-    return path
-
-
-def expand_env_variables_error_thrown(path: str):
-    path = Template(path).substitute(os.environ)
-    return path
 
 
 def main():
@@ -98,7 +73,7 @@ def main():
     logging.info("Checking symlink folders exist")
     with open("symlink_config.json") as f:
         symlinks = json.load(f)
-        new_folders = list(map(expand_env_variables, symlinks.keys()))
+        new_folders = list(map(os.path.expandvars, symlinks.keys()))
     symlinks_exist = check_paths_exists(new_folders)
 
     output_json_dict = {"mounted_datasets": datasets_mounted, "symlinks_exist": symlinks_exist}
