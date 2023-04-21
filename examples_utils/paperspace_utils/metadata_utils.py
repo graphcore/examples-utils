@@ -187,7 +187,6 @@ def check_files_match_metadata(dataset_folder: str, compare_hash: bool):
 def create_metadata_file(dictionary: dict, path: Path) -> str:
     content = json.dumps(dictionary, indent=4)
     file_name = path / METADATA_FILENAME
-    print(file_name)
     Path(file_name).write_text(content)
     with open(file_name, "w") as outfile:
         outfile.write(content)
