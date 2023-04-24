@@ -31,7 +31,7 @@ class GCLogger(object):
 
     _PROC_LIST = []
 
-    _FIREHOSE_STREAM_NAME = "paperspacenotebook_production"
+    _FIREHOSE_STREAM_NAME = os.getenv("FIREHOSE_STREAM_NAME", "paperspacenotebook_production")
     _REGION = "eu-west-1"
 
     _FRAMEWORKS = ["poptorch", "torch", "transformers", "tensorflow", "poptorch-geometric"]
