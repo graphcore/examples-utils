@@ -31,8 +31,7 @@ class GCLogger(object):
 
     _PROC_LIST = []
 
-    _BUCKET_NAME = "paperspace-uploading-test-bucket"
-    _FIREHOSE_STREAM_NAME = "paperspacenotebook_development"
+    _FIREHOSE_STREAM_NAME = "paperspacenotebook_production"
     _REGION = "eu-west-1"
 
     _FRAMEWORKS = ["poptorch", "torch", "transformers", "tensorflow", "poptorch-geometric"]
