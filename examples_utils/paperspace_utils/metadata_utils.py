@@ -67,10 +67,6 @@ class Dataset(NamedTuple):
         new_version = version_client.create(d_id)
         return cls(name, str(d_id), str(new_version))
 
-    @classmethod
-    def from_name_id_version(cls, name: str, id: str, version: str, storage_provider: str):
-        return cls(name, id, version, storage_provider)
-
 
 # Copied from paperspace_automation
 def get_files_metadata(gradient_file_arguments: List[GradientFileArgument], generate_hash: bool):
@@ -195,7 +191,7 @@ def create_metadata_file(dictionary: dict, path: Path) -> str:
 
 def get_metadata_file_data(name: str, path: str):
     dataset_folder = Path(path) / name
-    dataset = Dataset.from_name_id_version(dataset_folder.name, "test_version", "test_id", "local_storage")
+    dataset = Dataset(dataset_folder.name, "test_version", "test_id", "local_storage")
 
     file_list = sorted(list(f for f in dataset_folder.rglob("*") if f.is_file() and f.name != METADATA_FILENAME))
     gradient_file_arguments = preprocess_list_of_files(dataset_folder, file_list)
