@@ -4,9 +4,9 @@ import json
 import os
 import yaml
 import logging
+import pathlib
 from metadata_utils import check_files_match_metadata
 from pathlib import Path
-from string import Template
 from time import time
 
 """
@@ -42,6 +42,11 @@ def check_datasets_exist(dataset_names: [str], dirname: str):
     return output_dict
 
 
+"""
+Logs whether path exists and returns dict of logging information
+"""
+
+
 def check_paths_exists(paths: [str]):
     symlinks_exist = []
     for path in paths:
@@ -57,8 +62,8 @@ def check_paths_exists(paths: [str]):
 def main():
     notebook_id = os.environ.get("PAPERSPACE_METRIC_WORKLOAD_ID", "")
     # Check that graphcore_health_checks folder exists
-    if not os.path.isdir("/storage/graphcore_health_checks"):
-        os.makedirs("/storage/graphcore_health_checks")
+    health_check_dir = pathlib.Path("/storage/graphcore_health_checks")
+    health_check_dir.mkdir(exist_ok=True)
 
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
@@ -67,7 +72,7 @@ def main():
     logging.info("Checking datasets mounted")
     # Check that the datasets have mounted as expected
     # Gather the datasets expected from the settings.yaml
-    with open("settings.yaml") as f:
+    with open("/.gradient/settings.yaml") as f:
         my_dict = yaml.safe_load(f)
         datasets = my_dict["integrations"].keys()
 
@@ -82,12 +87,9 @@ def main():
     symlinks_exist = check_paths_exists(new_folders)
 
     output_json_dict = {"mounted_datasets": datasets_mounted, "symlinks_exist": symlinks_exist}
-    Path(
-        "/storage/graphcore_health_checks/"
-        + datetime.fromtimestamp(time()).strftime("%Y-%m-%d-%H.%M.%S")
-        + "_"
-        + notebook_id
-        + ".json"
+
+    (
+        health_check_dir / (datetime.fromtimestamp(time()).strftime("%Y-%m-%d-%H.%M.%S") + "_" + notebook_id + ".json")
     ).write_text(json.dumps(output_json_dict, indent=4))
 
 
