@@ -9,14 +9,13 @@ from metadata_utils import check_files_match_metadata
 from pathlib import Path
 from time import time
 
-"""
-Checks status of a list of datasets in a directory
-Looks for a metadata.json file in each dataset and checks files match what is expected from the metadata file
-Returns dictionary of logging information on the status of the datasets
-"""
-
 
 def check_datasets_exist(dataset_names: [str], dirname: str):
+    """
+    Checks status of a list of datasets in a directory
+    Looks for a metadata.json file in each dataset and checks files match what is expected from the metadata file
+    Returns dictionary of logging information on the status of the datasets
+    """
     dirpath = Path(dirname)
     output_dict = {}
     if not dirpath.exists():
@@ -42,12 +41,8 @@ def check_datasets_exist(dataset_names: [str], dirname: str):
     return output_dict
 
 
-"""
-Logs whether path exists and returns dict of logging information
-"""
-
-
 def check_paths_exists(paths: [str]):
+    """Logs whether paths exists and returns dict of logging information"""
     symlinks_exist = []
     for path in paths:
         if Path(path).exists():

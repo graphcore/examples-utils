@@ -52,21 +52,6 @@ class Dataset(NamedTuple):
     version: str
     storage_provider_id: str
 
-    @classmethod
-    def from_name(cls, name: str, storage_provider: str):
-        """Gets or creates a dataset with the given name and creates a version"""
-        api_key = check_authentication()
-        dataset_client = gradient.DatasetsClient(api_key)
-        try:
-            d_id = dataset_client.create(name, storage_provider_id=storage_provider)
-        except gradient.ResourceFetchingError as error:
-            d_id = str(error).split()[-1]
-            # Check that this is actually a dataset ID.
-            dataset_client.get(d_id)
-        version_client = gradient.DatasetVersionsClient(api_key)
-        new_version = version_client.create(d_id)
-        return cls(name, str(d_id), str(new_version))
-
 
 # Copied from paperspace_automation
 def get_files_metadata(gradient_file_arguments: List[GradientFileArgument], generate_hash: bool):
