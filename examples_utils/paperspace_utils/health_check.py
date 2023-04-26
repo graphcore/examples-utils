@@ -9,31 +9,36 @@ from pathlib import Path
 from string import Template
 from time import time
 
+"""
+Checks status of a list of datasets in a directory
+Looks for a metadata.json file in each dataset and checks files match what is expected from the metadata file
+Returns dictionary of logging information on the status of the datasets
+"""
 
-def check_files_exist(files: [str], dirname: str):
+
+def check_datasets_exist(dataset_names: [str], dirname: str):
     dirpath = Path(dirname)
     output_dict = {}
     if not dirpath.exists():
-        logging.warning("Directory " + dirname + " doesnot exist")
-        return {"warning": "Directory " + dirname + " doesnot exist"}
+        warn = f"Directory {dirname} does not exist"
+        logging.warning(warn)
+        return {"warning": warn}
     else:
         logging.info("Directory " + dirname + " exists")
-    sub_directories = [str(f) for f in dirpath.iterdir() if f.is_dir()]
-    for filename in files:
-        full_path = str(dirpath / filename)
-        if full_path not in sub_directories:
-            logging.warning(filename + " not found in " + dirname)
-            output_dict[filename] = {
-                "warning": filename + " dataset not mounted, " + filename + " directory not found in " + dirname
+    for dataset_name in dataset_names:
+        full_path = dirpath / dataset_name
+        if not full_path.exists():
+            logging.warning(dataset_name + " not found in " + dirname)
+            output_dict[dataset_name] = {
+                "warning": dataset_name + " dataset not mounted, " + dataset_name + " directory not found in " + dirname
             }
         else:
-            dataset_sub_directories = [str(f) for f in Path(full_path).iterdir()]
-            if full_path + "/gradient_dataset_metadata.json" in dataset_sub_directories:
-                logging.info("Metadata found in " + full_path)
-                output_dict[filename] = check_files_match_metadata(full_path, False)
+            if (full_path / "gradient_dataset_metadata.json").exists():
+                logging.info("Metadata found in " + str(full_path))
+                output_dict[dataset_name] = check_files_match_metadata(full_path, False)
             else:
-                logging.warning("Metadata file not found in " + full_path)
-                output_dict[filename] = {"warning": "Metadata file not found in " + full_path}
+                logging.warning("Metadata file not found in " + str(full_path))
+                output_dict[dataset_name] = {"warning": "Metadata file not found in " + str(full_path)}
     return output_dict
 
 
@@ -67,7 +72,7 @@ def main():
         datasets = my_dict["integrations"].keys()
 
     # Check that dataset exists and if a metadata file is found check that all files in the metadata file exist
-    datasets_mounted = check_files_exist(datasets, "/datasets")
+    datasets_mounted = check_datasets_exist(datasets, "/datasets")
 
     # Check that the folders specified in the key of the symlink_config.json exist
     logging.info("Checking symlink folders exist")
