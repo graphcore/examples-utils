@@ -33,11 +33,11 @@ def check_datasets_exist(dataset_names: [str], dirname: str):
             }
         else:
             if (full_path / "gradient_dataset_metadata.json").exists():
-                logging.info(f"Metadata found in {str(full_path)}")
+                logging.info(f"Metadata found in {full_path}")
                 output_dict[dataset_name] = check_files_match_metadata(full_path, False)
             else:
-                logging.warning(f"Metadata file not found in {str(full_path)}")
-                output_dict[dataset_name] = {"warning": f"Metadata file not found in {str(full_path)}"}
+                logging.warning(f"Metadata file not found in {full_path}")
+                output_dict[dataset_name] = {"warning": f"Metadata file not found in {full_path}"}
     return output_dict
 
 

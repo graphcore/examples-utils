@@ -94,14 +94,14 @@ def compare_file_lists(loaded_metadata_files: list, generated_locally_metadata_f
     found_files_locally = [
         filedict for filedict in generated_locally_metadata_files if filedict["path"] not in extra_files
     ]
-    files_found_logging = f"{str(len(found_files_locally))}/{str(len(expected_filepaths))} files found from metadata"
+    files_found_logging = f"{len(found_files_locally)}/{len(expected_filepaths)} files found from metadata"
     logging.info(files_found_logging)
     output_dict["Files found"] = files_found_logging
     if missing_files:
-        logging.error(f"Missing files, files in metadata.json but not found in local storage: {str(missing_files)}")
+        logging.error(f"Missing files, files in metadata.json but not found in local storage: {missing_files}")
     output_dict["Missing Files"] = missing_files
     if extra_files:
-        logging.warning(f"Extra files found in local storage: {str(extra_files)}")
+        logging.warning(f"Extra files found in local storage: {extra_files}")
     output_dict["Extra files"] = extra_files
     logging.info({str(output_dict)})
     keys = generated_locally_metadata_files[0].keys()
@@ -115,7 +115,7 @@ def compare_file_lists(loaded_metadata_files: list, generated_locally_metadata_f
                     "gradient_metadata.json value": str(found_files_metadata[i][key]),
                     "local value": str(found_files_locally[i][key]),
                 }
-                logging.warning(f"Difference in file found and file expected\n {str(file_difference)}")
+                logging.warning(f"Difference in file found and file expected\n {file_difference}")
                 file_differences.append(file_difference)
         output_dict["file_differences"] = file_differences
     return output_dict
