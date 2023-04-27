@@ -23,21 +23,21 @@ def check_datasets_exist(dataset_names: [str], dirname: str):
         logging.warning(warn)
         return {"warning": warn}
     else:
-        logging.info("Directory " + dirname + " exists")
+        logging.info(f"Directory {dirname} exists")
     for dataset_name in dataset_names:
         full_path = dirpath / dataset_name
         if not full_path.exists():
-            logging.warning(dataset_name + " not found in " + dirname)
+            logging.warning(f"{dataset_name} not found in {dirname}")
             output_dict[dataset_name] = {
-                "warning": dataset_name + " dataset not mounted, " + dataset_name + " directory not found in " + dirname
+                "warning": f"{dataset_name} dataset not mounted, {dataset_name} directory not found in {dirname}"
             }
         else:
             if (full_path / "gradient_dataset_metadata.json").exists():
-                logging.info("Metadata found in " + str(full_path))
+                logging.info(f"Metadata found in {str(full_path)}")
                 output_dict[dataset_name] = check_files_match_metadata(full_path, False)
             else:
-                logging.warning("Metadata file not found in " + str(full_path))
-                output_dict[dataset_name] = {"warning": "Metadata file not found in " + str(full_path)}
+                logging.warning(f"Metadata file not found in {str(full_path)}")
+                output_dict[dataset_name] = {"warning": f"Metadata file not found in {str(full_path)}"}
     return output_dict
 
 
@@ -46,10 +46,10 @@ def check_paths_exists(paths: [str]):
     symlinks_exist = []
     for path in paths:
         if Path(path).exists():
-            logging.info("Folder exists: " + path)
+            logging.info(f"Folder exists: {path}")
             symlinks_exist.append({path: True})
         else:
-            logging.warning("Folder does not exist " + path)
+            logging.warning(f"Folder does not exist {path}")
             symlinks_exist.append({path: False})
     return symlinks_exist
 
@@ -84,7 +84,7 @@ def main():
     output_json_dict = {"mounted_datasets": datasets_mounted, "symlinks_exist": symlinks_exist}
 
     (
-        health_check_dir / (datetime.fromtimestamp(time()).strftime("%Y-%m-%d-%H.%M.%S") + "_" + notebook_id + ".json")
+        health_check_dir / f"{datetime.fromtimestamp(time()).strftime('%Y-%m-%d-%H.%M.%S')}_{notebook_id}.json"
     ).write_text(json.dumps(output_json_dict, indent=4))
 
 
