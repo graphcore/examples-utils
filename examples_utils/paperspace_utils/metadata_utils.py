@@ -95,7 +95,7 @@ def compare_file_lists(loaded_metadata_files: list, generated_locally_metadata_f
         filedict for filedict in generated_locally_metadata_files if filedict["path"] not in extra_files
     ]
     files_found_logging = (
-        str(len(found_files_locally)) + "/" + str(len(expected_filepaths)) + "  files found from metadata"
+        str(len(found_files_locally)) + "/" + str(len(expected_filepaths)) + " files found from metadata"
     )
     logging.info(files_found_logging)
     output_dict["Files found"] = files_found_logging

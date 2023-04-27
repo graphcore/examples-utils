@@ -12,7 +12,7 @@ import logging
 @pytest.fixture
 def generate_data(tmp_path):
     # Create example dataset
-    os.mkdir(tmp_path / "test_metadata")
+    (tmp_path / "test_metadata").mkdir()
     Path(tmp_path / "test_metadata/test_metadata.txt").write_text("Testing metadata file.")
     get_metadata_file_data("test_metadata", tmp_path)
     return tmp_path / "test_metadata"
@@ -49,4 +49,10 @@ def test_file_size_inaccurate_in_metadata(generate_data, caplog):
         data["files"][0]["size"] = 100
         create_metadata_file(data, generate_data)
         check_files_match_metadata(generate_data, True)
-    assert "Key: size\n gradient_metadata.json value: 100\n Local value: 22" in caplog.text
+        change_dict = {
+            "path": "/test_metadata.txt",
+            "key": "size",
+            "gradient_metadata.json value": "100",
+            "local value": "22",
+        }
+    assert str(change_dict) in caplog.text
