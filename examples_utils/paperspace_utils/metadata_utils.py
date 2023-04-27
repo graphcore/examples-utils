@@ -94,10 +94,11 @@ def compare_file_lists(loaded_metadata_files: list, generated_locally_metadata_f
     found_files_locally = [
         filedict for filedict in generated_locally_metadata_files if filedict["path"] not in extra_files
     ]
-    logging.info(str(len(found_files_locally)) + "/" + str(len(expected_filepaths)) + " files found from metadata")
-    output_dict["Files found"] = (
-        str(len(found_files_locally)) + "/" + str(len(expected_filepaths)) + " files found from metadata"
+    files_found_logging = (
+        str(len(found_files_locally)) + "/" + str(len(expected_filepaths)) + "  files found from metadata"
     )
+    logging.info(files_found_logging)
+    output_dict["Files found"] = files_found_logging
     if missing_files:
         logging.error("Missing files, files in metadata.json but not found in local storage: " + str(missing_files))
     output_dict["Missing Files"] = missing_files
@@ -110,29 +111,14 @@ def compare_file_lists(loaded_metadata_files: list, generated_locally_metadata_f
         for key in keys:
             file_differences = []
             if found_files_locally[i][key] != found_files_metadata[i][key]:
-                logging.warning(
-                    "Difference in file found and file expected\n"
-                    + "Path: "
-                    + found_files_metadata[i]["path"]
-                    + "\n"
-                    + " Key: "
-                    + key
-                    + "\n"
-                    + " gradient_metadata.json value: "
-                    + str(found_files_metadata[i][key])
-                    + "\n"
-                    + " Local value: "
-                    + str(found_files_locally[i][key])
-                    + "\n"
-                )
-                file_differences.append(
-                    {
-                        "path": found_files_metadata[i]["path"],
-                        "key": key,
-                        "gradient_metadata.json value": str(found_files_metadata[i][key]),
-                        "local value": str(found_files_locally[i][key]),
-                    }
-                )
+                file_difference = {
+                    "path": str(found_files_metadata[i]["path"]),
+                    "key": key,
+                    "gradient_metadata.json value": str(found_files_metadata[i][key]),
+                    "local value": str(found_files_locally[i][key]),
+                }
+                logging.warning("Difference in file found and file expected\n" + str(file_difference))
+                file_differences.append(file_difference)
         output_dict["file_differences"] = file_differences
     return output_dict
 

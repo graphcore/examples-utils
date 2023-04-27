@@ -67,7 +67,7 @@ def main():
     logging.info("Checking datasets mounted")
     # Check that the datasets have mounted as expected
     # Gather the datasets expected from the settings.yaml
-    with open("/.gradient/settings.yaml") as f:
+    with open("/notebooks/.gradient/settings.yaml") as f:
         my_dict = yaml.safe_load(f)
         datasets = my_dict["integrations"].keys()
 
