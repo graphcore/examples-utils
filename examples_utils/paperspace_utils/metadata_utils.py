@@ -171,3 +171,4 @@ def get_metadata_file_data(name: str, path: str):
     metadata = {"dataset": dataset._asdict(), "timestamp": str(datetime.datetime.now()), "files": file_metadata}
 
     metadata_filepath = create_metadata_file(metadata, dataset_folder)
+    return metadata_filepath

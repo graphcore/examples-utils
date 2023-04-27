@@ -1,5 +1,6 @@
 # Copyright (c) 2023 Graphcore Ltd. All rights reserved.
 
+from importlib.metadata import metadata
 import os
 from examples_utils.paperspace_utils import create_metadata_file, get_metadata_file_data, check_files_match_metadata
 import pytest
@@ -14,7 +15,7 @@ def generate_data(tmp_path):
     # Create example dataset
     (tmp_path / "test_metadata").mkdir()
     Path(tmp_path / "test_metadata/test_metadata.txt").write_text("Testing metadata file.")
-    get_metadata_file_data("test_metadata", tmp_path)
+    metadata_path = get_metadata_file_data("test_metadata", tmp_path)
     return tmp_path / "test_metadata"
 
 
