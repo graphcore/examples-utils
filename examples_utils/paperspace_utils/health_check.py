@@ -76,7 +76,7 @@ def main():
 
     # Check that the folders specified in the key of the symlink_config.json exist
     logging.info("Checking symlink folders exist")
-    with open("symlink_config.json") as f:
+    with open("/notebooks/.gradient/symlink_config.json") as f:
         symlinks = json.load(f)
         new_folders = list(map(os.path.expandvars, symlinks.keys()))
     symlinks_exist = check_paths_exists(new_folders)
