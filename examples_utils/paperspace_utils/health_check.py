@@ -55,7 +55,7 @@ def check_paths_exists(paths: [str]):
     return symlinks_exist
 
 
-def main():
+def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--log-path", default="/storage/graphcore_health_checks", help="Path for outputting logs")
     parser.add_argument(
@@ -65,7 +65,10 @@ def main():
         "--symlink-config-path", default="/notebooks/.gradient/symlink_config.json", help="Path to symlink_config.json"
     )
     args = parser.parse_args()
+    return args
 
+
+def main(args):
     notebook_id = os.environ.get("PAPERSPACE_METRIC_WORKLOAD_ID", "")
     # Check that graphcore_health_checks folder exists
     health_check_dir = pathlib.Path(args.log_path)
@@ -100,4 +103,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    args = parse_args()
+    main(args)
