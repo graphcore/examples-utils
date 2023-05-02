@@ -8,6 +8,7 @@ import pathlib
 from .metadata_utils import check_files_match_metadata
 from pathlib import Path
 from time import time
+import argparse
 
 
 def check_datasets_exist(dataset_names: [str], dirname: str):
@@ -55,9 +56,19 @@ def check_paths_exists(paths: [str]):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--log-path", default="/storage/graphcore_health_checks", help="Path for outputting logs")
+    parser.add_argument(
+        "--settings-path", default="/notebooks/.gradient/settings.yaml", help="Path to settings.yaml file"
+    )
+    parser.add_argument(
+        "--symlink-config-path", default="/notebooks/.gradient/symlink_config.json", help="Path to symlink_config.json"
+    )
+    args = parser.parse_args()
+
     notebook_id = os.environ.get("PAPERSPACE_METRIC_WORKLOAD_ID", "")
     # Check that graphcore_health_checks folder exists
-    health_check_dir = pathlib.Path("/storage/graphcore_health_checks")
+    health_check_dir = pathlib.Path(args.log_path)
     health_check_dir.mkdir(exist_ok=True)
 
     logger = logging.getLogger()
@@ -67,7 +78,7 @@ def main():
     logging.info("Checking datasets mounted")
     # Check that the datasets have mounted as expected
     # Gather the datasets expected from the settings.yaml
-    with open("/notebooks/.gradient/settings.yaml") as f:
+    with open(args.settings_path) as f:
         my_dict = yaml.safe_load(f)
         datasets = my_dict["integrations"].keys()
 
@@ -76,7 +87,7 @@ def main():
 
     # Check that the folders specified in the key of the symlink_config.json exist
     logging.info("Checking symlink folders exist")
-    with open("/notebooks/.gradient/symlink_config.json") as f:
+    with open(args.symlink_config_path) as f:
         symlinks = json.load(f)
         new_folders = list(map(os.path.expandvars, symlinks.keys()))
     symlinks_exist = check_paths_exists(new_folders)
