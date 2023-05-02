@@ -34,7 +34,13 @@ class GCLogger(object):
     _FIREHOSE_STREAM_NAME = os.getenv("FIREHOSE_STREAM_NAME", "paperspacenotebook_production")
     _REGION = "eu-west-1"
 
-    _FRAMEWORKS = ["poptorch", "torch", "transformers", "tensorflow", "poptorch-geometric"]
+    _FRAMEWORKS = [
+        "poptorch",
+        "torch",
+        "transformers",
+        "tensorflow",
+        "poptorch-geometric",
+    ]
 
     _COLUMN_TYPES = {
         # Timing data
@@ -262,14 +268,14 @@ class GCLogger(object):
     #     # Whether any compil/e/ation happened or not
     #     if not "compil" in cell_input + cell_output:
     #         return 0
-    
+
     @classmethod
     def __detect_logging_termination(cls, cell_input: str) -> int:
         """Detect if GCL logging was terminated by user"""
 
         if cls.LOG_STATE == "DISABLED":
             return
-        
+
         if "unload_ext gc_logger" in cell_input:
             return 1
         else:
