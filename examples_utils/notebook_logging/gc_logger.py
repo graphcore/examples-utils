@@ -23,7 +23,7 @@ class GCLogger(object):
     LOG_STATE = None
     _TIER_TYPE = os.getenv("TIER_TYPE", "UNKNOWN")
 
-    _POLLING_SECONDS = 10
+    _POLLING_SECONDS = 1
 
     _MP_MANAGER = mp.Manager()
 
@@ -134,14 +134,9 @@ class GCLogger(object):
 
                 # Convert data collection into repeated polling with update checking
                 background_functions = [
-                    cls.__manual_termination_polling,
                     cls.__get_notebook_metadata,
                     cls.__get_frameworks_versions,
-                    # TODO: Refine and reintroduce these
-                    # cls.__get_executables,
-                    # cls.__get_weights,
-                    # cls.__get_datasets,
-                    # cls.__get_compile_times,
+                    cls.__manual_termination_polling,
                 ]
 
                 # Start multiprocess procs for all functions
@@ -177,7 +172,7 @@ class GCLogger(object):
 
         try:
             while True:
-                time.sleep(1)
+                time.sleep(cls._POLLING_SECONDS)
         except:
             cls.__update_payload(1, "manual_cell_termination_event")
 
@@ -185,35 +180,32 @@ class GCLogger(object):
     def __get_notebook_metadata(cls):
         """Get notebook metadata."""
 
+        if cls.LOG_STATE == "DISABLED":
+            return
+
         try:
-            while True:
-                if cls.LOG_STATE == "DISABLED":
-                    return
+            try:
+                notebook_path = ipynbname.path()
+            except:
+                notebook_path = "failed-to-get-nb-path"
 
-                try:
-                    notebook_path = ipynbname.path()
-                except:
-                    notebook_path = "failed-to-get-nb-path"
+            # Encode and hash
+            notebook_id = os.getenv("PAPERSPACE_NOTEBOOK_ID")
+            salted_id = notebook_id + datetime.now().strftime("%Y-%m-%d")
+            anonymised_notebook_id = base64.urlsafe_b64encode(hashlib.md5(salted_id.encode("utf-8")).digest()).decode(
+                "ascii"
+            )[:16]
 
-                # Encode and hash
-                notebook_id = os.getenv("PAPERSPACE_NOTEBOOK_ID")
-                salted_id = notebook_id + datetime.now().strftime("%Y-%m-%d")
-                anonymised_notebook_id = base64.urlsafe_b64encode(
-                    hashlib.md5(salted_id.encode("utf-8")).digest()
-                ).decode("ascii")[:16]
+            notebook_metadata = {
+                "notebook_path": str(notebook_path),
+                "notebook_name": str(notebook_path.stem()),
+                "notebook_repo_id": os.getenv("PAPERSPACE_NOTEBOOK_REPO_ID"),
+                "notebook_id": anonymised_notebook_id,
+                "cluster_id": os.getenv("PAPERSPACE_CLUSTER_ID"),
+            }
 
-                notebook_metadata = {
-                    "notebook_path": str(notebook_path),
-                    "notebook_name": str(notebook_path.stem()),
-                    "notebook_repo_id": os.getenv("PAPERSPACE_NOTEBOOK_REPO_ID"),
-                    "notebook_id": anonymised_notebook_id,
-                    "cluster_id": os.getenv("PAPERSPACE_CLUSTER_ID"),
-                }
-
-                for key, val in notebook_metadata.items():
-                    cls.__update_payload(val, key)
-
-                time.sleep(cls._POLLING_SECONDS)
+            for key, val in notebook_metadata.items():
+                cls.__update_payload(val, key)
 
         except:
             pass
@@ -222,29 +214,26 @@ class GCLogger(object):
     def __get_frameworks_versions(cls) -> str:
         """Get framework versions."""
 
+        if cls.LOG_STATE == "DISABLED":
+            return
+
         try:
-            while True:
-                if cls.LOG_STATE == "DISABLED":
-                    return
+            try:
+                installed_packages = pkg_resources.working_set
+            except:
+                installed_packages = {}
 
-                try:
-                    installed_packages = pkg_resources.working_set
-                except:
-                    installed_packages = {}
+            # Query pip packages and versions for frameworks
+            all_pkgs = {i.key: i.version for i in installed_packages}
+            for fw in cls._FRAMEWORKS:
+                version = all_pkgs.get(fw, "..").split(".")
 
-                # Query pip packages and versions for frameworks
-                all_pkgs = {i.key: i.version for i in installed_packages}
-                for fw in cls._FRAMEWORKS:
-                    version = all_pkgs.get(fw, "..").split(".")
+                if fw == "poptorch-geometric":
+                    fw = "popgeometric"
 
-                    if fw == "poptorch-geometric":
-                        fw = "popgeometric"
-
-                    cls.__update_payload(int(version[0]) if version[0] else 0, f"{fw}_version_major")
-                    cls.__update_payload(int(version[1]) if version[0] else 0, f"{fw}_version_minor")
-                    cls.__update_payload(version[2], f"{fw}_version_patch")
-
-                time.sleep(cls._POLLING_SECONDS)
+                cls.__update_payload(int(version[0]) if version[0] else 0, f"{fw}_version_major")
+                cls.__update_payload(int(version[1]) if version[0] else 0, f"{fw}_version_minor")
+                cls.__update_payload(version[2], f"{fw}_version_patch")
 
         except:
             pass
@@ -330,8 +319,6 @@ class GCLogger(object):
 
         cls._PAYLOAD["execution_start_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
 
-        cls._PAYLOAD["manual_logging_termination_event"] = cls.__detect_logging_termination(info.raw_cell)
-
     @classmethod
     def post_run_cell(cls, result):
         """Runs just after any cell is run."""
@@ -364,6 +351,8 @@ class GCLogger(object):
         else:
             event_dict["event_type"] = "success"
             event_dict["error_trace"] = ""
+
+        event_dict["manual_logging_termination_event"] = cls.__detect_logging_termination(result.info.raw_cell)
 
         cls.__firehose_put(event_dict)
 
