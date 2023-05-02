@@ -57,13 +57,18 @@ def check_paths_exists(paths: [str]):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--log-path", default="/storage/graphcore_health_checks", help="Path for outputting logs")
+    parser.add_argument("--log-folder", default="/storage/graphcore_health_checks", help="Folder for log output")
     parser.add_argument(
-        "--settings-path", default="/notebooks/.gradient/settings.yaml", help="Path to settings.yaml file"
+        "--gradient-settings-file",
+        default="/notebooks/.gradient/settings.yaml",
+        help="Path to gradient settings.yaml file",
     )
     parser.add_argument(
-        "--symlink-config-path", default="/notebooks/.gradient/symlink_config.json", help="Path to symlink_config.json"
+        "--symlink-config-file",
+        default="/notebooks/.gradient/symlink_config.json",
+        help="Path to symlink_config.json file",
     )
+    parser.add_argument("--dataset-folder", default="/datasets", help="Path to dataset folder")
     args = parser.parse_args()
     return args
 
@@ -71,7 +76,7 @@ def parse_args():
 def main(args):
     notebook_id = os.environ.get("PAPERSPACE_METRIC_WORKLOAD_ID", "")
     # Check that graphcore_health_checks folder exists
-    health_check_dir = pathlib.Path(args.log_path)
+    health_check_dir = pathlib.Path(args.log_folder)
     health_check_dir.mkdir(exist_ok=True)
 
     logger = logging.getLogger()
@@ -81,16 +86,16 @@ def main(args):
     logging.info("Checking datasets mounted")
     # Check that the datasets have mounted as expected
     # Gather the datasets expected from the settings.yaml
-    with open(args.settings_path) as f:
+    with open(args.gradient_settings_file) as f:
         my_dict = yaml.safe_load(f)
         datasets = my_dict["integrations"].keys()
 
     # Check that dataset exists and if a metadata file is found check that all files in the metadata file exist
-    datasets_mounted = check_datasets_exist(datasets, "/datasets")
+    datasets_mounted = check_datasets_exist(datasets, args.dataset_folder)
 
     # Check that the folders specified in the key of the symlink_config.json exist
     logging.info("Checking symlink folders exist")
-    with open(args.symlink_config_path) as f:
+    with open(args.symlink_config_file) as f:
         symlinks = json.load(f)
         new_folders = list(map(os.path.expandvars, symlinks.keys()))
     symlinks_exist = check_paths_exists(new_folders)
