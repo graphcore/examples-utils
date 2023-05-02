@@ -37,15 +37,28 @@ class GCLogger(object):
     _FRAMEWORKS = ["poptorch", "torch", "transformers", "tensorflow", "poptorch-geometric"]
 
     _COLUMN_TYPES = {
+        # Timing data
         "event_time": "",
         "execution_start_time": "",
         "execution_end_time": "",
+        "time_to_first_error_seconds": 0,
+        "compile_time_seconds": 0,
+        # Event metadata
         "event_type": "",
         "user_onetime_id": "",
+        "manual_logging_termination_event": 0,
+        "manual_cell_termination_event": 0,
+        # Largely constant values
         "notebook_path": "",
+        "notebook_name": "",
         "notebook_repo_id": "",
         "notebook_id": "",
         "cluster_id": "",
+        # Cell input/output information
+        "error_trace": "",
+        "cell_output": "",
+        "code_executed": "",
+        # Major framework versions from env
         "poptorch_version_major": 0,
         "poptorch_version_minor": 0,
         "poptorch_version_patch": "",
@@ -61,10 +74,6 @@ class GCLogger(object):
         "popgeometric_version_major": 0,
         "popgeometric_version_minor": 0,
         "popgeometric_version_patch": "",
-        "time_to_first_error_seconds": 0,
-        "error_trace": "",
-        "cell_output": "",
-        "code_executed": "",
     }
 
     def __new__(cls, ip):
@@ -119,6 +128,7 @@ class GCLogger(object):
 
                 # Convert data collection into repeated polling with update checking
                 background_functions = [
+                    cls.__manual_termination_polling,
                     cls.__get_notebook_metadata,
                     cls.__get_frameworks_versions,
                     # TODO: Refine and reintroduce these
@@ -143,7 +153,7 @@ class GCLogger(object):
         return
 
     @classmethod
-    def __update_payload(cls, output: str, name: str) -> str:
+    def __update_payload(cls, output: str or int, name: str) -> str:
         """Update the payload with empty types as backups."""
 
         if cls.LOG_STATE == "DISABLED":
@@ -156,6 +166,16 @@ class GCLogger(object):
             cls._PAYLOAD[name] = empty_output_type()
 
     @classmethod
+    def __manual_termination_polling(cls):
+        """Report if exeuction termination event was some kill signal."""
+
+        try:
+            while True:
+                time.sleep(1)
+        except:
+            cls.__update_payload(1, "manual_cell_termination_event")
+
+    @classmethod
     def __get_notebook_metadata(cls):
         """Get notebook metadata."""
 
@@ -165,7 +185,7 @@ class GCLogger(object):
                     return
 
                 try:
-                    notebook_path = str(ipynbname.path())
+                    notebook_path = ipynbname.path()
                 except:
                     notebook_path = "failed-to-get-nb-path"
 
@@ -177,7 +197,8 @@ class GCLogger(object):
                 ).decode("ascii")[:16]
 
                 notebook_metadata = {
-                    "notebook_path": notebook_path,
+                    "notebook_path": str(notebook_path),
+                    "notebook_name": str(notebook_path.stem()),
                     "notebook_repo_id": os.getenv("PAPERSPACE_NOTEBOOK_REPO_ID"),
                     "notebook_id": anonymised_notebook_id,
                     "cluster_id": os.getenv("PAPERSPACE_CLUSTER_ID"),
@@ -223,113 +244,8 @@ class GCLogger(object):
             pass
 
     # @classmethod
-    # def __get_executables(cls) -> str:
-    #     """Get popef file paths and metadata from wherever possible."""
-
-    #     # Get all .popef files name and size
-    #     cache_dirs = [
-    #         ipynbname.path().parents[1],  # Local
-    #         os.getenv("POPLAR_EXECUTABLE_CACHE_DIR"),  # HF default
-    #         os.getenv("POPTORCH_CACHE_DIR"),  # Possible for non-HF optimum runs
-    #     ]
-    #     popef_files = []
-    #     popef_file_dumps = {}
-
-    #     while True:
-    #         if cls.LOG_STATE == "DISABLED":
-    #             return
-
-    #         for dir_path in cache_dirs:
-    #             if dir_path:
-    #                 popef_files.extend(Path(dir_path).glob("*.popef"))
-
-    #         # Analyse the popef file using gc CLI tool
-    #         for file in popef_files:
-    #             proc = subprocess.run(
-    #                 f"popef_dump -m {file}",
-    #                 stdout=subprocess.PIPE,
-    #                 stderr=subprocess.STDOUT,
-    #                 shell=True,
-    #                 text=True,
-    #             )
-
-    #             popef_file_dumps[str(file)] = proc.stdout
-
-    #         cls.__update_payload(popef_file_dumps, "popef_file_dumps")
-
-    #         time.sleep(cls._POLLING_SECONDS)
-
-    # @classmethod
-    # def __get_weights(cls) -> str:
-    #     """Get weights file paths and sizes from wherever possible."""
-
-    #     # Search for all weight files and poll size/name
-    #     weight_files = []
-    #     weights_extensions = ["onnx", "pt", "pb"]
-    #     cache_dirs = [
-    #         ipynbname.path().parents[1],  # Local
-    #         os.getenv("CHECKPOINT_DIR"),  # HF default
-    #         os.getenv("HUGGINGFACE_HUB_CACHE"),  # Another possible HF path?
-    #         os.getenv("TRANSFORMERS_CACHE"),  # Possible checkpoints here
-    #     ]
-
-    #     while True:
-    #         if cls.LOG_STATE == "DISABLED":
-    #             return
-
-    #         for dir_path in cache_dirs:
-    #             if dir_path:
-    #                 for ext in weights_extensions:
-    #                     weight_files.extend(Path(dir_path).glob(f"**/*.{ext}"))
-
-    #         weight_file_sizes = {}
-    #         for file in weight_files:
-    #             weight_file_sizes[str(file)] = file.stat().st_size
-
-    #         cls.__update_payload(weight_file_sizes, "weight_file_sizes")
-
-    #         time.sleep(cls._POLLING_SECONDS)
-
-    # @classmethod
-    # def __get_datasets(cls) -> str:
-    #     """Get dataset paths and sizes from wherever possible"""
-
-    #     # Get all possible dataset dirs
-    #     datasets = []
-    #     dataset_dirs = [
-    #         ipynbname.path().parents[1],  # Local
-    #         os.getenv("HF_DATASETS_CACHE"),  # HF default
-    #         os.getenv("PUBLIC_DATASETS_DIR"),  # Our default
-    #         os.getenv("DATASETS_DIR"),  # /tmp/ location
-    #     ]
-
-    #     while True:
-    #         if cls.LOG_STATE == "DISABLED":
-    #             return
-
-    #         for data_path in dataset_dirs:
-    #             datasets.extend(list(Path(data_path).iterdir()))
-
-    #         # Find sizes
-    #         dataset_sizes = ""
-    #         for folder in datasets:
-    #             proc = subprocess.run(
-    #                 ["du", "-sh", str(folder)],
-    #                 stdout=subprocess.PIPE,
-    #                 stderr=subprocess.STDOUT,
-    #                 shell=True,
-    #                 text=True,
-    #             )
-
-    #             dataset_sizes = str(proc.stdout).split("\t")[0]
-
-    #         cls.__update_payload(dataset_sizes, "dataset_sizes")
-
-    #         time.sleep(cls._POLLING_SECONDS)
-
-    # @classmethod
-    # def __get_compile_times(cls):
-    #     """Capture compile time from noteboook.py
+    # def __get_compile_time(cls, cell_input: str, cell_output: str) -> int:
+    #     """Capture compile time from a cells inputs/outputs.
 
     #     Note: Because of how general this task is, it seems the best we can do
     #     for now is capture all output that mentions 'compilation' etc. and sift
@@ -340,43 +256,24 @@ class GCLogger(object):
     #     clean this up a lot and be more particular about what we collect.
     #     """
 
-    #     while True:
-    #         if cls.LOG_STATE == "DISABLED":
-    #             return
+    #     if cls.LOG_STATE == "DISABLED":
+    #         return
 
-    #         with open(ipynbname.path()) as notebook:
-    #             raw_notebook = nbformat.read(notebook, nbformat.NO_CONVERT)
+    #     # Whether any compil/e/ation happened or not
+    #     if not "compil" in cell_input + cell_output:
+    #         return 0
+    
+    @classmethod
+    def __detect_logging_termination(cls, cell_input: str) -> int:
+        """Detect if GCL logging was terminated by user"""
 
-    #         # Get all code cells, search for compile time
-    #         code_cells = [
-    #             (cell["source"], cell["outputs"]) for cell in raw_notebook["cells"] if cell["cell_type"] == "code"
-    #         ]
-
-    #         compilation_times = {}
-    #         for input, output in code_cells:
-    #             # Some cells have a seperate 'data' outputs. We need 'text' output
-    #             if len(output) > 1:
-    #                 output = output[1]
-
-    #             if output:
-    #                 try:
-    #                     text = output[0].get("text")
-
-    #                     # Assuming HF optimum pipeline output
-    #                     # Check NoneType first else substring search throws
-    #                     if text is not None and "Graph compilation: 100%" in text:
-    #                         compilation_times[input] = text
-
-    #                 # Suppress all outputs and continue
-    #                 except:
-    #                     pass
-
-    #         cls.__update_payload(
-    #             {datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"): json.dumps(compilation_times)},
-    #             "compilation_time_traces",
-    #         )
-
-    #         time.sleep(cls._POLLING_SECONDS)
+        if cls.LOG_STATE == "DISABLED":
+            return
+        
+        if "unload_ext gc_logger" in cell_input:
+            return 1
+        else:
+            return 0
 
     @classmethod
     def __sanitize_payload(cls, payload):
@@ -418,6 +315,8 @@ class GCLogger(object):
 
         cls._PAYLOAD["execution_start_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
 
+        cls._PAYLOAD["manual_logging_termination_event"] = cls.__detect_logging_termination(info.raw_cell)
+
     @classmethod
     def post_run_cell(cls, result):
         """Runs just after any cell is run."""
@@ -432,6 +331,12 @@ class GCLogger(object):
         event_dict["code_executed"] = str(result.info.raw_cell)
         event_dict["cell_output"] = str(result.result)
 
+        # # Check if its a compile event
+        # event_dict["compile_time_seconds"] = cls.__get_compile_time(
+        #     event_dict["code_executed"],
+        #     event_dict["cell_output"],
+        # )
+
         if result.error_before_exec or result.error_in_exec:
             # Only get this value once
             if cls._PAYLOAD["time_to_first_error_seconds"] == 0:
@@ -444,20 +349,6 @@ class GCLogger(object):
         else:
             event_dict["event_type"] = "success"
             event_dict["error_trace"] = ""
-
-        # if "Graph compilation" in event_dict["cell_output"]:
-        #     event_dict["event_type"] = "Compilation attempt"
-
-        #     # Detect compile time from output
-        #     for line in event_dict["cell_output"].splitlines():
-        #         if "Graph compilation: 100%" in line:
-        #             compilation_time_string = re.search("(?<=\[)(.*?)(?=\])", line)
-        #             compilation_time_minutes = compilation_time_string.split("<")[0]
-        #             compilation_time_seconds = int(compilation_time_minutes[:2])*60 + int(compilation_time_minutes[3:])
-
-        #             event_dict["compilation_time_seconds"] = compilation_time_seconds
-        # else:
-        #     event_dict["compilation_time_seconds"] = 0
 
         cls.__firehose_put(event_dict)
 
