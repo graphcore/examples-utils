@@ -249,25 +249,34 @@ class GCLogger(object):
         except:
             pass
 
-    # @classmethod
-    # def __get_compile_time(cls, cell_input: str, cell_output: str) -> int:
-    #     """Capture compile time from a cells inputs/outputs.
+    @classmethod
+    def __convert_time_from_string(cls, raw_string_time: str) -> int:
+        """Convert times from MM:SS string format to integer seconds"""
 
-    #     Note: Because of how general this task is, it seems the best we can do
-    #     for now is capture all output that mentions 'compilation' etc. and sift
-    #     through the outputs later.
+        minutes = int(raw_string_time[:2])
+        seconds = int(raw_string_time[3:])
 
-    #     If we can get more specificity on how compilation happens, what we can
-    #     expect etc. (HF only, model.compile() explicit calls etc.) then we can
-    #     clean this up a lot and be more particular about what we collect.
-    #     """
+        return (minutes * 60) + seconds
 
-    #     if cls.LOG_STATE == "DISABLED":
-    #         return
+    @classmethod
+    def __get_compile_time(cls, cell_input: str, cell_output: str) -> int:
+        """Capture compile time from a cells inputs/outputs."""
 
-    #     # Whether any compil/e/ation happened or not
-    #     if not "compil" in cell_input + cell_output:
-    #         return 0
+        if cls.LOG_STATE == "DISABLED":
+            return
+
+        # Whether any compil/e/ation happened or not
+        if not "compil" in cell_input + cell_output:
+            # Covers most HF, PyG and Pytorch cases
+            if "Graph compilation: 100%" in cell_output:
+                start_index = cell_output.find("Graph compilation: 100%")
+                end_index = cell_output.find("00:00]")
+                compile_time_raw = cell_output[start_index:end_index][-6:-1]
+                compile_time = cls.__convert_time_from_string(compile_time_raw)
+            else:
+                compile_time = 0
+
+        return compile_time
 
     @classmethod
     def __detect_logging_termination(cls, cell_input: str) -> int:
@@ -337,11 +346,11 @@ class GCLogger(object):
         event_dict["code_executed"] = str(result.info.raw_cell)
         event_dict["cell_output"] = str(result.result)
 
-        # # Check if its a compile event
-        # event_dict["compile_time_seconds"] = cls.__get_compile_time(
-        #     event_dict["code_executed"],
-        #     event_dict["cell_output"],
-        # )
+        # Get compile time if available
+        event_dict["compile_time_seconds"] = cls.__get_compile_time(
+            event_dict["code_executed"],
+            event_dict["cell_output"],
+        )
 
         if result.error_before_exec or result.error_in_exec:
             # Only get this value once
