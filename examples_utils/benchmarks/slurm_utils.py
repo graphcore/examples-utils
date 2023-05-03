@@ -447,7 +447,7 @@ def configure_ipu_partition(poprun_config: dict, num_ipus: int) -> str:
                 num_ilds = int(num_ilds)
             except ValueError:
                 raise ValueError("Poprun --num-ilds option must be of integral type")
-            if num_ilds > 1:
+            if num_ilds > 1 and num_ipus < 128:
                 logger.warning(
                     "The Slurm queue does not support augmenting the cluster specification. Forcing --num-ilds to 1."
                 )
