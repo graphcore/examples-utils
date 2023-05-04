@@ -28,10 +28,9 @@ class GCLogger(object):
 
     _MP_MANAGER = mp.Manager()
     _PAYLOAD = _MP_MANAGER.dict()
+    _CODE_CELLS = _MP_MANAGER.list()
 
     _PROC_LIST = []
-
-    _CODE_CELLS = []
 
     _FIREHOSE_STREAM_NAME = os.getenv("FIREHOSE_STREAM_NAME", "paperspacenotebook_production")
     _REGION = "eu-west-1"
@@ -183,7 +182,9 @@ class GCLogger(object):
                 initial_state = nbformat.read(notebook, nbformat.NO_CONVERT)
 
             # Get list of all code cells
-            cls._CODE_CELLS = [cell["source"] for cell in initial_state["cells"] if cell["cell_type"] == "code"]
+            for cell in initial_state["cells"]:
+                if cell["cell_type"] == "code":
+                    cls._CODE_CELLS.append(cell["source"])
 
         except:
             pass
