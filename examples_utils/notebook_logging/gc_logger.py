@@ -9,6 +9,7 @@ import os
 import pkg_resources
 import time
 import multiprocessing as mp
+import nbformat
 
 from datetime import datetime
 from pathlib import Path
@@ -26,10 +27,11 @@ class GCLogger(object):
     _POLLING_SECONDS = 10
 
     _MP_MANAGER = mp.Manager()
-
     _PAYLOAD = _MP_MANAGER.dict()
 
     _PROC_LIST = []
+
+    _CODE_CELLS = []
 
     _FIREHOSE_STREAM_NAME = os.getenv("FIREHOSE_STREAM_NAME", "paperspacenotebook_production")
     _REGION = "eu-west-1"
@@ -60,10 +62,12 @@ class GCLogger(object):
         "notebook_repo_id": "",
         "notebook_id": "",
         "cluster_id": "",
+        "repo_framework": "",
         # Cell input/output information
         "error_trace": "",
         "cell_output": "",
         "code_executed": "",
+        "cell_code_modified": 0,
         # Major framework versions from env
         "poptorch_version_major": 0,
         "poptorch_version_minor": 0,
@@ -137,6 +141,7 @@ class GCLogger(object):
                     cls.__get_notebook_metadata,
                     cls.__get_frameworks_versions,
                     cls.__manual_termination_polling,
+                    cls.__store_initial_cell_states,
                 ]
 
                 # Start multiprocess procs for all functions
@@ -165,6 +170,23 @@ class GCLogger(object):
         else:
             empty_output_type = type(output)
             cls._PAYLOAD[name] = empty_output_type()
+
+    @classmethod
+    def __store_initial_cell_states(cls):
+        """store the initial state of all cells in notebook."""
+
+        if cls.LOG_STATE == "DISABLED":
+            return
+
+        try:
+            with open(ipynbname.path()) as notebook:
+                initial_state = nbformat.read(notebook, nbformat.NO_CONVERT)
+
+            # Get list of all code cells
+            cls._CODE_CELLS = [cell["source"] for cell in initial_state["cells"] if cell["cell_type"] == "code"]
+
+        except:
+            pass
 
     @classmethod
     def __manual_termination_polling(cls):
@@ -202,6 +224,7 @@ class GCLogger(object):
                 "notebook_repo_id": os.getenv("PAPERSPACE_NOTEBOOK_REPO_ID"),
                 "notebook_id": anonymised_notebook_id,
                 "cluster_id": os.getenv("PAPERSPACE_CLUSTER_ID"),
+                "repo_framework": os.getenv("REPO_FRAMEWORK"),
             }
 
             for key, val in notebook_metadata.items():
@@ -280,6 +303,26 @@ class GCLogger(object):
             return 0
 
     @classmethod
+    def __detect_cell_modification(cls, executed_code):
+        """Detect if the cell code has been modified before execution."""
+
+        if cls.LOG_STATE == "DISABLED":
+            return
+
+        if cls._CODE_CELLS == []:
+            return 0
+
+        try:
+            if executed_code in cls._CODE_CELLS:
+                return 0
+            else:
+                return 1
+        except:
+            pass
+
+        return 0
+
+    @classmethod
     def __sanitize_payload(cls, payload):
 
         if cls.LOG_STATE == "DISABLED":
@@ -338,6 +381,10 @@ class GCLogger(object):
             event_dict["code_executed"],
             event_dict["cell_output"],
         )
+
+        # Detect if this cell is new or has been modified from its initial state
+        # TODO: Once we upgrade to newer IPython, we can distinguish these two
+        event_dict["cell_code_modified"] = cls.__detect_cell_modification(result.info.raw_cell)
 
         if result.error_before_exec or result.error_in_exec:
             # Only get this value once
