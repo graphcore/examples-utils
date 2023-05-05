@@ -85,6 +85,8 @@ class GCLogger(object):
         "popgeometric_version_patch": "",
     }
 
+    _HF_KEY_LENGTH = 37
+
     def __new__(cls, ip):
         if cls._instance is None:
             cls._SHELL = ip
@@ -323,14 +325,31 @@ class GCLogger(object):
 
         return 0
 
+    def __remove_hf_keys(cls, raw_string: str) -> str:
+        """Detect and remove possible HF API keys from strings."""
+
+        if cls.LOG_STATE == "DISABLED":
+            return
+
+        while "hf_" in raw_string:
+            key_start = raw_string.find("hf_")
+            key_end = key_start + cls._HF_KEY_LENGTH
+            raw_string = raw_string[:key_start] + "<HF_API_KEY>" + raw_string[key_end:]
+
+        return raw_string
+
     @classmethod
     def __sanitize_payload(cls, payload):
 
         if cls.LOG_STATE == "DISABLED":
             return
 
+        # Clean out any private keys, fix quotes
         for key, val in payload.items():
             if type(val) == str:
+                if key in ["error_trace", "cell_output", "code_executed"]:
+                    val = cls.__remove_hf_keys(val)
+
                 payload[key] = val.replace('"', "'")
 
         payload = json.dumps(payload, separators=(",", ":"))
