@@ -228,7 +228,8 @@ class GCLogger(object):
 
         while "hf_" in raw_string:
             key_start = raw_string.find("hf_")
-            raw_string = raw_string[:key_start] + "<HF_API_KEY>" + raw_string[key_start + cls._HF_KEY_LENGTH :]
+            key_end = key_start + cls._HF_KEY_LENGTH
+            raw_string = raw_string[:key_start] + "<HF_API_KEY>" + raw_string[key_end:]
 
         return raw_string
 
