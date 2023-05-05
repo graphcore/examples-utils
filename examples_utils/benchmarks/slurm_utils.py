@@ -560,6 +560,7 @@ def configure_slurm_job(
 
     # SLURM helper scripts to submit jobs depending on the number of IPUs
     machine_type = {"any": "", "mk2": "c", "mk2w": "w"}[args.slurm_machine_type]
+    
     if num_ipus <= 16:
         submission_script = f"runonpod16{machine_type}.sh"
     elif num_ipus <= 64:
@@ -596,8 +597,11 @@ def configure_slurm_job(
     stderr_log_path = str(variant_log_dir / "stderr")
 
     # pass --wait to sbatch so that we can obtain the return code from the submitted job
-    slurm_job_command = [
-        submission_script,
+    if args.slurm_resource_reservation is not None:
+        slurm_job_command = [submission_script, "--reservation", args.slurm_resource_reservation]
+    else:
+        slurm_job_command = [submission_script]
+    slurm_job_command += [
         "--wait",
         "--job-name",
         variant_name,

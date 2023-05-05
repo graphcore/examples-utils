@@ -73,7 +73,7 @@ AWSCLI_VARS = {
 }
 
 SLURM_ENV_VARS = {
-    "SLURM_HOST_SUBNET_MASK": {"help": "Host subnet mask for all allocations from the SLURM queue.", "default": "ens5"}
+    "SLURM_HOST_SUBNET_MASK": {"help": "Host subnet mask for all allocations from the SLURM queue.", "default": "10.5.0.0/16"}
 }
 
 
