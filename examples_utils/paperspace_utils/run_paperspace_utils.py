@@ -1,0 +1,30 @@
+# Copyright (c) 2023 Graphcore Ltd. All rights reserved.
+import argparse
+
+from .symlink_datasets_and_caches import run_symlinks
+from .health_check import run_health_check
+
+def paperspace_parser(parser: argparse.ArgumentParser):
+    """Add paperspace arguments to argparse parser"""
+    parser.add_argument("option")
+
+
+def run_paperspace(args: argparse.Namespace):
+    """Run paperspace scripts.
+
+    Args:
+        args (argparse.Namespace): Arguments passed to run the benchmarks
+            with
+
+    """
+    if args.option == "symlinks":
+        run_symlinks()
+    elif args.option == "health_check":
+        run_health_check(args)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    paperspace_parser(parser)
+    args = parser.parse_args()
+    run_paperspace(args)

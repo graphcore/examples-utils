@@ -55,8 +55,7 @@ def check_paths_exists(paths: [str]):
     return symlinks_exist
 
 
-def parse_args():
-    parser = argparse.ArgumentParser()
+def parse_args(parser: argparse.ArgumentParser()):
     parser.add_argument("--log-folder", default="/storage/graphcore_health_checks", help="Folder for log output")
     parser.add_argument(
         "--gradient-settings-file",
@@ -73,7 +72,7 @@ def parse_args():
     return args
 
 
-def main(args):
+def run_health_check(args):
     notebook_id = os.environ.get("PAPERSPACE_METRIC_WORKLOAD_ID", "")
     # Check that graphcore_health_checks folder exists
     health_check_dir = pathlib.Path(args.log_folder)
@@ -108,5 +107,6 @@ def main(args):
 
 
 if __name__ == "__main__":
-    args = parse_args()
-    main(args)
+    parser = argparse.ArgumentParser()
+    args = parse_args(parser)
+    run_health_check(args)
