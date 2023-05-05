@@ -68,8 +68,7 @@ def parse_args(parser: argparse.ArgumentParser()):
         help="Path to symlink_config.json file",
     )
     parser.add_argument("--dataset-folder", default="/datasets", help="Path to dataset folder")
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 def run_health_check(args):

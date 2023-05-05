@@ -1,5 +1,6 @@
 #! /usr/bin/env -S python3 -u
 import json
+import argparse
 import time
 from pathlib import Path
 import subprocess
@@ -44,10 +45,14 @@ def create_overlays(source_dirs_exist_paths: List[str], target_dir: str) -> None
 
     return
 
+def parse_args(parser: argparse.ArgumentParser()):
+    parser.add_argument("path")
+    return parser.parse_args()
 
-def run_symlinks():
+
+def run_symlinks(args):
     # read in symlink config file
-    json_data = (Path(__file__).resolve().parent / "symlink_config.json").read_text()
+    json_data = (args.path).read_text()
 
     # substitute environment variables in the JSON data
     json_data = os.path.expandvars(json_data)
@@ -64,5 +69,6 @@ def run_symlinks():
             create_overlays(source_dirs_exist_paths, target_dir)
 
 if __name__ == "__main__":
-    run_symlinks()
-
+    parser = argparse.ArgumentParser()
+    args = parse_args(parser)
+    run_symlinks(args)

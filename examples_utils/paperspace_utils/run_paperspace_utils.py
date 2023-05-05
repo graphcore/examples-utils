@@ -18,7 +18,7 @@ def run_paperspace(args: argparse.Namespace):
 
     """
     if args.option == "symlinks":
-        run_symlinks()
+        run_symlinks(args)
     elif args.option == "health_check":
         run_health_check(args)
 
