@@ -385,8 +385,8 @@ def run_benchmark_variant(
         err = f"Benchmark ERROR, exited with code: ({str(exitcode)}). Please check logs for more information."
         logger.error(err)
 
-        error_tail = "\n\t".join(stderr.splitlines()[-50:]) + "\n"
-        logger.error(f"Last 50 lines of stderr from {variant_name}:\n{error_tail}")
+        error_tail = "\n\t".join(stderr.splitlines()[-100:]) + "\n"
+        logger.error(f"Last 100 lines of stderr from {variant_name}:\n{error_tail}")
 
         if args.stop_on_error:
             raise RuntimeError(err)
