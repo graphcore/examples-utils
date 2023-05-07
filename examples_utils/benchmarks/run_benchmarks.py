@@ -296,7 +296,7 @@ def run_benchmark_variant(
     # Check if poprun is being used
     poprun_config = get_poprun_config(args, cmd)
 
-    # only validate user supplied hosts if not submitting on SLURM
+    # Only validate user supplied hosts if not submitting on SLURM
     # Similarly, only install requirements if not submitting on SLURM
     if not args.submit_on_slurm:
         # Detect if benchmark requires instances running (not just compiling) on
