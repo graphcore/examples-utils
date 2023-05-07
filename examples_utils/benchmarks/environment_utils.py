@@ -117,7 +117,7 @@ def check_env(args: argparse.Namespace, benchmark_name: str, cmd: str):
     # if submitting on slurm, these environment variables are ignored
     if not args.submit_on_slurm:
         _check_cmd_for_missing_poprun_vars(benchmark_name, cmd)
-        
+
     missing_env_vars = []
     # Check wandb variables if required
     if args.allow_wandb:

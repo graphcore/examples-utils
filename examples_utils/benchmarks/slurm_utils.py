@@ -93,7 +93,7 @@ def configure_environment_variables(env: dict):
     env["RNIC_SUBNET_MASK"] = "10.5.0.0/16"
     env["IPUOF_VIPU_API_HOST"] = "angelsfall-ctrl"
     env["IPUOF_VIPU_API_PORT"] = "8090"
-    
+
     # if the user has an activated virtualenv, remove it from the path
     # otherwise the path to the venv will persist on the allocated node
     # and will affect package resolution
@@ -562,7 +562,7 @@ def configure_slurm_job(
 
     # SLURM helper scripts to submit jobs depending on the number of IPUs
     machine_type = {"any": "", "mk2": "c", "mk2w": "w"}[args.slurm_machine_type]
-    
+
     if num_ipus <= 16:
         submission_script = f"runonpod16{machine_type}.sh"
     elif num_ipus <= 64:
@@ -704,14 +704,11 @@ def run_and_monitor_progress_on_slurm(
         time.sleep(1)
 
     logger.info("Monitoring SLURM job")
-    
+
     # something bad may have happened
     if proc.poll() is not None:
-        logger.info(
-            "Something unexpected occurred while monitoring SLURM job."
-            " Attempting to extract logs."
-            )
-        
+        logger.info("Something unexpected occurred while monitoring SLURM job." " Attempting to extract logs.")
+
         exitcode = proc.returncode
         stdout_log = proc.stdout.read().decode()
         stderr_log = proc.stderr.read().decode()
@@ -726,9 +723,8 @@ def run_and_monitor_progress_on_slurm(
         if Path(stdout_log_path).exists() and Path(stderr_log_path).exists():
             stdout_path = stdout_log_path
             stderr_path = stderr_log_path
-        else:            
+        else:
             return exitcode, stdout_log, stderr_log
-
 
     total_time = 0
     timeout_error = False
