@@ -159,20 +159,6 @@ class GCLogger(object):
     def __init__(self, ip):
         return
 
-    def __state_controlled(func: function) -> function:
-        """Decorator to control function execution with logger state."""
-
-        def empty_func(cls):
-            return None
-
-        def wrapper(cls):
-            if cls.LOG_STATE == "DISABLED":
-                return empty_func
-            else:
-                return func
-
-        return wrapper
-
     @classmethod
     def __update_payload(cls, output: str or int, name: str) -> str:
         """Update the payload with empty types as backups."""
@@ -205,7 +191,6 @@ class GCLogger(object):
         except:
             pass
 
-    @__state_controlled
     @classmethod
     def __manual_termination_polling(cls):
         """Report if exeuction termination event was some kill signal."""
@@ -321,7 +306,7 @@ class GCLogger(object):
             return 0
 
     @classmethod
-    def __detect_cell_modification(cls, executed_code):
+    def __detect_cell_modification(cls, executed_code: str) -> int:
         """Detect if the cell code has been modified before execution."""
 
         if cls.LOG_STATE == "DISABLED":
@@ -340,6 +325,7 @@ class GCLogger(object):
 
         return 0
 
+    @classmethod
     def __remove_hf_keys(cls, raw_string: str) -> str:
         """Detect and remove possible HF API keys from strings."""
 
@@ -354,14 +340,14 @@ class GCLogger(object):
         return raw_string
 
     @classmethod
-    def __sanitize_payload(cls, payload):
+    def __sanitize_payload(cls, payload: dict) -> dict:
 
         if cls.LOG_STATE == "DISABLED":
             return
 
         # Clean out any private keys, fix quotes
         for key, val in payload.items():
-            if type(val) == str:
+            if (val is not None) and (type(val) == str):
                 if key in ["error_trace", "cell_output", "code_executed"]:
                     val = cls.__remove_hf_keys(val)
 
@@ -373,7 +359,7 @@ class GCLogger(object):
         return payload
 
     @classmethod
-    def __firehose_put(cls, payload):
+    def __firehose_put(cls, payload: dict):
         """Submit a PUT record request to the firehose stream."""
 
         if cls.LOG_STATE == "DISABLED":
