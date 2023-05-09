@@ -159,6 +159,20 @@ class GCLogger(object):
     def __init__(self, ip):
         return
 
+    def __state_controlled(func: function) -> function:
+        """Decorator to control function execution with logger state."""
+
+        def empty_func(cls):
+            return None
+
+        def wrapper(cls):
+            if cls.LOG_STATE == "DISABLED":
+                return empty_func
+            else:
+                return func
+
+        return wrapper
+
     @classmethod
     def __update_payload(cls, output: str or int, name: str) -> str:
         """Update the payload with empty types as backups."""
@@ -191,6 +205,7 @@ class GCLogger(object):
         except:
             pass
 
+    @__state_controlled
     @classmethod
     def __manual_termination_polling(cls):
         """Report if exeuction termination event was some kill signal."""
