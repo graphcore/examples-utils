@@ -8,6 +8,12 @@ from uuid import getnode as get_mac
 
 from tomlkit import item
 
+try:
+    from examples_utils.notebook_logger.config_logger import LoggingState, LoggingTarget, ConfigLogger
+    from examples_utils.testing import test_commands
+except:
+    print("Failure to import")
+
 def test_imports():
     from examples_utils.notebook_logger.config_logger import LoggingState, LoggingTarget, ConfigLogger
     from examples_utils.testing import test_commands
