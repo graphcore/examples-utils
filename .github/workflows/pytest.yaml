@@ -22,7 +22,7 @@ jobs:
           pip install -e .[all]
       - name: Test with pytest
         run: |
-          pytest
+          pytest tests --continue-on-collection-errors
   publish_report:
     runs-on: ubuntu-latest
     name: Publish Report
