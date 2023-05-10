@@ -25,7 +25,7 @@ jobs:
           pip install -r requirements-jupyter.txt
       - name: Test with pytest
         run: |
-          pytest tests --continue-on-collection-errors
+          pytest
   publish_report:
     runs-on: ubuntu-latest
     name: Publish Report
