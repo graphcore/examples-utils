@@ -23,3 +23,19 @@ jobs:
       - name: Test with pytest
         run: |
           pytest
+  publish_report:
+    runs-on: ubuntu-latest
+    name: Publish Report
+    needs: [build]
+    if: always()
+    outputs:
+      summary: ${{ steps.output.outputs.summary }}
+    steps:
+      - name: Download Reports
+        uses: actions/download-artifact@v3
+      - name: Publish Summary
+        id: publish_summary
+        uses: mikepenz/action-junit-report@d507ab47ffeb036bd3671233143d8026470aa955 # v3.6.2 (pinned for security reasons)
+        with:
+          check_name: Report Summary
+          report_paths: reports_${{ github.run_id }}/*report.xml
