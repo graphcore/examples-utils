@@ -1,7 +1,7 @@
 # Copyright (c) 2022 Graphcore Ltd. All rights reserved.
 
 import cppimport.import_hook
-from . import sdk_version_hash_lib
+import sdk_version_hash_lib
 
 __all__ = ["sdk_version_hash"]
 
