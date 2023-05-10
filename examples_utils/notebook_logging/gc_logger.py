@@ -57,7 +57,6 @@ class GCLogger(object):
         "manual_cell_termination_event": 0,
         # Largely constant values
         "notebook_path": "",
-        "notebook_name": "",
         "notebook_repo_id": "",
         "notebook_id": "",
         "cluster_id": "",
@@ -222,7 +221,6 @@ class GCLogger(object):
 
             notebook_metadata = {
                 "notebook_path": str(notebook_path),
-                "notebook_name": str(notebook_path.stem),
                 "notebook_repo_id": os.getenv("PAPERSPACE_NOTEBOOK_REPO_ID"),
                 "notebook_id": anonymised_notebook_id,
                 "cluster_id": os.getenv("PAPERSPACE_CLUSTER_ID"),
