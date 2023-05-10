@@ -435,4 +435,6 @@ def load_ipython_extension(ip):
 def unload_ipython_extension(ip):
     global _gc_logger
     _gc_logger.LOG_STATE = "DISABLED"
+    ip.events.unregister("pre_run_cell", _gc_logger.pre_run_cell)
+    ip.events.unregister("post_run_cell", _gc_logger.post_run_cell)
     del _gc_logger
