@@ -141,7 +141,6 @@ class GCLogger(object):
                 background_functions = [
                     cls.__get_notebook_metadata,
                     cls.__get_frameworks_versions,
-                    cls.__manual_termination_polling,
                     cls.__store_initial_cell_states,
                 ]
 
