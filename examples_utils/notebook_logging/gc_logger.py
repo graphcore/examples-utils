@@ -212,7 +212,7 @@ class GCLogger(object):
             try:
                 notebook_path = ipynbname.path()
             except:
-                notebook_path = "failed-to-get-nb-path"
+                notebook_path = Path("failed-to-get-nb-path")
 
             # Encode and hash
             notebook_id = os.getenv("PAPERSPACE_NOTEBOOK_ID")
