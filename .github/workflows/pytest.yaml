@@ -25,7 +25,7 @@ jobs:
           pip install -r requirements-common.txt
       - name: Test with pytest
         run: |
-          python -m pytest
+          python -m pytest --junitxml=pytest_report.xml
   publish_report:
     runs-on: ubuntu-latest
     name: Publish Report
@@ -41,4 +41,4 @@ jobs:
         uses: mikepenz/action-junit-report@d507ab47ffeb036bd3671233143d8026470aa955 # v3.6.2 (pinned for security reasons)
         with:
           check_name: Report Summary
-          report_paths: reports_${{ github.run_id }}/*report.xml
+          report_paths: '*report.xml'
