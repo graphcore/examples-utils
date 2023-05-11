@@ -1,29 +1,29 @@
-## GCLogger
+# GCLogger
 
-### Installation/Usage
+## Installation/Usage
 Logging metrics/analytics from within notebooks.
 
 For basic usage, install examples-utils and then import:
-```
+```python
 from examples_utils import notebook_logging
 ```
 
 And to start the logging:
-```
-`%load_ext gc_logger`
+```python
+%load_ext gc_logger
 ```
 
 This will startup background processes that log and upload system, IPU and notebook usage information.
 
 To stop all logging/uploading, run:
+```python
+%unload_ext gc_logger
 ```
-`%unload_ext gc_logger`
-```
-from any cell in the notebook
+from any cell in the notebook.
 
-### Disclaimer
+## Disclaimer
 
-On first importing and generating a GCLogger object, the following disclaimer is presented to the user within the stdout of a cell in a notebook:
+On first importing and generating a GCLogger object, the following disclaimer is presented to the user within the stdout of the cell in which the `%load_ext gc_logger` was run in the notebook:
 ```
 ============================================================================================================================================
 Graphcore would like to collect information about the applications and code being run in this notebook, as well as the system it's being run 
@@ -40,4 +40,42 @@ Unless logging is disabled, the following information will be collected:
 =============================================================================================================================================
 ```
 
-This is meant as a prototype to demonstrate how the capability could be implemented.
+## Design notes
+
+The following notes describe the design and architecture of the notebook logging module.
+
+### IPython extension format
+The module is written as an IPython extension for two reasons:
+- It can be loaded/unloaded into/out of the IPython kernel via IPython line magic easily and cleanly
+- It can access the IPython events register that we can register custom pre/post cell execution functions
+
+This allows us to perform event-based logging, where each cell execution counts as an event. Whilst some of the data we need to store is independent of the cells themselves, the majority of the information is specific and hence suits this logging method very well. 
+
+### Background processes
+Some functions that:
+- Have a very long runtime relative to the other pre/post cell execution methods
+- Only need to be run once per instance of notebook/logger (notebook metadata)
+- Need to access the notebook itself (JSON), which isnt saved on demand
+Need to be run in background processes which do not stall the execution of the pre/post cell execution functions to avoid making any delays visible to the user.
+
+Instead, the [multiprocess](https://docs.python.org/3/library/multiprocessing.html) library is used to create and manage the data structures and background processes. With this, we create, run, terminate and cleanup processes that are not exposed to the user and do not (significantly in any way) affect the python kernel itself.
+
+### Multiprocess managed payload
+As a consequence of using multiprocess to execute and manage the background processes, we also need to use specialised data structures that are managed by multiprocess itself to ensure consistency when multiple processes are writing to the same memory at the same time. To this extent, the class creates and maintains its own multiprocess manager, as well as a dictionary and list:
+```python 
+_MP_MANAGER = mp.Manager()
+_PAYLOAD = _MP_MANAGER.dict()
+_CODE_CELLS = _MP_MANAGER.list()
+```
+
+These are then modified by background processes and the class methods as appropriate. 
+
+In the post-cell execution method, a local copy of the multiprocess managed payload is created which is a regular python dictionary. It is then modified and formatted into the final payload which is uploaded. The only methdos which modify the multiprocess managed payload are the background run methods specified in the [background processes section]() above.
+
+### Loading/unloading
+
+The `%load_ext` line magic runs the register function that enables the actual pre/post-cell execution computation to happen. Upon loading, the GCLogger object is instantiated and the events are registered to the IPython events object. Upon unloading with the `%unload_ext` line magic, the object is then deleted so that attributes and methods can no longer be accessed by attempting to access the same instance, and the events are unregistered so that they are no longer run by the kernel when cells are executed.
+
+### AWS firehose
+The payloads, once finalised, are uploaded to our database via AWS Firehose. The implementation and details behind this are not described here. 
+The setup, however, currently relies on AWS keys that are salted and base64 encoded and available in the gcl dataset in paperspace environments. Once the class is instantiated, it looks for the keys in the dataset, decodes them and then provides them to the boto3 client. After that, payloads are constructed as described above and provided to the boto3 client, which also requires a firehose stream (provided as a class attribute) and performs the upload.
