@@ -24,7 +24,7 @@ install the "jupyter" set of requirements:
 python -m pip install https://github.com/graphcore/examples-utils.git[jupyter]
 ```
 
-If you'd like to set the install to a fixed commit, then we reccommend using the [latest_stable](https://github.com/graphcore/examples-utils/releases/tag/latest_stable) tag, which is tested and updated frequently to maintain functionality. You can use this by adding: 
+If you'd like to set the installation to a fixed commit, then we reccommend using the [latest_stable](https://github.com/graphcore/examples-utils/releases/tag/latest_stable) tag, which is tested and updated frequently to maintain functionality. You can use this by adding: 
 
 ```console
 examples-utils[common] @ git+https://github.com/graphcore/examples-utils@latest_stable
