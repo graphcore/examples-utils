@@ -47,4 +47,4 @@ jobs:
         uses: mikepenz/action-junit-report@d507ab47ffeb036bd3671233143d8026470aa955 # v3.6.2 (pinned for security reasons)
         with:
           check_name: Report Summary
-          report_paths: '*report.xml'
+          report_paths: reports_${{ github.run_id }}/*report.xml
