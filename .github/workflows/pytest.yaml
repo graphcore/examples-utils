@@ -22,7 +22,7 @@ jobs:
           pip install .[all]
       - name: Test with pytest
         run: |
-          pytest
+          python -m pytest
   publish_report:
     runs-on: ubuntu-latest
     name: Publish Report
