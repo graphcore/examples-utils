@@ -70,7 +70,7 @@ _CODE_CELLS = _MP_MANAGER.list()
 
 These are then modified by background processes and the class methods as appropriate. 
 
-In the post-cell execution method, a local copy of the multiprocess managed payload is created which is a regular python dictionary. It is then modified and formatted into the final payload which is uploaded. The only methdos which modify the multiprocess managed payload are the background run methods specified in the [background processes section]() above.
+In the post-cell execution method, a local copy of the multiprocess managed payload is created which is a regular python dictionary. It is then modified and formatted into the final payload which is uploaded. The only methdos which modify the multiprocess managed payload are the background run methods specified in the [background processes section](https://github.com/graphcore/examples-utils/blob/7ddb96e4e6ddfc348077c6de3b7a696bc52a8709/examples_utils/notebook_logging/README.md#background-processes) above.
 
 ### Loading/unloading
 
