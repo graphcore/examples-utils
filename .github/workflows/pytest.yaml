@@ -31,6 +31,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: reports_${{ github.run_id }}
+          path: reports/*report.xml
       - name: Upload Report
         if: always()
         uses: actions/upload-artifact@v3
