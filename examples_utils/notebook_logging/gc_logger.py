@@ -145,17 +145,13 @@ class GCLogger(object):
 
                     # Inform user
                     print(
-                        "\n============================================================================================================================================\n"
-                        "Graphcore would like to collect information about the applications and code being run in this notebook, as well as the system it's being run \n"
-                        "on to improve usability and support for future users. The information will be anonymised and sent to Graphcore \n\n"
+                        "In order to improve usability and support for future users, Graphcore would like to collect information about the "
+                        "applications and code being run in this notebook. The information will be anonymised and sent to Graphcore. \n\n"
                         "You can disable this at any time by running `%unload_ext gc_logger` from any cell.\n\n"
                         "Unless logging is disabled, the following information will be collected:\n"
                         "\t- User progression through the notebook\n"
                         "\t- Notebook details: number of cells, code being run and the output of the cells\n"
-                        "\t- ML application details: Model information, performance, hyperparameters, and compilation time\n"
                         "\t- Environment details\n"
-                        "\t- System performance: IO, memory and host compute performance\n\n"
-                        "=============================================================================================================================================\n"
                     )
 
                 except:
