@@ -57,7 +57,7 @@ Some functions need to be run in background processes which do not stall the exe
 - Only need to be run once per instance of notebook/logger (notebook metadata)
 - Need to access the notebook itself (JSON), which isn't saved on demand
 
-Instead, the [multiprocess](https://docs.python.org/3/library/multiprocessing.html) library is used to create and manage the data structures and background processes. With this, we create, run, terminate and cleanup processes that are not exposed to the user and do not (significantly in any way) affect the python kernel itself.
+Instead, the [multiprocess](https://docs.python.org/3/library/multiprocessing.html) library is used to create and manage the data structures and background processes. With this we create, run, terminate and cleanup processes that are not exposed to the user and do not (significantly in any way) affect the python kernel itself.
 
 ### Multiprocess managed payload
 As a consequence of using multiprocess to execute and manage the background processes, we also need to use specialised data structures that are managed by multiprocess itself to ensure consistency when multiple processes are writing to the same memory at the same time. To this extent, the class creates and maintains its own multiprocess manager, as well as a dictionary and list:
