@@ -32,16 +32,16 @@ jobs:
         with:
           name: reports_${{ github.run_id }}
           path: reports/*report.xml
-      # - name: Upload Report
-      #   if: always()
-      #   uses: actions/upload-artifact@v3
-      #   with:
-      #     name: coverage_${{ github.run_id }}
-      #     path: coverage.xml
+      - name: Upload Report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage_${{ github.run_id }}
+          path: coverage.xml
       - name: Publish Summary
         if: always()
         id: publish_summary
         uses: mikepenz/action-junit-report@d507ab47ffeb036bd3671233143d8026470aa955 # v3.6.2 (pinned for security reasons)
         with:
           check_name: Report Summary
-          report_paths: reports_${{ github.run_id }}/*report.xml
+          report_paths: reports/*report.xml
