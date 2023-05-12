@@ -46,7 +46,7 @@ The following notes describe the design and architecture of the notebook logging
 
 ### IPython extension format
 The module is written as an IPython extension for two reasons:
-- It can be loaded/unloaded into/out of the IPython kernel via IPython line magic easily and cleanly
+- It can be loaded/unloaded into/out of the IPython kernel via IPython line magic easily and cleanly.
 - It can access the IPython events register so that we can register custom pre- or post-cell execution functions
 
 This allows us to perform event-based logging, where each cell execution counts as an event. Whilst some of the data we need to store is independent of the cells themselves, the majority of the information is specific and hence suits this logging method very well. 
