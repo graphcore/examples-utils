@@ -35,8 +35,10 @@ jobs:
           name: reports_${{ github.run_id }}
           path: reports/*report.xml
       - name: Download Reports
+        if: always()
         uses: actions/download-artifact@v3
       - name: Publish Summary
+        if: always()
         id: publish_summary
         uses: mikepenz/action-junit-report@d507ab47ffeb036bd3671233143d8026470aa955 # v3.6.2 (pinned for security reasons)
         with:
