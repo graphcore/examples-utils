@@ -17,14 +17,14 @@ from pathlib import Path
 
 class GCLogger(object):
     """
-    Singleton class for logging Graphcore's Jupyter notebook execution events.
+    Singleton class for logging the Graphcore Jupyter notebook execution events.
 
     Notes:
-        GCLogger, or GCL is is a notebook user behaviour logging module
+        GCLogger is a notebook user behaviour logging module
         developed to analyse user progression through notebooks as well as
         other metadata/metrics of the notebooks themselves. The purpose of this
         data collection is to use the analyses and inferences to improve a
-        given notebook's functionality, clarity and usability, as well as the
+        notebook's functionality, clarity and usability, as well as the
         overall user experience.
 
     Attributes:
@@ -369,14 +369,14 @@ class GCLogger(object):
     @classmethod
     def __detect_logging_termination(cls, cell_input: str) -> int:
         """
-        Detects if GCL logging was terminated by the user.
+        Detects if GCLogger logging was terminated by the user.
 
         Args:
             cell_input (str): Input code of the cell.
 
         Returns:
             int: 1 if the unload command for this extension is found in
-                cell_input, else 0.
+                `cell_input`, else 0.
         """
 
         if cls.LOG_STATE == "DISABLED":
@@ -419,14 +419,14 @@ class GCLogger(object):
     @classmethod
     def __remove_hf_keys(cls, raw_string: str) -> str:
         """
-        Searches a given string for any possible HF API keys and replaces them.
+        Searches a given string for any possible Hugging Face API keys and replaces them.
 
         Args:
-            raw_string (str): The input string potentially containing HF API
+            raw_string (str): The input string potentially containing Hugging Face API
                 keys.
 
         Returns:
-            str: The sanitized string with all found HF API keys replaced by
+            str: The sanitized string with all found Hugging Face API keys replaced with
                 "<HF_API_KEY>".
         """
 
@@ -547,7 +547,7 @@ class GCLogger(object):
 
 def load_ipython_extension(ip):
     """
-    This function is used to load the extension into IPython environment.
+    This function is used to load the extension into the IPython environment.
 
     Args:
         ip (InteractiveShell): An instance of the IPython InteractiveShell.

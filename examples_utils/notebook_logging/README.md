@@ -1,21 +1,21 @@
 # GCLogger
 
-## Installation/Usage
-Logging metrics/analytics from within notebooks.
+## Installation and usage
+Logging of metrics and analytics from within notebooks.
 
-For basic usage, install examples-utils and then import:
+For basic usage, install the `examples-utils` package and then import:
 ```python
 from examples_utils import notebook_logging
 ```
 
-And to start the logging:
+To start the logging:
 ```python
 %load_ext gc_logger
 ```
 
-This will startup background processes that log and upload system, IPU and notebook usage information.
+This will start up background processes that log and upload system, IPU and notebook usage information.
 
-To stop all logging/uploading, run:
+To stop all logging and uploading, run:
 ```python
 %unload_ext gc_logger
 ```
@@ -23,7 +23,7 @@ from any cell in the notebook.
 
 ## Disclaimer
 
-On first importing and generating a GCLogger object, the following disclaimer is presented to the user within the stdout of the cell in which the `%load_ext gc_logger` was run in the notebook:
+When you first import and generate a `GCLogger` object, the following disclaimer is displayed in the stdout of the cell in which the `%load_ext gc_logger` was run in the notebook:
 ```
 ============================================================================================================================================
 Graphcore would like to collect information about the applications and code being run in this notebook, as well as the system it's being run 
@@ -47,16 +47,15 @@ The following notes describe the design and architecture of the notebook logging
 ### IPython extension format
 The module is written as an IPython extension for two reasons:
 - It can be loaded/unloaded into/out of the IPython kernel via IPython line magic easily and cleanly
-- It can access the IPython events register that we can register custom pre/post cell execution functions
+- It can access the IPython events register so that we can register custom pre- or post-cell execution functions
 
 This allows us to perform event-based logging, where each cell execution counts as an event. Whilst some of the data we need to store is independent of the cells themselves, the majority of the information is specific and hence suits this logging method very well. 
 
 ### Background processes
-Some functions that:
-- Have a very long runtime relative to the other pre/post cell execution methods
+Some functions need to be run in background processes which do not stall the execution of the pre/post cell execution functions in order to avoid making any delays visible to the user. These are functions that:
+- Have a very long run time relative to the other pre/post cell execution methods
 - Only need to be run once per instance of notebook/logger (notebook metadata)
-- Need to access the notebook itself (JSON), which isnt saved on demand
-Need to be run in background processes which do not stall the execution of the pre/post cell execution functions to avoid making any delays visible to the user.
+- Need to access the notebook itself (JSON), which isn't saved on demand
 
 Instead, the [multiprocess](https://docs.python.org/3/library/multiprocessing.html) library is used to create and manage the data structures and background processes. With this, we create, run, terminate and cleanup processes that are not exposed to the user and do not (significantly in any way) affect the python kernel itself.
 
@@ -72,10 +71,10 @@ These are then modified by background processes and the class methods as appropr
 
 In the post-cell execution method, a local copy of the multiprocess managed payload is created which is a regular python dictionary. It is then modified and formatted into the final payload which is uploaded. The only methdos which modify the multiprocess managed payload are the background run methods specified in the [background processes section](https://github.com/graphcore/examples-utils/blob/7ddb96e4e6ddfc348077c6de3b7a696bc52a8709/examples_utils/notebook_logging/README.md#background-processes) above.
 
-### Loading/unloading
+### Loading and unloading
 
-The `%load_ext` line magic runs the register function that enables the actual pre/post-cell execution computation to happen. Upon loading, the GCLogger object is instantiated and the events are registered to the IPython events object. Upon unloading with the `%unload_ext` line magic, the object is then deleted so that attributes and methods can no longer be accessed by attempting to access the same instance, and the events are unregistered so that they are no longer run by the kernel when cells are executed.
+The `%load_ext` line magic runs the register function that enables the actual pre- and post-cell execution computation to happen. Upon loading, the `GCLogger` object is instantiated and the events are registered to the IPython events object. Upon unloading with the `%unload_ext` line magic, the object is then deleted so that attributes and methods can no longer be accessed by attempting to access the same instance, and the events are unregistered so that they are no longer run by the kernel when cells are executed.
 
 ### AWS firehose
 The payloads, once finalised, are uploaded to our database via AWS Firehose. The implementation and details behind this are not described here. 
-The setup, however, currently relies on AWS keys that are salted and base64 encoded and available in the gcl dataset in paperspace environments. Once the class is instantiated, it looks for the keys in the dataset, decodes them and then provides them to the boto3 client. After that, payloads are constructed as described above and provided to the boto3 client, which also requires a firehose stream (provided as a class attribute) and performs the upload.
+The setup, however, currently relies on AWS keys that are salted and base64 encoded and available in the gcl dataset in paperspace environments. Once the class is instantiated, it looks for the keys in the dataset, decodes them and then provides them to the `boto3` client. After that, payloads are constructed as described above and provided to the `boto3` client, which also requires a firehose stream (provided as a class attribute) and performs the upload.
