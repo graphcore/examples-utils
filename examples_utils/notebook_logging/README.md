@@ -47,7 +47,7 @@ The following notes describe the design and architecture of the notebook logging
 ### IPython extension format
 The module is written as an IPython extension for two reasons:
 - It can be loaded/unloaded into/out of the IPython kernel via IPython line magic easily and cleanly.
-- It can access the IPython events register so that we can register custom pre- or post-cell execution functions
+- It can access the IPython events register so that we can register custom pre- or post-cell execution functions.
 
 This allows us to perform event-based logging, where each cell execution counts as an event. Whilst some of the data we need to store is independent of the cells themselves, the majority of the information is specific and hence suits this logging method very well. 
 
@@ -69,7 +69,7 @@ _CODE_CELLS = _MP_MANAGER.list()
 
 These are then modified by background processes and the class methods as appropriate. 
 
-In the post-cell execution method, a local copy of the `multiprocess` managed payload is created which is a regular python dictionary. It is then modified and formatted into the final payload which is uploaded. The only methdos which modify the `multiprocess` managed payload are the background run methods specified in the [background processes section](https://github.com/graphcore/examples-utils/blob/7ddb96e4e6ddfc348077c6de3b7a696bc52a8709/examples_utils/notebook_logging/README.md#background-processes) above.
+In the post-cell execution method, a local copy of the `multiprocess` managed payload is created which is a regular Python dictionary. It is then modified and formatted into the final payload which is uploaded. The only methods which modify the `multiprocess` managed payload are the background run methods specified in the [background processes section](#background-processes) above.
 
 ### Loading and unloading
 
@@ -77,4 +77,4 @@ The `%load_ext` line magic runs the register function that enables the actual pr
 
 ### AWS firehose
 The payloads, once finalised, are uploaded to our database via AWS Firehose. The implementation and details behind this are not described here. 
-The setup, however, currently relies on AWS keys that are salted and base64 encoded and available in the gcl dataset in paperspace environments. Once the class is instantiated, it looks for the keys in the dataset, decodes them and then provides them to the `boto3` client. After that, payloads are constructed as described above and provided to the `boto3` client, which also requires a firehose stream (provided as a class attribute) and performs the upload.
+The setup, however, currently relies on AWS keys that are salted and base64 encoded and available in the `gcl` dataset in Paperspace environments. Once the class is instantiated, it looks for the keys in the dataset, decodes them and then provides them to the `boto3` client. After that, payloads are constructed as described above and provided to the `boto3` client, which also requires a firehose stream (provided as a class attribute) and performs the upload.

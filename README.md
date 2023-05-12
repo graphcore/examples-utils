@@ -5,7 +5,7 @@ Utils and common code for Graphcore's example applications.
 
 The package includes some command line interface (CLI) utils. For more details, refer to the CLI help:
 
-```python
+```console
 python -m examples_utils --help
 ```
 
@@ -21,7 +21,7 @@ By default, this will only install a minimal set of requirements. To benchmark n
 install the "jupyter" set of requirements:
 
 ```console
-python -m pip install https://github.com/graphcore/examples-utils.git[jupyter]
+python -m pip install "examples-utils[jupyer] @ https://github.com/graphcore/examples-utils.git"
 ```
 
 The [`latest_stable`](https://github.com/graphcore/examples-utils/releases/tag/latest_stable) tag refers to a commit that is tested and should be reliable, but also updates automatically as fixes and features are added. You can use this by adding: 
