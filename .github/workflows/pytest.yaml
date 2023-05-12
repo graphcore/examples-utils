@@ -9,6 +9,8 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.8"]
+    outputs:
+      summary: ${{ steps.output.outputs.summary }}
 
     steps:
       - uses: actions/checkout@v3
@@ -32,14 +34,6 @@ jobs:
         with:
           name: reports_${{ github.run_id }}
           path: reports/*report.xml
-  publish_report:
-    runs-on: ubuntu-latest
-    name: Publish Report
-    needs: [build]
-    if: always()
-    outputs:
-      summary: ${{ steps.output.outputs.summary }}
-    steps:
       - name: Download Reports
         uses: actions/download-artifact@v3
       - name: Publish Summary
