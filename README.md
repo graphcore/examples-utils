@@ -33,7 +33,7 @@ to your requirements.txt file
 
 ## Benchmarking
 
-The benchmarking sub-package is used for running the benchmarks that are provided with example applications in the [examples](https://github.com/graphcore/examples) repository. For more information, refer to the [benchmarks README](https://github.com/graphcore/examples-utils/blob/master/examples_utils/benchmarks/README.md).
+The `benchmarking` sub-package is used for running the benchmarks that are provided with example applications in the [examples](https://github.com/graphcore/examples) repository. For more information, refer to the [benchmarks README](https://github.com/graphcore/examples-utils/blob/master/examples_utils/benchmarks/README.md).
 
 ## Notebook logging
 
