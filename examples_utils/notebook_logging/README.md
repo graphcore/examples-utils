@@ -57,10 +57,10 @@ Some functions need to be run in background processes which do not stall the exe
 - Only need to be run once per instance of notebook/logger (notebook metadata)
 - Need to access the notebook itself (JSON), which isn't saved on demand
 
-Instead, the [multiprocess](https://docs.python.org/3/library/multiprocessing.html) library is used to create and manage the data structures and background processes. With this we create, run, terminate and cleanup processes that are not exposed to the user and do not (significantly in any way) affect the python kernel itself.
+Instead, the [`multiprocess`](https://docs.python.org/3/library/multiprocessing.html) library is used to create and manage the data structures and background processes. With this we create, run, terminate and cleanup processes that are not exposed to the user and do not (significantly in any way) affect the python kernel itself.
 
 ### Multiprocess managed payload
-As a consequence of using multiprocess to execute and manage the background processes, we also need to use specialised data structures that are managed by multiprocess itself to ensure consistency when multiple processes are writing to the same memory at the same time. To this extent, the class creates and maintains its own multiprocess manager, as well as a dictionary and list:
+As a consequence of using `multiprocess` to execute and manage the background processes, we also need to use specialised data structures that are managed by `multiprocess` itself to ensure consistency when multiple processes are writing to the same memory at the same time. To this extent, the class creates and maintains its own `multiprocess` manager, as well as a dictionary and list:
 ```python 
 _MP_MANAGER = mp.Manager()
 _PAYLOAD = _MP_MANAGER.dict()
@@ -69,7 +69,7 @@ _CODE_CELLS = _MP_MANAGER.list()
 
 These are then modified by background processes and the class methods as appropriate. 
 
-In the post-cell execution method, a local copy of the multiprocess managed payload is created which is a regular python dictionary. It is then modified and formatted into the final payload which is uploaded. The only methdos which modify the multiprocess managed payload are the background run methods specified in the [background processes section](https://github.com/graphcore/examples-utils/blob/7ddb96e4e6ddfc348077c6de3b7a696bc52a8709/examples_utils/notebook_logging/README.md#background-processes) above.
+In the post-cell execution method, a local copy of the `multiprocess` managed payload is created which is a regular python dictionary. It is then modified and formatted into the final payload which is uploaded. The only methdos which modify the `multiprocess` managed payload are the background run methods specified in the [background processes section](https://github.com/graphcore/examples-utils/blob/7ddb96e4e6ddfc348077c6de3b7a696bc52a8709/examples_utils/notebook_logging/README.md#background-processes) above.
 
 ### Loading and unloading
 
