@@ -27,7 +27,7 @@ jobs:
           pip install -r requirements-common.txt
       - name: Test with pytest
         run: |
-          python -m pytest --junitxml=reports/pytest_report.xml
+          python -m pytest --cov --junitxml=reports/pytest_report.xml
       - name: Upload Report
         if: always()
         uses: actions/upload-artifact@v3
