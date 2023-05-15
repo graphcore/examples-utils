@@ -147,11 +147,10 @@ class GCLogger(object):
                     print(
                         "In order to improve usability and support for future users, Graphcore would like to collect information about the "
                         "applications and code being run in this notebook. The following information will be anonymised before being sent to Graphcore: \n"
-                        "\t- User progression through the notebook\n"
-                        "\t- Notebook details: number of cells, code being run and the output of the cells\n"
-                        "\t- Environment details\n\n"
-                        "You can disable logging at any time by running `%unload_ext gc_logger` from any cell.\n"
-                    
+                        "\t- User progression through the notebook \n"
+                        "\t- Notebook details: number of cells, code being run and the output of the cells \n"
+                        "\t- Environment details \n\n"
+                        "You can disable logging at any time by running `%unload_ext gc_logger` from any cell. \n"
                     )
 
                 except:
