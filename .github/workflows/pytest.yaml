@@ -23,6 +23,8 @@ jobs:
           pip install -r requirements-dev.txt
           pip install -r requirements-jupyter.txt
           pip install -r requirements-common.txt
+          pip install virtualenv
+
       - name: Test with pytest
         run: |
           python -m pytest --cov --cov-report xml --junitxml=reports/pytest_report.xml
