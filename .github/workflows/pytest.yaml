@@ -9,7 +9,8 @@ jobs:
     container: graphcore/pytorch:latest
     outputs:
       summary: ${{ steps.output.outputs.summary }}
-
+    env:
+      VIRTUAL_ENV: /some/fake/venv/path
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python ${{ matrix.python-version }}
