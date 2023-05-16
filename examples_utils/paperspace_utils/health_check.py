@@ -55,7 +55,7 @@ def check_paths_exists(paths: [str]):
     return symlinks_exist
 
 
-def parse_args(parser: argparse.ArgumentParser()):
+def parse_args(parser: argparse.ArgumentParser):
     parser.add_argument("--log-folder", default="/storage/graphcore_health_checks", help="Folder for log output")
     parser.add_argument(
         "--gradient-settings-file",
