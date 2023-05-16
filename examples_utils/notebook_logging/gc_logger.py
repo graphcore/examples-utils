@@ -162,7 +162,7 @@ class GCLogger(object):
                 cls._PAYLOAD.update(cls._COLUMN_TYPES)
 
                 # Find existing user ID, or create one
-                userid_file = Path("/root/.ipython/extensions/generated_user_id").resolve()
+                userid_file = Path("/storage/.generated_user_id").resolve()
                 if userid_file.exists():
                     with open(userid_file, "r") as file:
                         cls._UNIQUE_HASH = file.readline()
@@ -360,6 +360,7 @@ class GCLogger(object):
             return
 
         # Whether any compil/e/ation happened or not
+        compile_time = 0
         if not "compil" in cell_input + cell_output:
             # Covers most HF, PyG and Pytorch cases
             if "Graph compilation: 100%" in cell_output:
@@ -367,8 +368,6 @@ class GCLogger(object):
                 end_index = cell_output.find("00:00]")
                 compile_time_raw = cell_output[start_index:end_index][-6:-1]
                 compile_time = cls.__convert_time_from_string(compile_time_raw)
-            else:
-                compile_time = 0
 
         return compile_time
 
