@@ -162,7 +162,8 @@ class GCLogger(object):
                 cls._PAYLOAD.update(cls._COLUMN_TYPES)
 
                 # Find existing user ID, or create one
-                userid_file = Path("/storage/.generated_user_id").resolve()
+                userid_file = Path("/storage/.graphcore/generated_user_id").resolve()
+                userid_file.parent.mkdir(parents=True, exists_ok=True)
                 if userid_file.exists():
                     with open(userid_file, "r") as file:
                         cls._UNIQUE_HASH = file.readline()
