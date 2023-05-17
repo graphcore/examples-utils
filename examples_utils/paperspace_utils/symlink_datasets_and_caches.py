@@ -1,3 +1,4 @@
+# Copyright (c) 2023 Graphcore Ltd. All rights reserved.
 #! /usr/bin/env -S python3 -u
 import json
 import argparse
