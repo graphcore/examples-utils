@@ -89,9 +89,9 @@ class GCLogger(object):
         "cluster_id": "",
         "repo_framework": "",
         # Cell input/output information
-        "error_trace": "",
-        "cell_output": "",
-        "code_executed": "",
+        "error_trace": [],
+        "cell_output": [],
+        "code_executed": [],
         "cell_code_modified": 0,
         # Major framework versions from env
         "poptorch_version_major": 0,
@@ -423,26 +423,34 @@ class GCLogger(object):
         return 0
 
     @classmethod
-    def __remove_hf_keys(cls, raw_string: str) -> str:
+    def __remove_hf_keys(cls, raw_list: list) -> list:
         """
         Searches a given string for any possible Hugging Face API keys and replaces them.
 
         Args:
-            raw_string (str): The input string potentially containing Hugging Face API
-                keys.
+            raw_list (list): The list of input strings potentially containing Hugging Face
+                API keys.
 
         Returns:
-            str: The sanitized string with all found Hugging Face API keys replaced with
+            list: The sanitized strings with all found Hugging Face API keys replaced with
                 "<HF_API_KEY>".
         """
 
         if cls.LOG_STATE == "DISABLED":
             return
 
-        while "hf_" in raw_string:
-            key_start = raw_string.find("hf_")
-            key_end = key_start + cls._HF_KEY_LENGTH
-            raw_string = raw_string[:key_start] + "<HF_API_KEY>" + raw_string[key_end:]
+        if len(raw_list) == 0:
+            return
+
+        for i in range(len(raw_list)):
+            raw_string = raw_list[i]
+
+            while "hf_" in raw_string:
+                key_start = raw_string.find("hf_")
+                key_end = key_start + cls._HF_KEY_LENGTH
+                raw_string = raw_string[:key_start] + "<HF_API_KEY>" + raw_string[key_end:]
+
+            raw_list[i] = raw_string
 
         return raw_string
 
@@ -466,8 +474,9 @@ class GCLogger(object):
             if (val is not None) and (type(val) == str):
                 if key in ["error_trace", "cell_output", "code_executed"]:
                     val = cls.__remove_hf_keys(val)
-
-                payload[key] = val.replace('"', "'")
+                    payload[key] = [line.replace('"', "'") for line in payload[key]]
+                else:
+                    payload[key].replace('"', "'")
 
         payload = json.dumps(payload, separators=(",", ":"))
         payload = payload.encode("utf-8")
@@ -520,8 +529,8 @@ class GCLogger(object):
 
         # Common values to all events
         event_dict["execution_end_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
-        event_dict["code_executed"] = str(result.info.raw_cell)
-        event_dict["cell_output"] = str(result.result)
+        event_dict["code_executed"] = str(result.info.raw_cell).split("\n")
+        event_dict["cell_output"] = str(result.result).split("\n")
         event_dict["logger_uptime_seconds"] = int((datetime.now() - cls._CREATION_TIME).total_seconds())
 
         # Get compile time if available
@@ -541,7 +550,9 @@ class GCLogger(object):
 
             event_dict["event_type"] = "error"
             event_dict["error_trace"] = (
-                str(result.error_before_exec) if result.error_before_exec else str(result.error_in_exec)
+                str(result.error_before_exec).split("\n")
+                if result.error_before_exec
+                else str(result.error_in_exec).split("\n")
             )
         else:
             event_dict["event_type"] = "success"
