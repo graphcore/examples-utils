@@ -471,7 +471,7 @@ class GCLogger(object):
         # Clean out any private keys, fix quotes, remove None or empty fields
         for key, val in payload.copy().items():
             if val is not None:
-                if type(val) == str:
+                if isinstance(val, str):
                     if key in ["error_trace", "cell_output", "code_executed"]:
                         payload[key] = cls.__remove_hf_keys(val)
 
