@@ -11,7 +11,7 @@ There may be occasions where it's actually preferable not to pin requirements, i
 ```text
 protobuf==3.19.4
 torch>=2.0.0+cpu # req: unpinned
-``` 
+```
 
 If unversioned named requirements are found, the hook will attempt to detect the versions installed in the current
 venv. This means that it must run as `language: system`, in order to prevent `pre-commit` creating a new environment
@@ -24,7 +24,7 @@ The script is unable to auto-fix repository-based requirements.
 
 ```yaml
 repos:
-  - repo: git@github.com:graphcore/examples-utils.git 
+  - repo: git@github.com:graphcore/examples-utils.git
     hooks:
       - id: pinned-requirements
         name: Pinned Requirements
