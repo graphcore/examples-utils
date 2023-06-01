@@ -105,16 +105,19 @@ def main(argv: Optional[Sequence[str]] = None, fix_issues: bool = True) -> int:
     parser.add_argument("filenames", nargs="*")
     args = parser.parse_args(argv)
 
-    has_failed = False
+    exit_code = 0
     for filename in args.filenames:
         try:
             invalid = invalid_requirements(filename, fix_issues)
             if invalid:
-                has_failed = True
+                exit_code = 1
+        except FileNotFoundError:
+            print(f"Could not find requirements file: {filename}")
+            exit_code = 2
         except Exception:
             print(f"Could not parse requirements file: {filename}")
-            has_failed = 1
-    return int(has_failed)
+            exit_code = 3
+    return exit_code
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ import pytest
 from pathlib import Path
 from typing import Dict, Generator, List, Tuple
 from requirements.requirement import Requirement
-from pinned_requirements import (
+from examples_utils.precommit.pinned_requirements.pinned_requirements import (
     main,
     manual_parse_named_git,
     is_valid_req,
@@ -100,8 +100,8 @@ def test_main(tmp_path: Path, reqs: List[Tuple[str, bool]], expected_result: int
 
 
 def test_bad_filename():
-    output = main("myfile.txt")
-    assert output == 0
+    output = main(["myfile.txt"])
+    assert output == 2
 
 
 def test_fix_invalid(tmp_path: Path, mocker: Generator["MockerFixture", None, None]):
