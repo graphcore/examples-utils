@@ -8,7 +8,6 @@ from typing import List, Optional, Sequence
 import requirements
 from requirements.requirement import Requirement
 
-APPLICABLE_FILES_PATTERN = r".*\/requirements.*\.txt"
 GIT_URI_PATTERN = r"(?:.+ @ )?(git\+.*)"
 
 
@@ -108,9 +107,6 @@ def main(argv: Optional[Sequence[str]] = None, fix_issues: bool = True) -> int:
 
     has_failed = False
     for filename in args.filenames:
-        if not re.match(APPLICABLE_FILES_PATTERN, filename):
-            continue
-
         try:
             invalid = invalid_requirements(filename, fix_issues)
             if invalid:
