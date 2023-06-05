@@ -116,7 +116,7 @@ def run_and_monitor_progress(
     """
 
     # Begin in subprocess
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=80, **kwargs)
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=1, **kwargs)
 
     # All this appears to be for reading process output ------------------------
     outs = [[], []]
@@ -130,7 +130,7 @@ def run_and_monitor_progress(
         while not eof:
             for key, _ in sel.select():
                 stream = key.fileobj
-                data = stream.read1(80)
+                data = stream.read1(1)
                 try:
                     data = data.decode()
                     if not data:
