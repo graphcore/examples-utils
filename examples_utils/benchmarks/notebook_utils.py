@@ -28,6 +28,7 @@ def run_notebook(notebook_filename: str, working_directory: str, timeout: int = 
     with open(notebook_filename) as f:
         nb = nbformat.read(f, as_version=4)
     print("RRR timeout: ", timeout)
+    print('RRR env: ', os.environ)
     ep = ExecutePreprocessor(timeout=timeout, kernel_name="python3")
     exporter = OutputExporter()
     try:
