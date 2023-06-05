@@ -116,7 +116,7 @@ def run_and_monitor_progress(
     """
 
     # Begin in subprocess
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=1, **kwargs)
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=80, **kwargs)
 
     # All this appears to be for reading process output ------------------------
     outs = [[], []]
@@ -130,7 +130,7 @@ def run_and_monitor_progress(
         while not eof:
             for key, _ in sel.select():
                 stream = key.fileobj
-                data = stream.read1(1)
+                data = stream.read1(80)
                 try:
                     data = data.decode()
                     if not data:
@@ -186,6 +186,7 @@ def run_and_monitor_progress(
         elapsed_time = curr_time - t0
 
         # Monitor if benchmark has timed out
+        timeout = 1800
         if timeout is not None and elapsed_time >= timeout:
             logger.error("TIMEOUT")
             timeout_error = True
