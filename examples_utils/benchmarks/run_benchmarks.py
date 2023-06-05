@@ -186,7 +186,6 @@ def run_and_monitor_progress(
         elapsed_time = curr_time - t0
 
         # Monitor if benchmark has timed out
-        timeout = 1800
         if timeout is not None and elapsed_time >= timeout:
             logger.error("TIMEOUT")
             timeout_error = True
