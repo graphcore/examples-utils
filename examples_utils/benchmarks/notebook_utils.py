@@ -13,7 +13,7 @@ except (ImportError, ModuleNotFoundError) as error:
 
     raise _incorrect_requirement_variant_error from error
 
-DEFAULT_TIMEOUT = 600
+DEFAULT_TIMEOUT = 5
 
 
 def run_notebook(notebook_filename: str, working_directory: str, timeout: int = DEFAULT_TIMEOUT) -> str:
@@ -27,6 +27,7 @@ def run_notebook(notebook_filename: str, working_directory: str, timeout: int = 
 
     with open(notebook_filename) as f:
         nb = nbformat.read(f, as_version=4)
+    print("RRR timeout: ", timeout)
     ep = ExecutePreprocessor(timeout=timeout, kernel_name="python3")
     exporter = OutputExporter()
     try:
