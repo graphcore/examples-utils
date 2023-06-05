@@ -33,6 +33,7 @@ def run_notebook(notebook_filename: str, working_directory: str, timeout: int = 
     try:
         ep.preprocess(nb, {"metadata": {"path": f"{working_directory}"}})
     except CellExecutionError:
+        print("RRR cell execution error")
         output, _ = exporter.from_notebook_node(nb)
         print(output)
         raise
