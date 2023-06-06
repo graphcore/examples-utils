@@ -9,6 +9,7 @@ try:
     from nbconvert.exporters.exporter import ResourcesDict
     from nbconvert.preprocessors import CellExecutionError, ExecutePreprocessor
     from nbformat import NotebookNode
+    from nbconvert import PythonExporter
 except (ImportError, ModuleNotFoundError) as error:
     from . import _incorrect_requirement_variant_error
 
@@ -26,13 +27,15 @@ def run_notebook(notebook_filename: str, working_directory: str, timeout: int = 
             to be run.
     """
 
-    with open(notebook_filename) as f:
-        nb = nbformat.read(f, as_version=4)
+    # with open(notebook_filename) as f:
+    #     nb = nbformat.read(f, as_version=4)
+    py_exporter = PythonExporter()
+    notebook_code, _ = py_exporter.from_filename(notebook_filename)
     print("RRR timeout: ", timeout)
     ep = ExecutePreprocessor(timeout=timeout, kernel_name="python3")
     exporter = OutputExporter()
     try:
-        ep.preprocess(nb, {"metadata": {"path": f"{working_directory}"}})
+        ep.preprocess(notebook_code, {"metadata": {"path": f"{working_directory}"}})
     except CellExecutionError:
         print("RRR cell execution error")
         output, _ = exporter.from_notebook_node(nb)
