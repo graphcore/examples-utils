@@ -98,7 +98,7 @@ def plot_benchmark_utilisation(directory: Path):
     for file in monitoring_files:
         df, summary = process_utilisation_file(file)
         fig = plot_full_utilisation(df)
-        fig.savefig(file / "ipu_metrics.png", dpi=300, bbox_extra_artists=(leg,), bbox_inches="tight")
+        fig.savefig(file / "ipu_metrics.png", dpi=300, bbox_inches="tight")
         for ax, field in zip(axs, ["utilisation", "memory_utilisation", "attached"]):
             ax = summary.plot(y=field, ax=ax, label=file.parent.name)
 
