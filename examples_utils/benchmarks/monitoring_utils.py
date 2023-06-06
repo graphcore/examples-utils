@@ -62,6 +62,13 @@ def process_utilisation_file(file: Path):
         if pd.isna(m):
             m = 0
         return m
+
+    def is_attached(x):
+        try:
+            return int(not pd.isna(x["user executable"]))
+        except:
+            return 0
+
     data = []
     lines = file.read_text().splitlines()
     for i, l in enumerate(lines):
@@ -83,7 +90,7 @@ def process_utilisation_file(file: Path):
     df.loc[:, "utilisation"] = (df.loc[:, "ipu utilisation"].str.strip("%")).map(float)
     df["memory_utilisation"] = df.apply(calculate_memory, axis="columns")
     df["attached"] = df.apply(
-        lambda x: int(not pd.isna(x["user executable"])),
+        is_attached,
         axis="columns",
     )
     utilisation_summary = df[["utilisation", "memory_utilisation", "attached"]].groupby(level=1).sum()
