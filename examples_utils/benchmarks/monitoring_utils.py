@@ -101,6 +101,7 @@ def plot_benchmark_utilisation(directory: Path):
     directory = Path(directory)
     monitoring_files = [*directory.rglob("ipu-metrics.jsonl")]
     fig_summary, axs = plt.subplots(3, 1)
+    fig_summary.set_size_inches(10, 15)
     for file in monitoring_files:
         df, summary = process_utilisation_file(file)
         fig = plot_full_utilisation(df)
@@ -111,11 +112,13 @@ def plot_benchmark_utilisation(directory: Path):
     axs[0].set_ylabel("IPU activity (%)")
     axs[1].set_ylabel("Memory used (%)")
     axs[2].set_ylabel("IPU attached (T/F)")
+    legs = []
     for ax in axs:
         leg = ax.legend()
-    leg.set_bbox_to_anchor((1, -0.25))
+        leg.set_bbox_to_anchor((1, -0.25))
+        legs.append(leg)
     fig_summary.savefig(
-        directory / "ipu_metrics_summary.png", dpi=300, bbox_extra_artists=[ax.legend() for ax in axs], bbox_inches="tight"
+        directory / "ipu_metrics_summary.png", dpi=300, bbox_extra_artists=legs, bbox_inches="tight"
     )
 
     return ax.figure
