@@ -1,15 +1,13 @@
 # Copyright (c) 2022 Graphcore Ltd. All rights reserved.
 import argparse
 import os
-import subprocess
 
 try:
     import nbformat
     from nbconvert import Exporter
     from nbconvert.exporters.exporter import ResourcesDict
-    from nbconvert.preprocessors import CellExecutionError, ExecutePreprocessor, CellTimeoutError
+    from nbconvert.preprocessors import CellExecutionError, ExecutePreprocessor
     from nbformat import NotebookNode
-    from nbconvert import PythonExporter
 except (ImportError, ModuleNotFoundError) as error:
     from . import _incorrect_requirement_variant_error
 
@@ -27,23 +25,19 @@ def run_notebook(notebook_filename: str, working_directory: str, timeout: int = 
             to be run.
     """
 
-    # with open(notebook_filename) as f:
-    #     nb = nbformat.read(f, as_version=4)
-    py_exporter = PythonExporter()
-    notebook_code, _ = py_exporter.from_filename(notebook_filename)
+    with open(notebook_filename) as f:
+        nb = nbformat.read(f, as_version=4)
     print("RRR timeout: ", timeout)
     ep = ExecutePreprocessor(timeout=timeout, kernel_name="python3")
     exporter = OutputExporter()
     try:
-        ep.preprocess(notebook_code, {"metadata": {"path": f"{working_directory}"}})
-    except CellTimeoutError:
-        print("RRR timeout!")
+        ep.preprocess(nb, {"metadata": {"path": f"{working_directory}"}})
     except CellExecutionError:
         print("RRR cell execution error")
-        output, _ = exporter.from_notebook_node(notebook_code)
+        output, _ = exporter.from_notebook_node(nb)
         print(output)
         raise
-    output, _ = exporter.from_notebook_node(notebook_code)
+    output, _ = exporter.from_notebook_node(nb)
     return output
 
 
