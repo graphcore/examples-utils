@@ -160,7 +160,7 @@ def run_and_monitor_progress(
         metrics_cmd = [sys.executable, "-m", "examples_utils.paperspace_utils.ipu_metrics"]
         metrics_file = Path(f"./ipu-metrics-{random.randint(1000,100000000)}.jsonl").resolve()
         with open(metrics_file, "w") as fh:
-            metrics_process = subprocess.Popen(metrics_cmd, stdout=fh, stderr=subprocess.STDOUT, bufsize=80)
+            metrics_process = subprocess.Popen(metrics_cmd, stdout=fh, stderr=subprocess.STDOUT)
             while t.is_alive():
                 try:
                     timestamp = datetime.now().strftime("%Y-%m-%d-%H.%M.%S.%f")
@@ -173,7 +173,7 @@ def run_and_monitor_progress(
                     pass
             metrics_process.kill()
 
-        ipu_monitoring["ipu-metrics"].extend(metrics_file.read_text().splitlines())
+        ipu_monitoring["ipu-metrics"].extend(metrics_file.read_text().splitlines(keepends=True))
 
     if monitor_ipus:
         t_monitor = threading.Thread(target=monitor_thread, name="monitor_thread")
