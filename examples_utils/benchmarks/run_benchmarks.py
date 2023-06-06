@@ -9,7 +9,7 @@ import sys
 import threading
 from collections import OrderedDict
 from datetime import datetime, timedelta
-from io import TextIOWrapper
+from io import TextIOWrapper, StringIO
 from pathlib import Path
 from typing import Tuple, Union, Dict, List
 import yaml
@@ -120,7 +120,7 @@ def run_and_monitor_progress(
 
     # All this appears to be for reading process output ------------------------
     outs = [[], []]
-    ipu_monitoring: List[str] = []
+    ipu_monitoring: Dict[str, List[str]] = {"ipu-monitor": [], "ipu-metrics": []}
 
     def proc_thread():
         sel = selectors.DefaultSelector()
@@ -156,16 +156,21 @@ def run_and_monitor_progress(
     t.start()
 
     def monitor_thread():
+        metrics_cmd = [sys.executable, "-m", "examples_utils.paperspace_utils.ipu_metrics"]
+        fh = StringIO()
+        metrics_process = subprocess.Popen(metrics_cmd, stdout=fh, stderr=subprocess.STDOUT, bufsize=80)
         while t.is_alive():
             try:
                 timestamp = datetime.now().strftime("%Y-%m-%d-%H.%M.%S.%f")
                 ipu_log_line = json.dumps(
                     {"timestamp": timestamp, **json.loads(subprocess.check_output(["gc-monitor", "--json"]))}
                 )
-                ipu_monitoring.append(f"{ipu_log_line}\n")
+                ipu_monitoring["ipu-monitor"].append(f"{ipu_log_line}\n")
                 time.sleep(5)
             except:
                 pass
+        metrics_process.kill()
+        ipu_monitoring["ipu-metrics"].extend(fh.getvalue().splitlines())
 
     if monitor_ipus:
         t_monitor = threading.Thread(target=monitor_thread, name="monitor_thread")
@@ -453,8 +458,13 @@ def run_benchmark_variant(
         with open(outlog_path, "w") as f:
             f.write(stdout)
         if monitor_log:
-            with open(variant_log_dir / "ipu-monitor.jsonl", "w") as f:
-                f.writelines(monitor_log)
+            if isinstance(monitor_log, dict):
+                for log, data in monitor_log.items():
+                    with open(variant_log_dir / f"{log}.jsonl", "w") as f:
+                        f.writelines(data)
+            else:
+                with open(variant_log_dir / "ipu-monitor.jsonl", "w") as f:
+                    f.writelines(monitor_log)
             plot_ipu_usage(outlog_path.parent)
         with open(errlog_path, "w") as f:
             f.write(stderr)
