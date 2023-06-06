@@ -1,6 +1,7 @@
 # Copyright (c) 2022 Graphcore Ltd. All rights reserved.
 import argparse
 import os
+import subprocess
 
 try:
     import nbformat
@@ -29,6 +30,8 @@ def run_notebook(notebook_filename: str, working_directory: str, timeout: int = 
         nb = nbformat.read(f, as_version=4)
     print("RRR timeout: ", timeout)
     print('RRR env: ', os.environ)
+    piplist = subprocess.check_output(['pip', 'list']).decode('utf-8')
+    print('RRR pip list: ', piplist)
     ep = ExecutePreprocessor(timeout=timeout, kernel_name="python3")
     exporter = OutputExporter()
     try:
