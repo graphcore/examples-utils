@@ -50,6 +50,18 @@ def plot_gc_monitor(directory: Path):
 
 
 def process_utilisation_file(file: Path):
+    def calculate_memory(x):
+        try:
+            m = (
+                float(x["max active code size (bytes)"])
+                + float(x["max active data size (bytes)"])
+                + float(x["max active stack size (bytes)"])
+            ) * 100 / (1472 * 624 * 1024)
+        except:
+            m = 0
+        if pd.isna(m):
+            m = 0
+        return m
     data = []
     lines = file.read_text().splitlines()
     for i, l in enumerate(lines):
@@ -69,20 +81,7 @@ def process_utilisation_file(file: Path):
         }
     ).transpose()
     df.loc[:, "utilisation"] = (df.loc[:, "ipu utilisation"].str.strip("%")).map(float)
-    df["memory_utilisation"] = df.apply(
-        lambda x: m
-        if not pd.isna(
-            m := (
-                float(x["max active code size (bytes)"])
-                + float(x["max active data size (bytes)"])
-                + float(x["max active stack size (bytes)"])
-            )
-            / (1472 * 624 * 1024)
-        )
-        * 100
-        else 0,
-        axis="columns",
-    )
+    df["memory_utilisation"] = df.apply(calculate_memory, axis="columns")
     df["attached"] = df.apply(
         lambda x: int(not pd.isna(x["user executable"])),
         axis="columns",
