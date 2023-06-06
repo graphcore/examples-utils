@@ -1,4 +1,5 @@
-# Copyright (c) 2023 Graphcore Ltd. All rights reserved.import json
+# Copyright (c) 2023 Graphcore Ltd. All rights reserved.
+import json
 import datetime
 import gcipuinfo
 import time
