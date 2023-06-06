@@ -115,7 +115,7 @@ def plot_benchmark_utilisation(directory: Path):
         leg = ax.legend()
     leg.set_bbox_to_anchor((1, -0.25))
     fig_summary.savefig(
-        directory / "ipu_usage.png", dpi=300, bbox_extra_artists=[ax.legend() for ax in axs], bbox_inches="tight"
+        directory / "ipu_metrics_summary.png", dpi=300, bbox_extra_artists=[ax.legend() for ax in axs], bbox_inches="tight"
     )
 
     return ax.figure
