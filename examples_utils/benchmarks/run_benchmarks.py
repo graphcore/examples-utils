@@ -6,6 +6,7 @@ import selectors
 import shlex
 import subprocess
 import sys
+import random
 import threading
 from collections import OrderedDict
 from datetime import datetime, timedelta
@@ -157,20 +158,22 @@ def run_and_monitor_progress(
 
     def monitor_thread():
         metrics_cmd = [sys.executable, "-m", "examples_utils.paperspace_utils.ipu_metrics"]
-        fh = StringIO()
-        metrics_process = subprocess.Popen(metrics_cmd, stdout=fh, stderr=subprocess.STDOUT, bufsize=80)
-        while t.is_alive():
-            try:
-                timestamp = datetime.now().strftime("%Y-%m-%d-%H.%M.%S.%f")
-                ipu_log_line = json.dumps(
-                    {"timestamp": timestamp, **json.loads(subprocess.check_output(["gc-monitor", "--json"]))}
-                )
-                ipu_monitoring["ipu-monitor"].append(f"{ipu_log_line}\n")
-                time.sleep(5)
-            except:
-                pass
-        metrics_process.kill()
-        ipu_monitoring["ipu-metrics"].extend(fh.getvalue().splitlines())
+        metrics_file = Path(f"./ipu-metrics-{random.randint(1000,100000000)}.jsonl").resolve()
+        with open(metrics_file, "w") as fh:
+            metrics_process = subprocess.Popen(metrics_cmd, stdout=fh, stderr=subprocess.STDOUT, bufsize=80)
+            while t.is_alive():
+                try:
+                    timestamp = datetime.now().strftime("%Y-%m-%d-%H.%M.%S.%f")
+                    ipu_log_line = json.dumps(
+                        {"timestamp": timestamp, **json.loads(subprocess.check_output(["gc-monitor", "--json"]))}
+                    )
+                    ipu_monitoring["ipu-monitor"].append(f"{ipu_log_line}\n")
+                    time.sleep(5)
+                except:
+                    pass
+            metrics_process.kill()
+
+        ipu_monitoring["ipu-metrics"].extend(metrics_file.read_text().splitlines())
 
     if monitor_ipus:
         t_monitor = threading.Thread(target=monitor_thread, name="monitor_thread")
