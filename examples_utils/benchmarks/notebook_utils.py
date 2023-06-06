@@ -32,6 +32,7 @@ def run_notebook(notebook_filename: str, working_directory: str, timeout: int = 
     print('RRR env: ', os.environ)
     piplist = subprocess.check_output(['pip', 'list']).decode('utf-8')
     print('RRR pip list: ', piplist)
+    _ = subprocess.check_output(["pip", "install", "--upgrade", "nbconvert"])
     ep = ExecutePreprocessor(timeout=timeout, kernel_name="python3")
     exporter = OutputExporter()
     try:
