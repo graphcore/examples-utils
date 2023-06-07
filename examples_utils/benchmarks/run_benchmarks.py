@@ -114,7 +114,10 @@ def run_and_monitor_progress(
         exitcode (int): The process exitcode
 
     """
-
+    print("RRR in run_and_monitor")
+    print("RRR cmd: ", cmd)
+    print("RRR timeout: ", timeout)
+    print("-------")
     # Begin in subprocess
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=80, **kwargs)
 
