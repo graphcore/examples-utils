@@ -640,6 +640,7 @@ def run_benchmarks_from_spec(spec: Dict[str, BenchmarkDict], args: argparse.Name
             variant_dictionary[benchmark_name] = variant_list
 
         print("RRR variant_dictionary: ", variant_dictionary)
+        print("RRR spec :", spec)
         # If no variants are possible, exit
         if not variant_dictionary:
             err = "No valid benchmarks selected"
@@ -650,6 +651,7 @@ def run_benchmarks_from_spec(spec: Dict[str, BenchmarkDict], args: argparse.Name
         for benchmark_name in variant_dictionary:
             check_env(args, benchmark_name, spec[benchmark_name]["cmd"])
 
+        print("RRR variant_dictionary 2: ", variant_dictionary)
         for benchmark_name in variant_dictionary:
             benchmark_spec = spec.get(benchmark_name, {})
             logger.info("Running " + benchmark_name)
