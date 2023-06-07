@@ -298,6 +298,10 @@ def run_benchmark_variant(
     args = infer_paths(args, benchmark_dict)
     logger.info(f"Datasets directory: '{os.getenv('DATASETS_DIR')}'")
 
+    # Set benchmark-variant-specific timeout, if one specified
+    if args.timeout is None and "timeout" in benchmark_dict:
+        args.timeout = benchmark_dict["timeout"]
+
     # Detect if a requirements file has been provided
     reqs = benchmark_dict.get("requirements_file")
     if reqs and not Path(reqs).exists():
