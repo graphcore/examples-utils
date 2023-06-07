@@ -298,10 +298,6 @@ def run_benchmark_variant(
     args = infer_paths(args, benchmark_dict)
     logger.info(f"Datasets directory: '{os.getenv('DATASETS_DIR')}'")
 
-    # Set benchmark-variant-specific timeout, if one specified
-    if args.timeout is None and "timeout" in benchmark_dict:
-        args.timeout = benchmark_dict["timeout"]
-
     # Detect if a requirements file has been provided
     reqs = benchmark_dict.get("requirements_file")
     if reqs and not Path(reqs).exists():
@@ -350,10 +346,15 @@ def run_benchmark_variant(
         if args.submit_on_slurm:
             stdout, stderr, exitcode = run_and_monitor_progress_on_slurm(listener=listener, **slurm_config)
         else:
+            # Set benchmark-variant-specific timeout, if specified
+            variant_timeout = args.timeout
+            if variant_timeout is None and "timeout" in benchmark_dict:
+                variant_timeout = benchmark_dict["timeout"]
+
             stdout, stderr, exitcode, monitor_log = run_and_monitor_progress(
                 cmd,
                 listener,
-                args.timeout,
+                variant_timeout,
                 trace_period=args.progress_trace_period,
                 monitor_ipus=args.gc_monitor,
                 cwd=cwd,
