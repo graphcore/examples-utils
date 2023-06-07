@@ -46,9 +46,8 @@ def get_version():
 
 extra_requires = {
     "benchmark": read_requirements("requirements-benchmark.txt"),
-    "common": read_requirements(
-        "requirements.txt"
-    ),  # Alias to avoid breaking existing requirements.txt files where [common] is used
+    # Alias to avoid breaking existing requirements.txt files where [common] is used
+    "common": read_requirements("requirements.txt"),
     "dev": read_requirements("requirements-dev.txt"),
     "jupyter": read_requirements("requirements-jupyter.txt"),
     "logger": read_requirements("requirements-logger.txt"),
