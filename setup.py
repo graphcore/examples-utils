@@ -46,9 +46,11 @@ def get_version():
 
 extra_requires = {
     "benchmark": read_requirements("requirements-benchmark.txt"),
-    "common": read_requirements("requirements-common.txt"),
+    "common": read_requirements(
+        "requirements.txt"
+    ),  # Alias to avoid breaking existing requirements.txt files where [common] is used
     "dev": read_requirements("requirements-dev.txt"),
-    "jupyter": read_requirements("requirements-jupyter.txt") + read_requirements("requirements-common.txt"),
+    "jupyter": read_requirements("requirements-jupyter.txt"),
     "logger": read_requirements("requirements-logger.txt"),
     "precommit": read_requirements("requirements-precommit.txt"),
 }
