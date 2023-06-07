@@ -556,8 +556,6 @@ def run_benchmarks(args: argparse.Namespace):
         logger.info("Benchmarks to be submitted via SLURM")
 
     spec = parse_benchmark_specs(args.spec)
-    print("RRR spec: ", spec)
-    RRR
     return run_benchmarks_from_spec(spec, args)
 
 
@@ -641,6 +639,7 @@ def run_benchmarks_from_spec(spec: Dict[str, BenchmarkDict], args: argparse.Name
             variant_list = get_benchmark_variants(benchmark_name, benchmark_spec)
             variant_dictionary[benchmark_name] = variant_list
 
+        print("RRR variant_dictionary: ", variant_dictionary)
         # If no variants are possible, exit
         if not variant_dictionary:
             err = "No valid benchmarks selected"
