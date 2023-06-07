@@ -242,6 +242,13 @@ def run_benchmark_variant(
 
     """
 
+    print("RRR in run_benchmark_variant")
+    print("RRR variant_name: ", variant_name)
+    print("RRR benchmark_name: ", variant_dict)
+    print("RRR benchmark_dict: ", benchmark_dict)
+    print("args: ", args)
+    print("--------")
+
     if variant_name != benchmark_name:
         logger.info(f"\tRunning variant: '{variant_name}'")
 
