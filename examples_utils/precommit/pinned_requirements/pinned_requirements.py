@@ -100,7 +100,7 @@ def invalid_requirements(filename: str, fix_it: bool) -> bool:
 
     if fix_it and f:
         print(f"  Attempting to fix...")
-        try_write_fixed_requirements(reqs, f, filename)
+        try_write_fixed_requirements(f, filename)
 
     return f
 
