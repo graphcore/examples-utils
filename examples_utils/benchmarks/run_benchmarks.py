@@ -185,6 +185,9 @@ def run_and_monitor_progress(
             if monitor_ipus:
                 t_monitor.join()
             break
+        if timeout_error:
+            # proc should have been killed already, so try killing it this way  
+            proc.wait(10)
         curr_time = int(time.time())
         elapsed_time = curr_time - t0
 
@@ -193,6 +196,7 @@ def run_and_monitor_progress(
             logger.error("TIMEOUT")
             timeout_error = True
             proc.kill()
+
 
         if curr_time > next_trace_time:
             next_trace_time = curr_time + trace_period
