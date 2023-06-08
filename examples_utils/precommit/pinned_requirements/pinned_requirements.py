@@ -11,10 +11,6 @@ from requirements.requirement import Requirement
 GIT_URI_PATTERN = r"(?:.+ @ )?(git\+.*)"
 
 
-def is_uri(req_line: str) -> bool:
-    return re.match(GIT_URI_PATTERN, req_line) is not None
-
-
 def manual_parse_named_git(req_line: str):
     """
     Workaround for mis-handling of named git repo lines in requirements files by requirement-parser.
@@ -65,23 +61,32 @@ def recommend_version_if_possible(package_name: str) -> Optional[str]:
         return None
 
 
-def try_write_fixed_requirements(reqs: List[Requirement], invalid: List[Requirement], filename: str):
+def try_write_fixed_requirements(invalid: List[Requirement], filename: str):
     has_updated = False
 
-    for i, r in enumerate(reqs):
-        if r in invalid and r.name and not is_uri(r.line):
-            new_version = recommend_version_if_possible(r.name)
-            if new_version:
-                print(f"    Found {r.name} version {new_version}")
-                reqs[i] = Requirement.parse(new_version)
-                has_updated = True
-            else:
-                print(f"    Could not get version... Skipping.")
+    with open(filename) as fh:
+        lines = fh.readlines()
+
+    invalid_dict = {i.name: i for i in invalid}
+
+    for idx, line in enumerate(lines):
+        try:
+            r = Requirement.parse(line)
+            if r.name in invalid_dict and r.name is not None:
+                new_version = recommend_version_if_possible(r.name)
+                if new_version:
+                    print(f"    Setting {r.name} version {new_version}")
+                    lines[idx] = f"{new_version}\n"
+                    has_updated = True
+                else:
+                    print(f"    Could not get version... Skipping.")
+        except ValueError:
+            pass
 
     if has_updated:
         with open(filename, "w") as fh:
-            for r in reqs:
-                fh.write(r.line + "\n")
+            for l in lines:
+                fh.write(l)
     return has_updated
 
 
@@ -122,3 +127,8 @@ def main(argv: Optional[Sequence[str]] = None, fix_issues: bool = True) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+    # invalid = [Requirement.parse("pyyaml>=5.4.1")]
+    # filename = (
+    #     "/localdata/ianh/repos/examples-utils/tests/test_files/mock_requirements.txt"
+    # )
+    # try_write_fixed_requirements(invalid, filename)
