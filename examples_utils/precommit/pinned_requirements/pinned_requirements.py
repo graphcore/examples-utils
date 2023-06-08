@@ -71,6 +71,15 @@ def try_write_fixed_requirements(invalid: List[Requirement], filename: str):
 
     for idx, line in enumerate(lines):
         try:
+            if (
+                line.startswith("-f")
+                or line.startswith("--find-links")
+                or line.startswith("-i")
+                or line.startswith("--index-url")
+                or line.startswith("--extra-index-url")
+                or line.startswith("--no-index")
+            ):
+                continue
             r = Requirement.parse(line)
             if r.name in invalid_dict and r.name is not None:
                 new_version = recommend_version_if_possible(r.name)
