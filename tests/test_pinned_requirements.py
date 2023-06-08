@@ -126,7 +126,7 @@ def test_fix_invalid(tmp_path: Path, mocker: Generator["MockerFixture", None, No
 
     expected_lines = [
         "numpy==1.23.5",
-        "pandas==5.1.1",
+        "pandas~=5.1.1",
         "git+https://github.com/graphcore/examples-utils@latest_stable",
         "git+https://github.com/graphcore/examples-utils",
     ]
