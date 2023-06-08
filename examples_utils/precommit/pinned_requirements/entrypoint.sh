@@ -2,7 +2,6 @@
 
 SCRIPT_DIR=$(dirname $0)
 SCRIPT_PATH=$(realpath $SCRIPT_DIR/pinned_requirements.py)
-echo $SCRIPT_PATH
 
 pushd $SCRIPT_DIR/../../../ > /dev/null
 
