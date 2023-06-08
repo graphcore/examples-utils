@@ -119,8 +119,9 @@ def main(argv: Optional[Sequence[str]] = None, fix_issues: bool = True) -> int:
         except FileNotFoundError:
             print(f"Could not find requirements file: {filename}")
             exit_code = 2
-        except Exception:
+        except Exception as err:
             print(f"Could not parse requirements file: {filename}")
+            print(err)
             exit_code = 3
     return exit_code
 
