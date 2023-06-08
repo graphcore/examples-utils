@@ -15,6 +15,7 @@ from typing import Tuple, Union, Dict, List
 import yaml
 import json
 import time
+import psutil
 from examples_utils.benchmarks.command_utils import (
     formulate_benchmark_command,
     get_benchmark_variants,
@@ -125,6 +126,15 @@ def run_and_monitor_progress(
     outs = [[], []]
     ipu_monitoring: List[str] = []
 
+    def kill(proc_pid):
+        process = psutil.Process(proc_pid)
+        logger.info("Killing process ", proc_pid)
+        for proc in process.children(recursive=True):
+            logger.info("Killing child process ", proc.pid)
+            proc.kill()
+        process.kill()
+
+    timeout_error = False
     def proc_thread():
         sel = selectors.DefaultSelector()
         sel.register(proc.stdout, selectors.EVENT_READ)
@@ -134,8 +144,19 @@ def run_and_monitor_progress(
             for key, _ in sel.select():
                 stream = key.fileobj
                 data = stream.read1(80)
+                if timeout_error:
+                    try:
+                        logger.info(f"in thread, key: '{key}'")
+                        logger.info(f"in thread, data: '{data}', {type(data)}, {bool(data)}")
+                    except:
+                        logger.info("logging failed")
                 try:
                     data = data.decode()
+                    if timeout_error:
+                        try:
+                            logger.info(f"in thread, data again: '{data}', {type(data)}, {bool(data)}")
+                        except:
+                            logger.info("logging failed")
                     if not data:
                         eof = True
                     listener.write(data)
@@ -146,7 +167,10 @@ def run_and_monitor_progress(
                     else:
                         outs[1].append(data)
                 except UnicodeDecodeError as e:
-                    pass
+                    #pass
+                    if timeout_error:
+                        logger.info(f"Unicode decode error: {e}")
+
 
         out, err = proc.communicate()
         outs[0].append(out.decode())
@@ -177,7 +201,7 @@ def run_and_monitor_progress(
     t0 = int(time.time())
     next_trace_time = t0 + trace_period
     frame_idx = 0
-    timeout_error = False
+    # timeout_error = False
     while True:
         # Check if benchmarking process thread has terminated every second
         t.join(1)
@@ -185,9 +209,9 @@ def run_and_monitor_progress(
             if monitor_ipus:
                 t_monitor.join()
             break
-        if timeout_error:
-            # proc should have been killed already, so try killing it this way  
-            proc.wait(10)
+        # if timeout_error:
+        #     # proc should have been killed already, so try killing it this way  
+        #     proc.wait(10) #rrr
         curr_time = int(time.time())
         elapsed_time = curr_time - t0
 
@@ -195,7 +219,8 @@ def run_and_monitor_progress(
         if timeout is not None and elapsed_time >= timeout:
             logger.error("TIMEOUT")
             timeout_error = True
-            proc.kill()
+            #proc.kill()
+            kill(proc.pid)
 
 
         if curr_time > next_trace_time:
