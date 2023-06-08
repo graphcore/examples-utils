@@ -128,10 +128,10 @@ def run_and_monitor_progress(
 
     def kill(proc_pid):
         process = psutil.Process(proc_pid)
-        logger.info("Killing process ", proc_pid) # move to bottom
         for proc in process.children(recursive=True):
-            logger.info("Killing child process ", proc.pid)
+            logger.info(f"Killing child process {proc.pid}")
             proc.kill()
+        logger.info(f"Killing process{proc_pid}") 
         process.kill()
 
     timeout_error = False
