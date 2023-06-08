@@ -59,7 +59,7 @@ def recommend_version_if_possible(package_name: str) -> Optional[str]:
     try:
         version_installed = metadata.version(package_name)
         print(f"Found version {version_installed} for '{package_name}'")
-        return f"{package_name}=={version_installed}"
+        return f"{package_name}~={version_installed}"
     except metadata.PackageNotFoundError:
         print(f"Failed to find package '{package_name}' - skipping")
         return None
