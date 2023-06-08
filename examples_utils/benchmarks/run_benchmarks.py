@@ -128,7 +128,7 @@ def run_and_monitor_progress(
 
     def kill(proc_pid):
         process = psutil.Process(proc_pid)
-        logger.info("Killing process ", proc_pid)
+        logger.info("Killing process ", proc_pid) # move to bottom
         for proc in process.children(recursive=True):
             logger.info("Killing child process ", proc.pid)
             proc.kill()
@@ -219,8 +219,8 @@ def run_and_monitor_progress(
         if timeout is not None and elapsed_time >= timeout:
             logger.error("TIMEOUT")
             timeout_error = True
-            #proc.kill()
-            kill(proc.pid)
+            proc.kill()
+            #kill(proc.pid)
 
 
         if curr_time > next_trace_time:
@@ -378,6 +378,8 @@ def run_benchmark_variant(
             # Set benchmark-variant-specific timeout, if specified
             variant_timeout = args.timeout
             if variant_timeout is None and "timeout" in benchmark_dict:
+                # get smaller of the two timeouts, if both are set 
+                # use benchmark_dict.get("timeout") # default returns None
                 variant_timeout = benchmark_dict["timeout"]
 
             stdout, stderr, exitcode, monitor_log = run_and_monitor_progress(
