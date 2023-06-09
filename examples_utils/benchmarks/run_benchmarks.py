@@ -129,7 +129,7 @@ def run_and_monitor_progress(
         for proc in process.children(recursive=True):
             logger.info("Killing child process %s" % proc.pid)
             proc.kill()
-        logger.info("Killing process %s" % proc_pid) 
+        logger.info("Killing process %s" % proc_pid)
         process.kill()
 
     def proc_thread():
