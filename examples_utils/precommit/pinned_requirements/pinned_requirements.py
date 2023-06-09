@@ -2,6 +2,8 @@
 # Copyright (c) 2023 Graphcore Ltd. All rights reserved.
 import argparse
 import re
+import warnings
+
 from importlib import metadata
 from typing import List, Optional, Sequence
 
@@ -70,17 +72,12 @@ def try_write_fixed_requirements(invalid: List[Requirement], filename: str):
     invalid_dict = {i.name: i for i in invalid}
 
     for idx, line in enumerate(lines):
+        print(line)
         try:
-            if (
-                line.startswith("-f")
-                or line.startswith("--find-links")
-                or line.startswith("-i")
-                or line.startswith("--index-url")
-                or line.startswith("--extra-index-url")
-                or line.startswith("--no-index")
-            ):
-                continue
-            r = Requirement.parse(line)
+            # Hide the error that comes from requirements parser not handing --find-links, etc.
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                r = Requirement.parse(line)
             if r.name in invalid_dict and r.name is not None:
                 new_version = recommend_version_if_possible(r.name)
                 if new_version:
@@ -101,7 +98,10 @@ def try_write_fixed_requirements(invalid: List[Requirement], filename: str):
 
 def invalid_requirements(filename: str, fix_it: bool) -> bool:
     with open(filename) as fh:
-        reqs = [r for r in requirements.parse(fh)]
+        # Hide the error that comes from requirements parser not handing --find-links, etc.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            reqs = [r for r in requirements.parse(fh)]
         f = [r for r in reqs if not is_valid_req(r)]
 
     if f:
