@@ -109,9 +109,7 @@ def test_bad_filename():
     assert output == 2
 
 
-def check_output(
-    output_val: int, expected_output: int, truth_fn: Path, actual_fn: Path
-):
+def check_output(output_val: int, expected_output: int, truth_fn: Path, actual_fn: Path):
     assert output_val == expected_output
 
     with open(truth_fn) as fh:
@@ -143,9 +141,7 @@ def test_fix_invalid(tmp_path: Path, mocker: Generator["MockerFixture", None, No
     output = try_write_fixed_requirements(invalid, tmp_filepath)
 
     assert output == True
-    check_output(
-        output, 1, TEST_FILE_ROOT / "expected_fixed_requirements.txt", tmp_filepath
-    )
+    check_output(output, 1, TEST_FILE_ROOT / "expected_fixed_requirements.txt", tmp_filepath)
 
 
 def test_fix_invalid_all_valid(tmp_path: Path):
@@ -153,6 +149,4 @@ def test_fix_invalid_all_valid(tmp_path: Path):
     shutil.copyfile(TEST_FILE_ROOT / "expected_fixed_requirements.txt", tmp_filepath)
     output = try_write_fixed_requirements([], tmp_filepath)
 
-    check_output(
-        output, False, TEST_FILE_ROOT / "expected_fixed_requirements.txt", tmp_filepath
-    )
+    check_output(output, False, TEST_FILE_ROOT / "expected_fixed_requirements.txt", tmp_filepath)
