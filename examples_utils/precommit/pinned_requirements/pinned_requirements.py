@@ -137,8 +137,3 @@ def main(argv: Optional[Sequence[str]] = None, fix_issues: bool = True) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-    # invalid = [Requirement.parse("pyyaml>=5.4.1")]
-    # filename = (
-    #     "/localdata/ianh/repos/examples-utils/tests/test_files/mock_requirements.txt"
-    # )
-    # try_write_fixed_requirements(invalid, filename)
