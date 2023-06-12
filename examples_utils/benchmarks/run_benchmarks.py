@@ -124,7 +124,7 @@ def run_and_monitor_progress(
     outs = [[], []]
     ipu_monitoring: List[str] = []
 
-    def kill_process(proc_pid):
+    def kill_process(proc_pid: int):
         process = psutil.Process(proc_pid)
         for proc in process.children(recursive=True):
             logger.info("Killing child process %s" % proc.pid)

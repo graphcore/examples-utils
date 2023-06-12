@@ -5,14 +5,14 @@ import re
 import subprocess
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional
 import shlex
 
 # Get the module logger
 logger = logging.getLogger(__name__)
 
 
-def determine_variant_timeout(global_timeout, benchmark_dict):
+def determine_variant_timeout(global_timeout: Optional[float], benchmark_dict):
     """Determine timeout for a benchmark variant,
     using the global timeout and variant-specific timeout, if specified.
     """
