@@ -21,6 +21,7 @@ from examples_utils.benchmarks.command_utils import (
     get_benchmark_variants,
     get_local_poprun_hosts,
     get_poprun_config,
+    determine_timeout,
 )
 from examples_utils.benchmarks.distributed_utils import remove_distributed_filesystems, setup_distributed_filesystems
 from examples_utils.benchmarks.environment_utils import (
@@ -126,12 +127,12 @@ def run_and_monitor_progress(
     outs = [[], []]
     ipu_monitoring: List[str] = []
 
-    def kill(proc_pid):
+    def kill_process(proc_pid):
         process = psutil.Process(proc_pid)
         for proc in process.children(recursive=True):
-            logger.info(f"Killing child process {proc.pid}")
+            logger.info("Killing child process %s" % proc.pid)
             proc.kill()
-        logger.info(f"Killing process{proc_pid}") 
+        logger.info("Killing process %s" % proc_pid) 
         process.kill()
 
     timeout_error = False
@@ -158,13 +159,18 @@ def run_and_monitor_progress(
                         except:
                             logger.info("logging failed")
                     if not data:
+                        logger.info("eof=True")
                         eof = True
+                    logger.info("writing data")
                     listener.write(data)
+                    logger.info('flushing listener')
                     listener.flush()
 
                     if stream is proc.stdout:
+                        logger.info("appending stdout data")
                         outs[0].append(data)
                     else:
+                        logger.info('appending stderr data')
                         outs[1].append(data)
                 except UnicodeDecodeError as e:
                     #pass
@@ -220,7 +226,6 @@ def run_and_monitor_progress(
             logger.error("TIMEOUT")
             timeout_error = True
             proc.kill()
-            #kill(proc.pid)
 
 
         if curr_time > next_trace_time:
@@ -359,6 +364,7 @@ def run_benchmark_variant(
             logger.info(f"Install python requirements")
             subprocess.check_output([sys.executable, "-m", "pip", "install", "-r", str(reqs)])
 
+
     # configure benchmark to run on slurm
     if args.submit_on_slurm:
         slurm_config = configure_slurm_job(
@@ -377,6 +383,7 @@ def run_benchmark_variant(
         else:
             # Set benchmark-variant-specific timeout, if specified
             variant_timeout = args.timeout
+
             if variant_timeout is None and "timeout" in benchmark_dict:
                 # get smaller of the two timeouts, if both are set 
                 # use benchmark_dict.get("timeout") # default returns None

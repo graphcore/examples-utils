@@ -11,6 +11,18 @@ import shlex
 # Get the module logger
 logger = logging.getLogger(__name__)
 
+def determine_timeout(global_timeout, benchmark_dict):
+    """Determine timeout for a benchmark variant,
+    using the global timeout and variant-specific timeout, if specified.
+    """
+    app_timeout = benchmark_dict.get("timeout")
+    if global_timeout is None:
+        return app_timeout
+    elif app_timeout is None:
+        return global_timeout
+    else:
+        return min(global_timeout, app_timeout)
+
 
 def create_variants(benchmark_name: str, benchmark_dict: dict) -> list:
     """Create all variants from a benchmark entry.
