@@ -14,7 +14,7 @@ python -m examples_utils --help
 The `examples-utils` package can be installed from source via pip:
 
 ```console
-python -m ppip install git+https://github.com/graphcore/examples-utils.git
+python -m pip install git+https://github.com/graphcore/examples-utils.git
 ```
 
 By default, this will only install a minimal set of requirements. To benchmark notebooks you must
