@@ -99,13 +99,13 @@ def setup_test_timeout(tmp_path_factory):
     python_filename = "sleep.py"
     py_filepath = tmp_dir / python_filename
     with open(py_filepath, "w") as f:
-        f.write("import time; time.sleep(15); print('Done')")
+        f.write("import time; time.sleep(5); print('Done')")
 
     # create yaml file containing the variant configs
     yaml_filepath = tmp_dir / "timeout_config.yaml"
     yaml_config = {
-        "timeout_variant": {"timeout": 5, "generated": True, "cmd": f"python3 {str(tmp_dir / python_filename)}"},
-        "no_timeout_variant": {"generated": True, "cmd": f"python3 {str(tmp_dir / python_filename)}"},
+        "timeout_variant": {"timeout": 2, "generated": True, "cmd": f"python3 {tmp_dir / python_filename}"},
+        "no_timeout_variant": {"generated": True, "cmd": f"python3 {tmp_dir / python_filename}"},
     }
     with open(yaml_filepath, "w") as f:
         yaml.dump(yaml_config, f, default_flow_style=False)
@@ -116,32 +116,30 @@ def setup_test_timeout(tmp_path_factory):
 @pytest.mark.usefixtures("setup_test_timeout")
 # test that the subprocess timeouts work, when set at the app and global levels
 class TestTimeout:
-    # global timeout 10s, variant timeout 5s -> should timeout in 5s
+    # global timeout 3s, variant timeout 2s -> should timeout in 2s
     def test_variant_timeout_smaller(self, setup_test_timeout):
         yaml_config = setup_test_timeout
-        cmd = f"python3 -m examples_utils benchmark --spec {str(yaml_config)} --benchmark timeout_variant --timeout 10"
+        cmd = f"python3 -m examples_utils benchmark --spec {yaml_config} --benchmark timeout_variant --timeout 3"
         result = subprocess.run(cmd.split(), capture_output=True, text=True)
-        assert "Timeout (5)" in result.stderr
+        assert "Timeout (2)" in result.stderr
 
-    # global timeout 3s, variant timeout 5s -> should timeout in 3s
+    # global timeout 1s, variant timeout 2s -> should timeout in 1s
     def test_variant_timeout_larger(self, setup_test_timeout):
         yaml_config = setup_test_timeout
-        cmd = f"python3 -m examples_utils benchmark --spec {str(yaml_config)} --benchmark timeout_variant --timeout 3"
+        cmd = f"python3 -m examples_utils benchmark --spec {yaml_config} --benchmark timeout_variant --timeout 1"
         result = subprocess.run(cmd.split(), capture_output=True, text=True)
-        assert "Timeout (3)" in result.stderr
+        assert "Timeout (1)" in result.stderr
 
-    # no global timeout, variant timeout 5s -> should timeout in 5s
+    # no global timeout, variant timeout 2s -> should timeout in 2s
     def test_only_variant_timeout(self, setup_test_timeout):
         yaml_config = setup_test_timeout
-        cmd = f"python3 -m examples_utils benchmark --spec {str(yaml_config)} --benchmark timeout_variant"
+        cmd = f"python3 -m examples_utils benchmark --spec {yaml_config} --benchmark timeout_variant"
         result = subprocess.run(cmd.split(), capture_output=True, text=True)
-        assert "Timeout (5)" in result.stderr
+        assert "Timeout (2)" in result.stderr
 
-    # global timeout 3s, no variant timeout -> should timeout in 3s
+    # global timeout 2s, no variant timeout -> should timeout in 2s
     def test_only_global_timeout(self, setup_test_timeout):
         yaml_config = setup_test_timeout
-        cmd = (
-            f"python3 -m examples_utils benchmark --spec {str(yaml_config)} --benchmark no_timeout_variant --timeout 3"
-        )
+        cmd = f"python3 -m examples_utils benchmark --spec {yaml_config} --benchmark no_timeout_variant --timeout 2"
         result = subprocess.run(cmd.split(), capture_output=True, text=True)
-        assert "Timeout (3)" in result.stderr
+        assert "Timeout (2)" in result.stderr
