@@ -522,7 +522,7 @@ def process_notebook_to_command(variant, name="unknown"):
         raise yaml.YAMLError(f"Notebook entry '{name}' has un-recognised options: {unknown_entries}")
     variant["cmd"] = " ".join(
         [
-            f"{sys.executable}",
+            "python3",
             "-m",
             "examples_utils.benchmarks.notebook_utils",
             str(notebook_def["file"]),
