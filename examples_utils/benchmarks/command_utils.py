@@ -209,7 +209,7 @@ def formulate_benchmark_command(
     if sys.executable != str(current_executable):
         logger.info(
             f"Current executable does not the first in the path. Current:{sys.executable},"
-            f"first on path:{current_executable}; replacing bare {py_name} with {sys.executable} in command"
+            f"first on path:{current_executable}; replacing bare {py_name} with {sys.sexecutable} in command"
         )
         cmd = cmd.replace(py_name, sys.executable, 1)
 
