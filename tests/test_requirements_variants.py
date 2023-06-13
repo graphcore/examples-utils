@@ -37,8 +37,7 @@ notebook_benchmark:
         )
         print(test_commands.run_command_fail_explicitly([virtual_env, "-m", "pip", "list"]))
         return test_commands.run_command_fail_explicitly(
-            # [virtual_env, "-m", "examples_utils", "benchmark", "--spec", str(yaml_file)],
-            [virtual_env, "-c", "'import examples_utils.benchmarks.notebook_utils'"],
+            [virtual_env, "-m", "examples_utils", "benchmark", "--spec", str(yaml_file)],
             ".",
         )
 
