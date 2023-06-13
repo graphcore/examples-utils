@@ -32,8 +32,7 @@ class TestJupyterRequirements:
             f"""
 notebook_benchmark:
     generated: true
-    notebook:
-        file: {ROOT_REPOSITORY}/tests/test_files/sample.ipynb
+    cmd: python -c 'import examples_utils.benchmarks.notebook_utils'
         """
         )
         print(test_commands.run_command_fail_explicitly([virtual_env, "-m", "pip", "list"]))
@@ -42,7 +41,7 @@ notebook_benchmark:
             ".",
         )
 
-    def test_notebook_works(self, tmp_path, virtual_env):
+    def test_notebook_import_works(self, tmp_path, virtual_env):
         """Install the package with `pip install examples-utils[jupyter]`"""
         test_commands.run_command_fail_explicitly(
             [virtual_env, "-m", "pip", "install", f"{ROOT_REPOSITORY}[jupyter]"], "."
@@ -50,7 +49,7 @@ notebook_benchmark:
         out = self.run_sample_notebook(tmp_path, virtual_env)
         assert "PASSED notebook_benchmark::notebook_benchmark" in out
 
-    def test_notebook_fails(self, tmp_path, virtual_env):
+    def test_notebook_import_fails(self, tmp_path, virtual_env):
         """The normal requirements should not install what is required to run a notebook
         it should fail."""
         test_commands.run_command_fail_explicitly([virtual_env, "-m", "pip", "install", f"{ROOT_REPOSITORY}"], ".")
