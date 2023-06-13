@@ -3,7 +3,6 @@ import logging
 import os
 import re
 import subprocess
-import sys
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from typing import Dict, Tuple, Optional
@@ -204,14 +203,6 @@ def formulate_benchmark_command(
     if called_file != "-m":
         resolved_file = str(Path(called_file).resolve())
         cmd = cmd.replace(called_file, resolved_file)
-
-    current_executable = subprocess.check_output(["which", py_name]).decode().strip()
-    if sys.executable != str(current_executable):
-        logger.info(
-            f"Current executable does not the first in the path. Current:{sys.executable},"
-            f"first on path:{current_executable}; replacing bare {py_name} with {sys.sexecutable} in command"
-        )
-        cmd = cmd.replace(py_name, sys.executable, 1)
 
     if not (args.allow_wandb or benchmark_dict.get("allow_wandb", False)) and "--wandb" in cmd:
         logger.info(
