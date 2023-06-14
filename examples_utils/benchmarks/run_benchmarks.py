@@ -142,8 +142,15 @@ def run_and_monitor_progress(
         sel.register(proc.stderr, selectors.EVENT_READ)
         eof = False
         while not eof:
-            for key, _ in sel.select():
+            select = sel.select()
+            if timeout_error:
+                logger.info("sel select len: ", len(select))
+            for key, _ in select:
+                if timeout_error:
+                    logger.info("defining stream")
                 stream = key.fileobj
+                if timeout_error:
+                    logger.info("reading data")
                 data = stream.read1(80)
                 if timeout_error:
                     try:
@@ -161,16 +168,20 @@ def run_and_monitor_progress(
                     if not data:
                         logger.info("eof=True")
                         eof = True
-                    logger.info("writing data")
+                    if timeout_error:
+                        logger.info("writing data")
                     listener.write(data)
-                    logger.info('flushing listener')
+                    if timeout_error:
+                        logger.info('flushing listener')
                     listener.flush()
 
                     if stream is proc.stdout:
-                        logger.info("appending stdout data")
+                        if timeout_error:
+                            logger.info("appending stdout data")
                         outs[0].append(data)
                     else:
-                        logger.info('appending stderr data')
+                        if timeout_error:
+                            logger.info('appending stderr data')
                         outs[1].append(data)
                 except UnicodeDecodeError as e:
                     #pass
