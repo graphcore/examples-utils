@@ -15,11 +15,13 @@ from typing import Tuple, Union, Dict, List
 import yaml
 import json
 import time
+import psutil
 from examples_utils.benchmarks.command_utils import (
     formulate_benchmark_command,
     get_benchmark_variants,
     get_local_poprun_hosts,
     get_poprun_config,
+    determine_variant_timeout,
 )
 from examples_utils.benchmarks.distributed_utils import remove_distributed_filesystems, setup_distributed_filesystems
 from examples_utils.benchmarks.environment_utils import (
@@ -122,6 +124,14 @@ def run_and_monitor_progress(
     outs = [[], []]
     ipu_monitoring: List[str] = []
 
+    def kill_process(proc_pid: int):
+        process = psutil.Process(proc_pid)
+        for proc in process.children(recursive=True):
+            logger.info("Killing child process %s" % proc.pid)
+            proc.kill()
+        logger.info("Killing process %s" % proc_pid)
+        process.kill()
+
     def proc_thread():
         sel = selectors.DefaultSelector()
         sel.register(proc.stdout, selectors.EVENT_READ)
@@ -145,11 +155,11 @@ def run_and_monitor_progress(
                 except UnicodeDecodeError as e:
                     pass
 
-        (a, b) = proc.communicate()
-        outs[0].append(a.decode())
-        listener.write(a.decode())
-        outs[1].append(b.decode())
-        listener.write(b.decode())
+        out, err = proc.communicate()
+        outs[0].append(out.decode())
+        listener.write(out.decode())
+        outs[1].append(err.decode())
+        listener.write(err.decode())
         listener.flush()
 
     t = threading.Thread(target=proc_thread, name="proc_thread")
@@ -189,7 +199,7 @@ def run_and_monitor_progress(
         if timeout is not None and elapsed_time >= timeout:
             logger.error("TIMEOUT")
             timeout_error = True
-            proc.kill()
+            kill_process(proc.pid)
 
         if curr_time > next_trace_time:
             next_trace_time = curr_time + trace_period
@@ -281,8 +291,8 @@ def run_benchmark_variant(
     variant_log_dir = Path(args.log_dir, variant_name)
     if not variant_log_dir.exists():
         variant_log_dir.mkdir(parents=True)
-    outlog_path = Path(variant_log_dir, "stdout.log")
-    errlog_path = Path(variant_log_dir, "stderr.log")
+    outlog_path = Path(variant_log_dir, "stdout")
+    errlog_path = Path(variant_log_dir, "stderr")
 
     # Infer examples, SDK and venv path for this benchmark
     args = infer_paths(args, benchmark_dict)
@@ -296,7 +306,7 @@ def run_benchmark_variant(
     # Check if poprun is being used
     poprun_config = get_poprun_config(args, cmd)
 
-    # only validate user supplied hosts if not submitting on SLURM
+    # Only validate user supplied hosts if not submitting on SLURM
     # Similarly, only install requirements if not submitting on SLURM
     if not args.submit_on_slurm:
         # Detect if benchmark requires instances running (not just compiling) on
@@ -336,10 +346,11 @@ def run_benchmark_variant(
         if args.submit_on_slurm:
             stdout, stderr, exitcode = run_and_monitor_progress_on_slurm(listener=listener, **slurm_config)
         else:
+            variant_timeout = determine_variant_timeout(args.timeout, benchmark_dict)
             stdout, stderr, exitcode, monitor_log = run_and_monitor_progress(
                 cmd,
                 listener,
-                args.timeout,
+                variant_timeout,
                 trace_period=args.progress_trace_period,
                 monitor_ipus=args.gc_monitor,
                 cwd=cwd,
@@ -348,7 +359,6 @@ def run_benchmark_variant(
         need_to_run = should_reattempt_benchmark(benchmark_dict, stdout, stderr, exitcode)
         if need_to_run:
             logger.info(f"Re-running benchmark because: {need_to_run}")
-
     end_time = datetime.now()
     total_runtime = (end_time - start_time).total_seconds()
     logger.info(f"End test: {end_time}")
@@ -385,10 +395,10 @@ def run_benchmark_variant(
         err = f"Benchmark ERROR, exited with code: ({str(exitcode)}). Please check logs for more information."
         logger.error(err)
 
+        error_tail = "\n\t".join(stderr.splitlines()[-100:]) + "\n"
+        logger.error(f"Last 100 lines of stderr from {variant_name}:\n{error_tail}")
+
         if args.stop_on_error:
-            error_tail = "\n\t" + "\n\t".join(stderr.splitlines()[-10:]) + "\n"
-            logger.error(f"Last 10 lines of stderr from {variant_name}:{error_tail}")
-            sys.excepthook = lambda exctype, exc, traceback: print("{}: {}".format(exctype.__name__, exc))
             raise RuntimeError(err)
         else:
             logger.info("Continuing to next benchmark as `--stop-on-error` was not passed")
@@ -436,6 +446,7 @@ def run_benchmark_variant(
 
     # Find checkpoints from this run
     checkpoint_root_dir = Path(benchmark_dict["benchmark_path"]).parent.joinpath(benchmark_dict.get("location", ""))
+
     latest_checkpoint_path = get_latest_checkpoint_path(checkpoint_root_dir, variant_command)
 
     # Upload checkpoints if required
@@ -473,7 +484,13 @@ def run_benchmark_variant(
         "test_duration": str(total_runtime),
         "exitcode": exitcode,
         "log_paths": {"out": str(outlog_path), "err": str(errlog_path)},
+        "latest_checkpoint_path": str(latest_checkpoint_path),
+        "sdk_path": str(args.sdk_path),
+        "sdk_version": args.sdk_version,
     }
+
+    if WANDB_AVAILABLE and wandb_link is not None:
+        variant_result["wandb_link"] = wandb_link
 
     # These failure points are not caught normally, check here
     possible_failure_points = [
@@ -569,9 +586,7 @@ def run_benchmarks_from_spec(spec: Dict[str, BenchmarkDict], args: argparse.Name
     if args.custom_metrics_files is not None:
         import_metrics_hooks_files(args.custom_metrics_files)
     with open(output_log_path, "w", buffering=1) as listener:
-        print("#" * 80)
         logger.info(f"Logs at: {output_log_path}")
-        print("#" * 80 + "\n")
 
         # Only check explicitily listed benchmarks if provided
         if args.benchmark is None:
@@ -797,13 +812,13 @@ def benchmarks_parser(parser: argparse.ArgumentParser):
         choices=["wandb", "s3"],
         help="List of locations to upload model checkpoints to",
     )
-
-    parser.add_argument("--submit-on-slurm", action="store_true", help=argparse.SUPPRESS)
-    parser.add_argument("--slurm-machine-type", choices=["any", "mk2", "mk2w"], default="any", help=argparse.SUPPRESS)
-
     parser.add_argument(
         "--progress-trace-period",
         default=1,
         type=int,
         help="Period between progress trace (in seconds)",
     )
+
+    parser.add_argument("--submit-on-slurm", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--slurm-machine-type", choices=["any", "mk2", "mk2w"], default="any", help=argparse.SUPPRESS)
+    parser.add_argument("--slurm-resource-reservation", type=str, default=None, help=argparse.SUPPRESS)
