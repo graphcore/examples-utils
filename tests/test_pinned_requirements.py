@@ -33,7 +33,7 @@ REQUIREMENTS: List[Tuple[str, bool]] = [
         True,
     ),
     (
-        "examples-utils[common] @ git+https://github.com/graphcore/examples-utils.git",
+        "examples-utils @ git+https://github.com/graphcore/examples-utils.git",
         False,
     ),
     ("torch>=2.0.0+cpu", False),
@@ -51,7 +51,7 @@ REQUIREMENTS: List[Tuple[str, bool]] = [
             True,
         ),
         (
-            "examples-utils[common] @ git+https://github.com/graphcore/examples-utils.git",
+            "examples-utils @ git+https://github.com/graphcore/examples-utils.git",
             False,
         ),
     ],

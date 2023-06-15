@@ -16,9 +16,8 @@ try:
     from simple_parsing.utils import Dataclass, DataclassType
 except (ImportError, ModuleNotFoundError) as error:
     raise ModuleNotFoundError(
-        "To use simple parsing utilities `examples_utils` needs to have been installed with "
-        "the [common] set of requirements, reinstall the package with"
-        " `pip install examples_utils[common]`"
+        "To use simple parsing utilities has not been installed correctly. "
+        "Please run `pip install 'simple-parsing==0.0.19.post1'"
     ) from error
 
 
