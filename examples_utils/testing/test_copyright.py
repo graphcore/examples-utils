@@ -55,7 +55,7 @@ def check_file(path, amend):
             year = now.year
             copyright_msg = "{} Copyright (c) {} Graphcore Ltd. All rights reserved.\n\n".format(comment, year)
             index = 0
-            for line in fileinput.FileInput(path, inplace=1):
+            for line in fileinput.FileInput(path, inplace=True):
                 if index == first_line_index:
                     line = copyright_msg + line
                 print(line[:-1])
@@ -153,7 +153,7 @@ def copyright_argparser(parser: argparse.ArgumentParser):
     )
     parser.add_argument(
         "path",
-        nargs="+",
+        nargs="*",
         default=".",
         help="Path(s) to check or directory to search for files. "
         "Defaults to current working directory. You can also specify file(s) if you would like to check specific file(s).",
