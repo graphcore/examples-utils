@@ -134,6 +134,13 @@ def test_copyrights(paths, amend=False, exclude_json=None):
 
 def copyright_argparser(parser: argparse.ArgumentParser):
     """Add load lib build CLI commands to argparse parser"""
+    parser.add_argument(
+        "path",
+        nargs="*",
+        default=".",
+        help="Path(s) to check or directory to search for files. "
+        "Defaults to current working directory. You can also specify file(s) if you would like to check specific file(s).",
+    )
     parser.add_argument("--amend", action="store_true", help="Amend copyright headers in files.")
     parser.add_argument(
         "--exclude-json",
@@ -147,13 +154,6 @@ def copyright_argparser(parser: argparse.ArgumentParser):
         type=str,
         default="WARNING",
         help=("Loging level for the app. "),
-    )
-    parser.add_argument(
-        "path",
-        nargs="*",
-        default=".",
-        help="Path(s) to check or directory to search for files. "
-        "Defaults to current working directory. You can also specify file(s) if you would like to check specific file(s).",
     )
 
 
