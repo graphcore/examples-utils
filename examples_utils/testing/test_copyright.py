@@ -11,22 +11,19 @@ import json
 import logging
 from pathlib import Path
 
-C_FILE_EXTS = ["c", "cpp", "C", "cxx", "c++", "h", "hpp"]
+C_FILE_EXTS = [".c", ".cpp", ".cxx", ".c++", ".h", ".hpp"]
 
-EXT_TO_LANGUAGE = {"py": "python", **{ext: "c" for ext in C_FILE_EXTS}}
+EXT_TO_COMMENT = {".py": "#", **{ext: "//" for ext in C_FILE_EXTS}}
 
 
-def check_file(path, amend):
+def check_file(path: Path, amend: bool) -> bool:
     logging.debug(f"Checking: {path}")
 
-    ext = path.split(".")[-1]
-    language = EXT_TO_LANGUAGE[ext]
-
-    if os.stat(path).st_size == 0:
+    if path.stat().st_size == 0:
         # Empty file
         return True
 
-    comment = "#" if language == "python" else "//"
+    comment = EXT_TO_COMMENT[path.suffix.lower()]
     found_copyright = False
     first_line_index = 0
     line = "\n"
@@ -113,7 +110,7 @@ def test_copyrights(paths, amend=False, exclude_json=None):
     for file in list(files):
         is_cmake_file = "CMakeFiles" in file.parts
         is_venv_file = "venv" in file.parts
-        is_unsupported_extention = file.suffix not in EXT_TO_LANGUAGE
+        is_unsupported_extention = file.suffix.lower() not in EXT_TO_COMMENT
         if is_cmake_file or is_venv_file or is_unsupported_extention:
             files.discard(file)
 
@@ -139,13 +136,13 @@ def copyright_argparser(parser: argparse.ArgumentParser):
     """Add load lib build CLI commands to argparse parser"""
     parser.add_argument("--amend", action="store_true", help="Amend copyright headers in files.")
     parser.add_argument(
-        "--exclude_json",
+        "--exclude-json",
         default=None,
         help="Provide a path to a JSON file which include files to exclude. "
         "The paths should be relative to the current working directory.",
     )
     parser.add_argument(
-        "--log_level",
+        "--log-level",
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
         type=str,
         default="WARNING",
