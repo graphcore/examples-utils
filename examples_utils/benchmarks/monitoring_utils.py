@@ -29,15 +29,16 @@ def process_monitoring_file(file):
 
 
 def plot_ipu_usage(directory: Path):
-    directory = Path(directory)
-    monitoring_files = [*directory.rglob("*.jsonl")]
-    fig, ax = plt.subplots(1, 1)
-    for file in monitoring_files:
-        df = process_monitoring_file(file)
-        ax = df.plot(y="ipus_in_use", ax=ax, label=file.parent.name)
+    # directory = Path(directory)
+    # monitoring_files = [*directory.rglob("*.jsonl")]
+    # fig, ax = plt.subplots(1, 1)
+    # for file in monitoring_files:
+    #     df = process_monitoring_file(file)
+    #     ax = df.plot(y="ipus_in_use", ax=ax, label=file.parent.name)
 
-    ax.set_ylabel("Number of IPUs in use")
-    leg = ax.legend()
-    leg.set_bbox_to_anchor((1, -0.25))
-    fig.savefig(directory / "ipu_usage.png", dpi=300, bbox_extra_artists=(leg,), bbox_inches="tight")
-    return ax.figure
+    # ax.set_ylabel("Number of IPUs in use")
+    # leg = ax.legend()
+    # leg.set_bbox_to_anchor((1, -0.25))
+    # fig.savefig(directory / "ipu_usage.png", dpi=300, bbox_extra_artists=(leg,), bbox_inches="tight")
+    # return ax.figure
+    pass
