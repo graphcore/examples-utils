@@ -1,6 +1,8 @@
 name: pytest
 
 on:
+  push:
+    branch: master
   pull_request:
   schedule:
     - cron: '0 2 * * *'
