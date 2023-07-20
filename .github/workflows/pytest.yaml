@@ -2,7 +2,9 @@ name: pytest
 
 on:
   push:
-    branch: master
+    branches:
+      - main
+      - master
   pull_request:
   schedule:
     - cron: '0 2 * * *'
