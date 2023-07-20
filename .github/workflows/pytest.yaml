@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - run: pip install . && pip install -r requirements-dev.txt
-      - run: python -m pytest --cov --cov-report xml --junitxml=report.xml
+      - run: pytest --cov --cov-report xml --junitxml=report.xml
       - uses: mikepenz/action-junit-report@d507ab47ffeb036bd3671233143d8026470aa955 # v3.6.2 (pinned for security reasons)
         if: always()
         with:
