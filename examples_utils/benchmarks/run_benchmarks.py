@@ -474,12 +474,15 @@ def run_benchmark_variant(
     if not args.submit_on_slurm:
         with open(outlog_path, "w") as f:
             f.write(stdout)
+        with open(errlog_path, "w") as f:
+            f.write(stderr)
         if monitor_log:
             with open(variant_log_dir / "ipu-monitor.jsonl", "w") as f:
                 f.writelines(monitor_log)
-            plot_ipu_usage(outlog_path.parent)
-        with open(errlog_path, "w") as f:
-            f.write(stderr)
+            try:
+                plot_ipu_usage(outlog_path.parent)
+            except Exception as error:
+                logger.error("Failed to plot IPU usage, error: %s", error)
 
     # Store metrics/details for this variant and return
     variant_result = {
