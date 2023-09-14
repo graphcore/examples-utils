@@ -162,8 +162,9 @@ def run_and_monitor_progress(
                     if proc.poll() is not None:
                         eof = True
             if not selected:
-                logger.info("Selector did not pick any files to explore, polling to check for exit")
+                logger.debug("Selector did not pick any files to explore, polling to check for exit")
                 if proc.poll() is not None:
+                    logger.info("Selector did not pick any files to explore, and subprocess has exited. Terminating.")
                     eof = True
 
         out, err = proc.communicate()
