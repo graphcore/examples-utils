@@ -139,7 +139,9 @@ def run_and_monitor_progress(
         eof = False
         decode_error_count = 0
         while not eof:
+            selected = 0
             for key, _ in sel.select():
+                selected += 1
                 stream = key.fileobj
                 data = stream.read1(80)
                 try:
@@ -158,7 +160,11 @@ def run_and_monitor_progress(
                     decode_error_count += 1
                     logger.info("Consecutive error count: %i Parsing data: %s triggered UnicodeDecoderError: %s", decode_error_count, data, err)
                     if proc.poll() is not None:
-                        break
+                        eof = True
+            if not selected:
+                logger.info("Selector did not pick any files to explore, polling to check for exit")
+                if proc.poll() is not None:
+                    eof = True
 
         out, err = proc.communicate()
         outs[0].append(out.decode())
