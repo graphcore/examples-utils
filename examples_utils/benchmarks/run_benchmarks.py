@@ -144,34 +144,33 @@ def run_and_monitor_progress(
                 selected += 1
                 stream = key.fileobj
                 data = stream.read1(80)
-                try:
-                    data = data.decode()
-                    decode_error_count = 0
-                    if not data:
-                        eof = True
-                    listener.write(data)
-                    listener.flush()
+                data = data.decode(errors="backslashreplace")
+                if not data:
+                    eof = True
+                listener.write(data)
+                listener.flush()
 
-                    if stream is proc.stdout:
-                        outs[0].append(data)
-                    else:
-                        outs[1].append(data)
-                except UnicodeDecodeError as err:
-                    decode_error_count += 1
-                    logger.info("Consecutive error count: %i Parsing data: %s triggered UnicodeDecoderError: %s", decode_error_count, data, err)
-                    if proc.poll() is not None:
-                        eof = True
+                if stream is proc.stdout:
+                    outs[0].append(data)
+                else:
+                    outs[1].append(data)
             if not selected:
                 logger.debug("Selector did not pick any files to explore, polling to check for exit")
                 if proc.poll() is not None:
                     logger.info("Selector did not pick any files to explore, and subprocess has exited. Terminating.")
                     eof = True
-
-        out, err = proc.communicate()
-        outs[0].append(out.decode())
-        listener.write(out.decode())
-        outs[1].append(err.decode())
-        listener.write(err.decode())
+        try:
+            out, err = proc.communicate(timeout=20)
+            outs[0].append(out.decode())
+            listener.write(out.decode())
+            outs[1].append(err.decode())
+            listener.write(err.decode())
+        except (subprocess.TimeoutExpired, UnicodeDecodeError):
+            proc.poll()
+            logger.warning(
+                "I/O Thread failed to communicate with process at the end of benchmark, timing out to avoid"
+                " lock up. Benchmark logs may be truncated."
+            )
         listener.flush()
 
     t = threading.Thread(target=proc_thread, name="proc_thread")
