@@ -127,9 +127,9 @@ def run_and_monitor_progress(
     def kill_process(proc_pid: int):
         process = psutil.Process(proc_pid)
         for proc in process.children(recursive=True):
-            logger.info("Killing child process %s" % proc.pid)
+            logger.info("Killing child process %s", proc.pid)
             proc.kill()
-        logger.info("Killing process %s" % proc_pid)
+        logger.info("Killing process %s", proc_pid)
         process.kill()
 
     def proc_thread():
@@ -137,12 +137,14 @@ def run_and_monitor_progress(
         sel.register(proc.stdout, selectors.EVENT_READ)
         sel.register(proc.stderr, selectors.EVENT_READ)
         eof = False
+        decode_error_count = 0
         while not eof:
             for key, _ in sel.select():
                 stream = key.fileobj
                 data = stream.read1(80)
                 try:
                     data = data.decode()
+                    decode_error_count = 0
                     if not data:
                         eof = True
                     listener.write(data)
@@ -152,8 +154,11 @@ def run_and_monitor_progress(
                         outs[0].append(data)
                     else:
                         outs[1].append(data)
-                except UnicodeDecodeError as e:
-                    pass
+                except UnicodeDecodeError as err:
+                    decode_error_count += 1
+                    logger.info("Consecutive error count: %i Parsing data: %s triggered UnicodeDecoderError: %s", decode_error_count, data, err)
+                    if proc.poll() is not None:
+                        break
 
         out, err = proc.communicate()
         outs[0].append(out.decode())
