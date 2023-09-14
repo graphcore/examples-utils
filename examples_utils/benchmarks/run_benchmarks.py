@@ -140,7 +140,7 @@ def run_and_monitor_progress(
         decode_error_count = 0
         while not eof:
             selected = 0
-            for key, _ in sel.select():
+            for key, _ in sel.select(timeout=10):
                 selected += 1
                 stream = key.fileobj
                 data = stream.read1(80)
