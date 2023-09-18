@@ -127,9 +127,9 @@ def run_and_monitor_progress(
     def kill_process(proc_pid: int):
         process = psutil.Process(proc_pid)
         for proc in process.children(recursive=True):
-            logger.info("Killing child process %s" % proc.pid)
+            logger.info("Killing child process %s", proc.pid)
             proc.kill()
-        logger.info("Killing process %s" % proc_pid)
+        logger.info("Killing process %s", proc_pid)
         process.kill()
 
     def proc_thread():
@@ -137,29 +137,40 @@ def run_and_monitor_progress(
         sel.register(proc.stdout, selectors.EVENT_READ)
         sel.register(proc.stderr, selectors.EVENT_READ)
         eof = False
+        decode_error_count = 0
         while not eof:
-            for key, _ in sel.select():
+            selected = 0
+            for key, _ in sel.select(timeout=10):
+                selected += 1
                 stream = key.fileobj
                 data = stream.read1(80)
-                try:
-                    data = data.decode()
-                    if not data:
-                        eof = True
-                    listener.write(data)
-                    listener.flush()
+                data = data.decode(errors="backslashreplace")
+                if not data:
+                    eof = True
+                listener.write(data)
+                listener.flush()
 
-                    if stream is proc.stdout:
-                        outs[0].append(data)
-                    else:
-                        outs[1].append(data)
-                except UnicodeDecodeError as e:
-                    pass
-
-        out, err = proc.communicate()
-        outs[0].append(out.decode())
-        listener.write(out.decode())
-        outs[1].append(err.decode())
-        listener.write(err.decode())
+                if stream is proc.stdout:
+                    outs[0].append(data)
+                else:
+                    outs[1].append(data)
+            if not selected:
+                logger.debug("Selector did not pick any files to explore, polling to check for exit")
+                if proc.poll() is not None:
+                    logger.info("Selector did not pick any files to explore, and subprocess has exited. Terminating.")
+                    eof = True
+        try:
+            out, err = proc.communicate(timeout=20)
+            outs[0].append(out.decode())
+            listener.write(out.decode())
+            outs[1].append(err.decode())
+            listener.write(err.decode())
+        except (subprocess.TimeoutExpired, UnicodeDecodeError):
+            proc.poll()
+            logger.warning(
+                "I/O Thread failed to communicate with process at the end of benchmark, timing out to avoid"
+                " lock up. Benchmark logs may be truncated."
+            )
         listener.flush()
 
     t = threading.Thread(target=proc_thread, name="proc_thread")
@@ -463,12 +474,15 @@ def run_benchmark_variant(
     if not args.submit_on_slurm:
         with open(outlog_path, "w") as f:
             f.write(stdout)
+        with open(errlog_path, "w") as f:
+            f.write(stderr)
         if monitor_log:
             with open(variant_log_dir / "ipu-monitor.jsonl", "w") as f:
                 f.writelines(monitor_log)
-            plot_ipu_usage(outlog_path.parent)
-        with open(errlog_path, "w") as f:
-            f.write(stderr)
+            try:
+                plot_ipu_usage(outlog_path.parent)
+            except Exception as error:
+                logger.error("Failed to plot IPU usage, error: %s", error)
 
     # Store metrics/details for this variant and return
     variant_result = {
